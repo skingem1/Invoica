@@ -1,104 +1,189 @@
 /**
- * Tax Service Types
+ * Tax Service Type Definitions
  * 
- * Type definitions for the EU VAT and US sales tax calculation service.
+ * Defines all types for tax calculation, validation, and compliance tracking
  */
 
-export interface Address {
-  line1?: string;
-  line2?: string;
-  city: string;
-  state?: string;
-  postalCode: string;
-  country: string; // ISO 3166-1 alpha-2 code (e.g., "DE", "US")
+import { CountryCode } from 'iso-country-currency';
+
+/**
+ * Supported tax jurisdictions
+ */
+export enum TaxJurisdiction {
+  EU = 'EU',
+  US = 'US',
+  NONE = 'NONE'
 }
 
-export interface BuyerInfo {
+/**
+ * Transaction types
+ */
+export enum TransactionType {
+  B2B = 'B2B',
+  B2C = 'B2C'
+}
+
+/**
+ * VAT validation status
+ */
+export enum VatValidationStatus {
+  VALID = 'VALID',
+  INVALID = 'INVALID',
+  ERROR = 'ERROR',
+  UNKNOWN = 'UNKNOWN'
+}
+
+/**
+ * Buyer location information
+ */
+export interface BuyerLocation {
+  countryCode: string;
   vatNumber?: string;
-  address: Address;
+  postalCode?: string;
+  city?: string;
   ipAddress?: string;
-  entityType?: 'business' | 'individual';
-  state?: string; // US state for sales tax
+  state?: string; // For US
 }
 
-export interface SellerInfo {
-  address: Address;
-  vatNumber?: string;
-}
-
-export interface TaxEvidence {
-  id?: number;
-  orderId: string;
-  buyerVatNumber?: string;
-  buyerCountry: string;
-  sellerCountry: string;
-  vatValid: boolean;
-  vatValidationTimestamp?: Date;
-  ipCountry?: string;
-  billingAddressCountry: string;
-  resolvedCountry: string;
-  validationMethod: 'vat_number' | 'billing_address' | 'ip_geolocation';
-  evidenceTimestamp: Date;
-}
-
-export interface ViesValidationResult {
-  valid: boolean;
+/**
+ * VAT validation result from VIES
+ */
+export interface VatValidationResult {
+  isValid: boolean;
   countryCode: string;
   vatNumber: string;
-  name?: string;
+  companyName?: string;
   companyAddress?: string;
-  requestDate: string;
-  validFormat: boolean;
-  showRequest: boolean;
-  traderName?: string;
-  traderCompanyType?: string;
-  traderAddress?: string;
+  requestDate: Date;
+  validFrom?: Date;
+  validTo?: Date;
 }
 
+/**
+ * Cached VAT validation result
+ */
+export interface CachedVatValidation {
+  result: VatValidationResult;
+  cachedAt: Date;
+  expiresAt: Date;
+}
+
+/**
+ * Tax rate from database
+ */
+export interface TaxRate {
+  id: string;
+  countryCode: string;
+  rate: number;
+  reducedRate?: number;
+  superReducedRate?: number;
+  stateCode?: string; // For US
+  appliesToDigitalServices: boolean;
+  effectiveDate: Date;
+  endDate?: Date;
+}
+
+/**
+ * Tax calculation request
+ */
+export interface TaxCalculationRequest {
+  sellerCountry: string;
+  buyerCountry: string;
+  buyerVatNumber?: string;
+  buyerIpAddress?: string;
+  buyerBillingAddress?: {
+    countryCode: string;
+    postalCode?: string;
+    city?: string;
+    state?: string;
+  };
+  transactionType: TransactionType;
+  amount: number;
+  productType: 'digital' | 'physical' | 'service';
+  isDigitalService: boolean;
+  timestamp: Date;
+}
+
+/**
+ * Tax calculation result
+ */
 export interface TaxCalculationResult {
+  success: boolean;
+  amount: number;
   taxAmount: number;
   taxRate: number;
-  jurisdiction: {
-    country: string;
-    state?: string;
-    type: 'eu_vat' | 'us_sales_tax' | 'none';
-  };
+  jurisdiction: TaxJurisdiction;
+  countryCode: string;
   reverseCharge: boolean;
   invoiceNote?: string;
-  evidence: TaxEvidence;
+  validationEvidenceId?: string;
+  calculationEvidenceId?: string;
+  error?: string;
 }
 
-export interface TaxConfig {
-  // Database connection or ORM instance
-  db?: unknown;
-  // Redis client for caching
-  redis?: RedisClient;
-  // VIES API configuration
-  viesConfig?: {
-    timeout?: number;
-    retries?: number;
-  };
+/**
+ * Tax evidence for compliance storage
+ */
+export interface TaxEvidence {
+  id: string;
+  type: 'VAT_VALIDATION' | 'LOCATION_RESOLUTION' | 'TAX_CALCULATION';
+  buyerCountry: string;
+  sellerCountry: string;
+  buyerVatNumber?: string;
+  ipAddress?: string;
+  evidence: Record<string, unknown>;
+  createdAt: Date;
+  expiresAt: Date;
 }
 
-export interface RedisClient {
-  get(key: string): Promise<string | null>;
-  setex(key: string, seconds: number, value: string): Promise<void>;
-  del(key: string): Promise<void>;
+/**
+ * VIES API configuration
+ */
+export interface ViesConfig {
+  timeout: number;
+  retryAttempts: number;
+  retryDelay: number;
 }
 
-export interface DatabaseClient {
-  query<T>(sql: string, params?: unknown[]): Promise<T>;
-  insert(table: string, data: Record<string, unknown>): Promise<number>;
+/**
+ * Redis configuration for caching
+ */
+export interface RedisConfig {
+  host: string;
+  port: number;
+  keyPrefix: string;
+  ttlSeconds: number; // 30 days = 2592000
 }
 
-export type TaxType = 'eu_vat' | 'us_sales_tax' | 'none';
+/**
+ * Tax service configuration
+ */
+export interface TaxServiceConfig {
+  vies: ViesConfig;
+  redis: RedisConfig;
+  defaultJurisdiction: TaxJurisdiction;
+  cacheEnabled: boolean;
+}
 
-export interface TaxRate {
-  country: string;
+/**
+ * Location resolution result
+ */
+export interface LocationResolutionResult {
+  resolved: boolean;
+  countryCode: string;
   state?: string;
-  rate: number;
-  type: TaxType;
-  effectiveDate: Date;
-  isStandardRate: boolean;
-  reducedRates?: number[];
+  method: 'VAT_NUMBER' | 'BILLING_ADDRESS' | 'IP_GEOLOCATION' | 'DEFAULT';
+  vatNumber?: string;
+  isValidVat?: boolean;
+  confidence: number; // 0-1
 }
+
+/**
+ * Invoice note templates
+ */
+export const INVOICE_NOTES = {
+  REVERSE_CHARGE: 'Reverse charge - Art. 196 Council Directive 2006/112/EC',
+  B2C_VAT: 'VAT charged at standard rate for B2C digital services',
+  OUTSIDE_SCOPE: 'Outside scope of VAT - services supplied to non-EU recipient',
+  EXEMPT: 'Exempt from VAT per Article 132 of Council Directive 2006/112/EC'
+} as const;

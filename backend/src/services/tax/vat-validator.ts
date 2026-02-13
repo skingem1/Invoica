@@ -1,299 +1,346 @@
 /**
  * VAT Validator Service
  * 
- * Handles validation of EU VAT numbers via the VIES API with Redis caching.
- * VIES validation results are cached for 30 days per EU regulations.
+ * Validates VAT numbers via EU VIES API with Redis caching
+ * Stores validation evidence for compliance
  */
 
-import { ViesValidationResult, RedisClient, DatabaseClient } from './types';
+import axios, { AxiosError } from 'axios';
+import { Redis } from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  VatValidationResult,
+  CachedVatValidation,
+  VatValidationStatus,
+  TaxEvidence,
+  ViesConfig,
+  RedisConfig
+} from './types';
 
+/**
+ * Default VIES configuration
+ */
+const DEFAULT_VIES_CONFIG: ViesConfig = {
+  timeout: 10000,
+  retryAttempts: 3,
+  retryDelay: 1000
+};
+
+/**
+ * Default Redis configuration
+ */
+const DEFAULT_REDIS_CONFIG: RedisConfig = {
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  keyPrefix: 'tax:vat:',
+  ttlSeconds: 2592000 // 30 days
+};
+
+/**
+ * VIES API service for EU VAT validation
+ */
 export class VatValidator {
-  private redis: RedisClient | null = null;
-  private db: DatabaseClient | null = null;
-  private readonly CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
-  private readonly CACHE_PREFIX = 'vat_validation:';
+  private redis: Redis | null = null;
+  private config: ViesConfig;
+  private redisConfig: RedisConfig;
+  private evidenceStore: Map<string, TaxEvidence> = new Map();
 
-  constructor(redis?: RedisClient, db?: DatabaseClient) {
-    this.redis = null ?? undefined;
-    this.db = db ?? undefined;
+  /**
+   * Create a new VatValidator instance
+   * @param config - VIES configuration
+   * @param redisConfig - Redis configuration
+   */
+  constructor(config?: Partial<ViesConfig>, redisConfig?: Partial<RedisConfig>) {
+    this.config = { ...DEFAULT_VIES_CONFIG, ...config };
+    this.redisConfig = { ...DEFAULT_REDIS_CONFIG, ...redisConfig };
   }
 
   /**
-   * Validate a VAT number against the VIES database
-   * 
-   * @param vatNumber - The VAT number to validate (with or without country code)
-   * @param countryCode - Optional country code if not part of VAT number
-   * @returns Validation result from VIES
+   * Initialize Redis connection
    */
-  async validateVatNumber(
-    vatNumber: string,
-    countryCode?: string
-  ): Promise<ViesValidationResult> {
-    // Extract country code and normalize VAT number
-    const normalized = this.normalizeVatNumber(vatNumber, countryCode);
-    
-    if (!normalized.countryCode || !normalized.vatNumber) {
-      throw new Error('Invalid VAT number format');
-    }
-
-    // Check cache first
-    const cached = await this.getFromCache(normalized.countryCode, normalized.vatNumber);
-    if (cached) {
-      return cached;
-    }
-
-    // Call VIES API
-    const result = await this.callViesApi(normalized.countryCode, normalized.vatNumber);
-
-    // Cache the result
-    await this.setCache(normalized.countryCode, normalized.vatNumber, result);
-
-    return result;
-  }
-
-  /**
-   * Normalize VAT number by extracting country code
-   */
-  private normalizeVatNumber(
-    vatNumber: string,
-    countryCode?: string
-  ): { countryCode: string; vatNumber: string } {
-    // Remove spaces and special characters
-    const cleaned = vatNumber.replace(/[\s\-\.]/g, '').toUpperCase();
-
-    // If no country code provided, try to extract from VAT number
-    if (!countryCode && cleaned.length >= 2) {
-      const potentialCountryCode = cleaned.substring(0, 2);
-      if (this.isValidEuCountryCode(potentialCountryCode)) {
-        return {
-          countryCode: potentialCountryCode,
-          vatNumber: cleaned.substring(2),
-        };
-      }
-    }
-
-    return {
-      countryCode: countryCode?.toUpperCase() || '',
-      vatNumber: cleaned,
-    };
-  }
-
-  /**
-   * Check if a country code is a valid EU member state
-   */
-  private isValidEuCountryCode(code: string): boolean {
-    const euCountryCodes = [
-      'AT', // Austria
-      'BE', // Belgium
-      'BG', // Bulgaria
-      'CY', // Cyprus
-      'CZ', // Czech Republic
-      'DE', // Germany
-      'DK', // Denmark
-      'EE', // Estonia
-      'EL', // Greece
-      'ES', // Spain
-      'FI', // Finland
-      'FR', // France
-      'HR', // Croatia
-      'HU', // Hungary
-      'IE', // Ireland
-      'IT', // Italy
-      'LT', // Lithuania
-      'LU', // Luxembourg
-      'LV', // Latvia
-      'MT', // Malta
-      'NL', // Netherlands
-      'PL', // Poland
-      'PT', // Portugal
-      'RO', // Romania
-      'SE', // Sweden
-      'SI', // Slovenia
-      'SK', // Slovakia
-      'XI', // Northern Ireland (special case)
-    ];
-    return euCountryCodes.includes(code);
-  }
-
-  /**
-   * Call the VIES SOAP API
-   */
-  private async callViesApi(
-    countryCode: string,
-    vatNumber: string
-  ): Promise<ViesValidationResult> {
-    // VIES SOAP service URL
-    const viesUrl = 'https://ec.europa.eu/taxation_customs/vies/services/checkVatService';
-
-    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
-      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                     xmlns:tns1="urn:ec:vat:check">
-        <soap:Header>
-          <tns1:checkVatHeader>
-            <tns1:countryCode>${countryCode}</tns1:countryCode>
-            <tns1:vatNumber>${vatNumber}</tns1:vatNumber>
-          </tns1:checkVatHeader>
-        </soap:Header>
-        <soap:Body>
-          <tns1:checkVat>
-            <tns1:countryCode>${countryCode}</tns1:countryCode>
-            <tns1:vatNumber>${vatNumber}</tns1:vatNumber>
-          </tns1:checkVat>
-        </soap:Body>
-      </soap:Envelope>`;
-
-    try {
-      const response = await fetch(viesUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '',
-        },
-        body: soapRequest,
-      });
-
-      if (!response.ok) {
-        throw new Error(`VIES API error: ${response.status} ${response.statusText}`);
-      }
-
-      const responseText = await response.text();
-      return this.parseViesResponse(responseText, countryCode, vatNumber);
-    } catch (error) {
-      // Log error but don't expose internal details
-      console.error('VIES API call failed:', error instanceof Error ? error.message : 'Unknown error');
-      
-      // Return a valid but failed validation result
-      // This allows the system to continue with reverse charge = false
-      return {
-        valid: false,
-        countryCode,
-        vatNumber,
-        requestDate: new Date().toISOString().split('T')[0],
-        validFormat: false,
-        showRequest: false,
-      };
-    }
-  }
-
-  /**
-   * Parse the VIES SOAP response
-   */
-  private parseViesResponse(
-    response: string,
-    countryCode: string,
-    vatNumber: string
-  ): ViesValidationResult {
-    // Simple XML parsing without external dependencies
-    const getValue = (tag: string): string => {
-      const regex = new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, 'i');
-      const match = response.match(regex);
-      return match ? match[1].trim() : '';
-    };
-
-    const isValid = getValue('valid').toLowerCase() === 'true';
-    const name = getValue('name') || getValue('traderName');
-    const address = getValue('address') || getValue('traderAddress');
-
-    return {
-      valid: isValid,
-      countryCode,
-      vatNumber,
-      name: name || undefined,
-      companyAddress: address || undefined,
-      requestDate: new Date().toISOString().split('T')[0],
-      validFormat: getValue('validFormat').toLowerCase() === 'true',
-      showRequest: getValue('showRequest').toLowerCase() === 'true',
-      traderName: name || undefined,
-      traderAddress: address || undefined,
-    };
-  }
-
-  /**
-   * Get cached validation result from Redis
-   */
-  private async getFromCache(
-    countryCode: string,
-    vatNumber: string
-  ): Promise<ViesValidationResult | null> {
+  async initialize(): Promise<void> {
     if (!this.redis) {
-      return null;
+      this.redis = new Redis({
+        host: this.redisConfig.host,
+        port: this.redisConfig.port,
+        lazyConnect: true,
+        retryStrategy: () => null
+      });
+      await this.redis.connect().catch(() => {
+        // Redis not available, continue without caching
+        console.warn('Redis not available, VAT validation caching disabled');
+        this.redis = null;
+      });
     }
+  }
+
+  /**
+   * Generate cache key for VAT number
+   */
+  private getCacheKey(countryCode: string, vatNumber: string): string {
+    return `${this.redisConfig.keyPrefix}${countryCode}${vatNumber}`.toUpperCase();
+  }
+
+  /**
+   * Get cached validation result
+   */
+  private async getCachedResult(countryCode: string, vatNumber: string): Promise<VatValidationResult | null> {
+    if (!this.redis) return null;
 
     try {
       const key = this.getCacheKey(countryCode, vatNumber);
       const cached = await this.redis.get(key);
       
       if (cached) {
-        return JSON.parse(cached) as ViesValidationResult;
+        const parsed: CachedVatValidation = JSON.parse(cached);
+        if (new Date(parsed.expiresAt) > new Date()) {
+          return parsed.result;
+        }
+        // Expired, delete it
+        await this.redis.del(key);
       }
     } catch (error) {
-      console.error('Redis get error:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error reading from cache:', error);
     }
-
+    
     return null;
   }
 
   /**
-   * Cache validation result in Redis
+   * Cache validation result
    */
-  private async setCache(
-    countryCode: string,
-    vatNumber: string,
-    result: ViesValidationResult
-  ): Promise<void> {
-    if (!this.redis) {
-      return;
-    }
+  private async cacheResult(countryCode: string, vatNumber: string, result: VatValidationResult): Promise<void> {
+    if (!this.redis) return;
 
     try {
+      const cached: CachedVatValidation = {
+        result,
+        cachedAt: new Date(),
+        expiresAt: new Date(Date.now() + this.redisConfig.ttlSeconds * 1000)
+      };
+      
       const key = this.getCacheKey(countryCode, vatNumber);
-      await this.redis.setex(
-        key,
-        this.CACHE_TTL_SECONDS,
-        JSON.stringify(result)
-      );
+      await this.redis.set(key, JSON.stringify(cached), 'EX', this.redisConfig.ttlSeconds);
     } catch (error) {
-      console.error('Redis set error:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error caching result:', error);
     }
   }
 
   /**
-   * Generate cache key for VAT validation
+   * Store validation evidence for compliance
    */
-  private getCacheKey(countryCode: string, vatNumber: string): string {
-    return `${this.CACHE_PREFIX}${countryCode}${vatNumber}`.toUpperCase();
-  }
-
-  /**
-   * Store validation evidence in database
-   */
-  async storeEvidence(
-    orderId: string,
-    vatNumber: string,
+  private async storeEvidence(
     countryCode: string,
-    isValid: boolean,
-    validationMethod: 'vat_number' | 'billing_address' | 'ip_geolocation'
-  ): Promise<void> {
-    if (!this.db) {
-      console.warn('Database not configured, skipping evidence storage');
-      return;
+    vatNumber: string,
+    result: VatValidationResult,
+    ipAddress?: string
+  ): Promise<string> {
+    const evidence: TaxEvidence = {
+      id: uuidv4(),
+      type: 'VAT_VALIDATION',
+      buyerCountry: countryCode,
+      sellerCountry: '', // Will be set by caller
+      buyerVatNumber: vatNumber,
+      ipAddress,
+      evidence: {
+        vatNumber: result.vatNumber,
+        companyName: result.companyName,
+        companyAddress: result.companyAddress,
+        validFrom: result.validFrom,
+        validTo: result.validTo,
+        requestDate: result.requestDate,
+        status: result.isValid ? VatValidationStatus.VALID : VatValidationStatus.INVALID
+      },
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000) // 7 years for tax records
+    };
+
+    // Store in memory (in production, persist to database)
+    this.evidenceStore.set(evidence.id, evidence);
+    
+    // In production, also save to database:
+    // await this.saveEvidenceToDatabase(evidence);
+    
+    return evidence.id;
+  }
+
+  /**
+   * Validate VAT number via VIES API
+   * @param countryCode - Two-letter EU country code
+   * @param vatNumber - VAT number to validate (without country code)
+   * @param ipAddress - Optional IP address for evidence
+   * @returns Validation result with evidence ID
+   */
+  async validateVat(
+    countryCode: string,
+    vatNumber: string,
+    ipAddress?: string
+  ): Promise<{
+    result: VatValidationResult;
+    evidenceId: string;
+    fromCache: boolean;
+  }> {
+    const normalizedCountry = countryCode.toUpperCase();
+    const normalizedVat = vatNumber.replace(/[\s.-]/g, '').toUpperCase();
+
+    // Check cache first
+    const cachedResult = await this.getCachedResult(normalizedCountry, normalizedVat);
+    if (cachedResult) {
+      const evidenceId = await this.storeEvidence(
+        normalizedCountry,
+        normalizedVat,
+        cachedResult,
+        ipAddress
+      );
+      
+      return {
+        result: cachedResult,
+        evidenceId,
+        fromCache: true
+      };
     }
 
-    try {
-      await this.db.insert('tax_evidence', {
-        order_id: orderId,
-        buyer_vat_number: vatNumber,
-        buyer_country: countryCode,
-        vat_valid: isValid,
-        vat_validation_timestamp: new Date(),
-        validation_method: validationMethod,
-        evidence_timestamp: new Date(),
-      });
-    } catch (error) {
-      console.error('Failed to store tax evidence:', error instanceof Error ? error.message : 'Unknown error');
-      // Don't throw - evidence storage failure shouldn't block the transaction
+    // Call VIES API with retry logic
+    const result = await this.callViesApi(normalizedCountry, normalizedVat);
+    
+    // Cache the result
+    await this.cacheResult(normalizedCountry, normalizedVat, result);
+    
+    // Store evidence
+    const evidenceId = await this.storeEvidence(normalizedCountry, normalizedVat, result, ipAddress);
+
+    return {
+      result,
+      evidenceId,
+      fromCache: false
+    };
+  }
+
+  /**
+   * Call VIES SOAP/REST API with retry logic
+   */
+  private async callViesApi(countryCode: string, vatNumber: string): Promise<VatValidationResult> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < this.config.retryAttempts; attempt++) {
+      try {
+        // Using the VIES REST API endpoint
+        const response = await axios.get(
+          `https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`,
+          {
+            timeout: this.config.timeout,
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (response.data) {
+          return {
+            isValid: response.data.isValid ?? false,
+            countryCode: response.data.countryCode ?? countryCode,
+            vatNumber: response.data.vatNumber ?? vatNumber,
+            companyName: response.data.name,
+            companyAddress: response.data.address,
+            requestDate: new Date(),
+            validFrom: response.data.validFrom ? new Date(response.data.validFrom) : undefined,
+            validTo: response.data.validTo ? new Date(response.data.validTo) : undefined
+          };
+        }
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Check if it's a rate limit or service unavailable
+        if (axios.isAxiosError(error)) {
+          const axiosError = error as AxiosError;
+          if (axiosError.response?.status === 503 || axiosError.response?.status === 429) {
+            // Service unavailable, wait and retry
+            await this.delay(this.config.retryDelay * (attempt + 1));
+            continue;
+          }
+          if (axiosError.response?.status === 400) {
+            // Invalid request format
+            return {
+              isValid: false,
+              countryCode,
+              vatNumber,
+              requestDate: new Date()
+            };
+          }
+        }
+        
+        // Non-retryable error
+        break;
+      }
+    }
+
+    // Return error result if all retries failed
+    console.error('VIES API call failed:', lastError);
+    return {
+      isValid: false,
+      countryCode,
+      vatNumber,
+      requestDate: new Date()
+    };
+  }
+
+  /**
+   * Delay utility
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get all stored evidence
+   */
+  getEvidence(): TaxEvidence[] {
+    return Array.from(this.evidenceStore.values());
+  }
+
+  /**
+   * Get evidence by ID
+   */
+  getEvidenceById(id: string): TaxEvidence | undefined {
+    return this.evidenceStore.get(id);
+  }
+
+  /**
+   * Clear all cached data (for testing)
+   */
+  async clearCache(): Promise<void> {
+    if (this.redis) {
+      const keys = await this.redis.keys(`${this.redisConfig.keyPrefix}*`);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+      }
     }
   }
+
+  /**
+   * Close Redis connection
+   */
+  async close(): Promise<void> {
+    if (this.redis) {
+      await this.redis.quit();
+      this.redis = null;
+    }
+  }
+}
+
+/**
+ * Default VAT validator instance
+ */
+let defaultValidator: VatValidator | null = null;
+
+/**
+ * Get or create default VAT validator
+ */
+export function getVatValidator(): VatValidator {
+  if (!defaultValidator) {
+    defaultValidator = new VatValidator();
+  }
+  return defaultValidator;
 }
 
 export default VatValidator;

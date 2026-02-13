@@ -161,14 +161,7 @@
         "frontend/components/ui/button.tsx"
       ]
     },
-    "status": "pending",
-    "output": {
-      "files": [
-        "output/FE-001-raw.md"
-      ],
-      "commit": "a88bba4",
-      "model": "MiniMax-M2.5-highspeed"
-    }
+    "status": "pending"
   },
   {
     "id": "OPS-001",

@@ -1,252 +1,384 @@
 /**
  * Location Resolver Service
  * 
- * Determines buyer location using VAT number (via VIES), billing address,
- * or IP geolocation as fallback.
+ * Determines buyer location from multiple sources:
+ * 1. VAT number (via VIES) - highest confidence
+ * 2. Billing address - medium confidence
+ * 3. IP geolocation - lowest confidence
  */
 
-import { Address, BuyerInfo, ViesValidationResult, TaxEvidence } from './types';
+import { v4 as uuidv4 } from 'uuid';
 import { VatValidator } from './vat-validator';
+import {
+  BuyerLocation,
+  LocationResolutionResult,
+  TaxEvidence,
+  TaxJurisdiction
+} from './types';
 
-export interface ResolvedLocation {
-  country: string;
+/**
+ * Geolocation result from IP lookup
+ */
+interface GeoLocationResult {
+  countryCode: string;
   state?: string;
-  validationMethod: 'vat_number' | 'billing_address' | 'ip_geolocation';
-  isValidVat: boolean;
-  vatNumber?: string;
-  evidence: Partial<TaxEvidence>;
+  city?: string;
+  postalCode?: string;
+  confidence: number;
 }
 
-export interface LocationResolverConfig {
-  vatValidator: VatValidator;
-  ipLookupService?: (ip: string) => Promise<string | null>;
+/**
+ * Location resolver configuration
+ */
+interface LocationResolverConfig {
+  defaultCountry: string;
+  enableVatValidation: boolean;
+  enableIpGeolocation: boolean;
+  confidenceThresholds: {
+    vatNumber: number;
+    billingAddress: number;
+    ipGeolocation: number;
+  };
 }
 
+const DEFAULT_CONFIG: LocationResolverConfig = {
+  defaultCountry: 'DE',
+  enableVatValidation: true,
+  enableIpGeolocation: true,
+  confidenceThresholds: {
+    vatNumber: 1.0,
+    billingAddress: 0.8,
+    ipGeolocation: 0.5
+  }
+};
+
+/**
+ * Location resolver service
+ */
 export class LocationResolver {
   private vatValidator: VatValidator;
-  private ipLookupService?: (ip: string) => Promise<string | null>;
+  private config: LocationResolverConfig;
+  private evidenceStore: Map<string, TaxEvidence> = new Map();
 
-  constructor(config: LocationResolverConfig) {
-    this.vatValidator = config.vatValidator;
-    this.ipLookupService = config.ipLookupService;
+  /**
+   * Create a new LocationResolver instance
+   * @param vatValidator - Optional VAT validator instance
+   * @param config - Optional configuration
+   */
+  constructor(vatValidator?: VatValidator, config?: Partial<LocationResolverConfig>) {
+    this.vatValidator = vatValidator || new VatValidator();
+    this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   /**
-   * Resolve buyer location using multiple methods in priority order:
-   * 1. VAT number (via VIES) - most reliable for B2B
-   * 2. Billing address - primary address
-   * 3. IP geolocation - fallback
-   * 
-   * @param buyerInfo - Buyer information including VAT number, address, IP
-   * @param orderId - Order ID for evidence tracking
-   * @returns Resolved location with validation method
+   * Initialize the resolver
    */
-  async resolveLocation(
-    buyerInfo: BuyerInfo,
-    orderId: string
-  ): Promise<ResolvedLocation> {
-    // Method 1: Try VAT number validation
-    if (buyerInfo.vatNumber) {
-      try {
-        const vatResult = await this.validateVatAndGetLocation(
-          buyerInfo.vatNumber,
-          buyerInfo.address.country,
-          orderId
-        );
+  async initialize(): Promise<void> {
+    await this.vatValidator.initialize();
+  }
 
-        if (vatResult) {
-          return vatResult;
+  /**
+   * Resolve buyer location using multiple methods
+   * @param location - Initial buyer location information
+   * @returns Resolved location with method and confidence
+   */
+  async resolveLocation(location: BuyerLocation): Promise<LocationResolutionResult> {
+    const methods: Array<{
+      method: LocationResolutionResult['method'];
+      fn: () => Promise<LocationResolutionResult | null>;
+      priority: number;
+    }> = [];
+
+    // Priority 1: VAT number validation
+    if (location.vatNumber && this.config.enableVatValidation) {
+      methods.push({
+        method: 'VAT_NUMBER',
+        fn: () => this.resolveFromVatNumber(location.vatNumber!, location.countryCode),
+        priority: 1
+      });
+    }
+
+    // Priority 2: Billing address
+    if (location.countryCode) {
+      methods.push({
+        method: 'BILLING_ADDRESS',
+        fn: () => this.resolveFromBillingAddress(location),
+        priority: 2
+      });
+    }
+
+    // Priority 3: IP geolocation
+    if (location.ipAddress && this.config.enableIpGeolocation) {
+      methods.push({
+        method: 'IP_GEOLOCATION',
+        fn: () => this.resolveFromIp(location.ipAddress!),
+        priority: 3
+      });
+    }
+
+    // Sort by priority and try each method
+    methods.sort((a, b) => a.priority - b.priority);
+
+    for (const method of methods) {
+      try {
+        const result = await method.fn();
+        if (result && result.resolved) {
+          // Store evidence
+          await this.storeEvidence(location, result);
+          return result;
         }
       } catch (error) {
-        console.error('VAT validation failed:', error instanceof Error ? error.message : 'Unknown error');
+        console.error(`Error resolving from ${method.method}:`, error);
         // Continue to next method
       }
     }
 
-    // Method 2: Use billing address country
-    if (buyerInfo.address?.country) {
-      const validCountry = this.validateCountryCode(buyerInfo.address.country);
-      
-      if (validCountry) {
-        const evidence: Partial<TaxEvidence> = {
-          orderId,
-          billingAddressCountry: validCountry,
-          resolvedCountry: validCountry,
-          validationMethod: 'billing_address',
-          evidenceTimestamp: new Date(),
-          buyerCountry: validCountry,
-        };
-
-        return {
-          country: validCountry,
-          state: buyerInfo.address.state,
-          validationMethod: 'billing_address',
-          isValidVat: false,
-          evidence,
-        };
-      }
-    }
-
-    // Method 3: IP geolocation fallback
-    if (buyerInfo.ipAddress) {
-      const ipCountry = await this.lookupIpCountry(buyerInfo.ipAddress);
-      
-      if (ipCountry) {
-        const evidence: Partial<TaxEvidence> = {
-          orderId,
-          ipCountry,
-          resolvedCountry: ipCountry,
-          validationMethod: 'ip_geolocation',
-          evidenceTimestamp: new Date(),
-          buyerCountry: ipCountry,
-        };
-
-        return {
-          country: ipCountry,
-          state: buyerInfo.state,
-          validationMethod: 'ip_geolocation',
-          isValidVat: false,
-          evidence,
-        };
-      }
-    }
-
-    // Ultimate fallback - use billing address if available
-    const fallbackCountry = buyerInfo.address?.country || 'UNKNOWN';
-    
-    const evidence: Partial<TaxEvidence> = {
-      orderId,
-      billingAddressCountry: fallbackCountry,
-      resolvedCountry: fallbackCountry,
-      validationMethod: 'billing_address',
-      evidenceTimestamp: new Date(),
-      buyerCountry: fallbackCountry,
-    };
-
+    // Fallback to default country
     return {
-      country: fallbackCountry,
-      state: buyerInfo.address?.state,
-      validationMethod: 'billing_address',
-      isValidVat: false,
-      evidence,
+      resolved: false,
+      countryCode: this.config.defaultCountry,
+      method: 'DEFAULT',
+      confidence: 0
     };
   }
 
   /**
-   * Validate VAT number and extract country from VIES response
+   * Resolve location from VAT number via VIES
    */
-  private async validateVatAndGetLocation(
+  private async resolveFromVatNumber(
     vatNumber: string,
-    addressCountry?: string,
-    orderId?: string
-  ): Promise<ResolvedLocation | null> {
+    providedCountry?: string
+  ): Promise<LocationResolutionResult | null> {
     try {
-      const result = await this.vatValidator.validateVatNumber(vatNumber, addressCountry);
-
-      if (result.valid) {
-        // Extract country from VAT number itself (first 2 characters)
-        const vatCountryCode = this.extractCountryFromVat(vatNumber);
-
-        const evidence: Partial<TaxEvidence> = {
-          orderId,
-          buyerVatNumber: vatNumber,
-          buyerCountry: vatCountryCode || result.countryCode,
-          vatValid: true,
-          vatValidationTimestamp: new Date(),
-          resolvedCountry: vatCountryCode || result.countryCode,
-          validationMethod: 'vat_number',
-          evidenceTimestamp: new Date(),
-        };
-
-        return {
-          country: vatCountryCode || result.countryCode,
-          validationMethod: 'vat_number',
-          isValidVat: true,
-          vatNumber,
-          evidence,
-        };
+      // Extract country code from VAT number if not provided
+      let countryCode = providedCountry;
+      if (!countryCode && vatNumber.length >= 2) {
+        countryCode = vatNumber.substring(0, 2).toUpperCase();
       }
-    } catch (error) {
-      console.error('VAT validation error:', error instanceof Error ? error.message : 'Unknown error');
-    }
 
-    return null;
-  }
-
-  /**
-   * Extract country code from VAT number
-   */
-  private extractCountryFromVat(vatNumber: string): string | null {
-    const cleaned = vatNumber.replace(/[\s\-\.]/g, '').toUpperCase();
-    
-    if (cleaned.length >= 2) {
-      const potentialCode = cleaned.substring(0, 2);
-      if (this.validateCountryCode(potentialCode)) {
-        return potentialCode;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Validate if a country code is valid ISO 3166-1 alpha-2
-   */
-  private validateCountryCode(code: string): string | null {
-    const validCodes = new Set([
-      'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'EL', 'ES',
-      'FI', 'FR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
-      'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'XI', // EU + XI (Northern Ireland)
-      'US', 'CA', 'GB', // Other common countries
-    ]);
-    
-    const upperCode = code.toUpperCase();
-    return validCodes.has(upperCode) ? upperCode : null;
-  }
-
-  /**
-   * Lookup country by IP address
-   */
-  private async lookupIpCountry(ipAddress: string): Promise<string | null> {
-    if (!this.ipLookupService) {
-      // Default to null if no IP service configured
-      return null;
-    }
-
-    try {
-      // Skip private/local IP ranges
-      if (this.isPrivateIp(ipAddress)) {
+      if (!countryCode) {
         return null;
       }
 
-      const country = await this.ipLookupService(ipAddress);
-      return country ? this.validateCountryCode(country) : null;
+      // Remove country code from VAT number
+      const vatNumberWithoutCountry = vatNumber.length > 2 
+        ? vatNumber.substring(2) 
+        : vatNumber;
+
+      const { result, evidenceId } = await this.vatValidator.validateVat(
+        countryCode,
+        vatNumberWithoutCountry
+      );
+
+      if (result.isValid) {
+        return {
+          resolved: true,
+          countryCode: result.countryCode,
+          method: 'VAT_NUMBER',
+          vatNumber: result.vatNumber,
+          isValidVat: true,
+          confidence: this.config.confidenceThresholds.vatNumber
+        };
+      }
+
+      // VAT invalid, but still use the country code
+      return {
+        resolved: true,
+        countryCode: result.countryCode,
+        method: 'VAT_NUMBER',
+        vatNumber: result.vatNumber,
+        isValidVat: false,
+        confidence: 0.3 // Lower confidence for invalid VAT
+      };
     } catch (error) {
-      console.error('IP lookup failed:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('VAT validation error:', error);
       return null;
     }
   }
 
   /**
-   * Check if IP is private/local
+   * Resolve location from billing address
    */
-  private isPrivateIp(ip: string): boolean {
-    const parts = ip.split('.').map(Number);
-    
-    // 10.0.0.0/8
-    if (parts[0] === 10) return true;
-    
-    // 172.16.0.0/12
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
-    
-    // 192.168.0.0/16
-    if (parts[0] === 192 && parts[1] === 168) return true;
-    
-    // localhost
-    if (ip === '127.0.0.1' || ip === '::1') return true;
-    
-    return false;
+  private async resolveFromBillingAddress(
+    location: BuyerLocation
+  ): Promise<LocationResolutionResult | null> {
+    const { countryCode, state, city, postalCode } = location;
+
+    if (!countryCode) {
+      return null;
+    }
+
+    // Validate country code format
+    if (!/^[A-Z]{2}$/.test(countryCode.toUpperCase())) {
+      return null;
+    }
+
+    return {
+      resolved: true,
+      countryCode: countryCode.toUpperCase(),
+      state,
+      method: 'BILLING_ADDRESS',
+      confidence: this.config.confidenceThresholds.billingAddress
+    };
   }
+
+  /**
+   * Resolve location from IP address
+   * Note: In production, integrate with a geolocation service like MaxMind
+   */
+  private async resolveFromIp(ipAddress: string): Promise<LocationResolutionResult | null> {
+    try {
+      // In production, use a geolocation service
+      // This is a placeholder implementation
+      const geoResult = await this.lookupIpGeolocation(ipAddress);
+
+      if (geoResult) {
+        return {
+          resolved: true,
+          countryCode: geoResult.countryCode,
+          state: geoResult.state,
+          method: 'IP_GEOLOCATION',
+          confidence: this.config.confidenceThresholds.ipGeolocation
+        };
+      }
+    } catch (error) {
+      console.error('IP geolocation error:', error);
+    }
+
+    return null;
+  }
+
+  /**
+   * IP geolocation lookup
+   * Placeholder for actual implementation with MaxMind or similar
+   */
+  private async lookupIpGeolocation(ipAddress: string): Promise<GeoLocationResult | null> {
+    // In production, integrate with:
+    // - MaxMind GeoIP2
+    // - IPinfo
+    // - ip-api.com
+    // - etc.
+
+    // For now, return null to indicate lookup failed
+    // Real implementation would call external service
+    
+    /* Example implementation with ip-api.com:
+    try {
+      const response = await axios.get(
+        `http://ip-api.com/json/${ipAddress}?fields=status,countryCode,regionName,city,zip`
+      );
+      
+      if (response.data.status === 'success') {
+        return {
+          countryCode: response.data.countryCode,
+          state: response.data.regionName,
+          city: response.data.city,
+          postalCode: response.data.zip,
+          confidence: 0.5
+        };
+      }
+    } catch (error) {
+      console.error('IP geolocation API error:', error);
+    }
+    */
+
+    return null;
+  }
+
+  /**
+   * Store location resolution evidence
+   */
+  private async storeEvidence(
+    originalLocation: BuyerLocation,
+    resolved: LocationResolutionResult
+  ): Promise<string> {
+    const evidence: TaxEvidence = {
+      id: uuidv4(),
+      type: 'LOCATION_RESOLUTION',
+      buyerCountry: resolved.countryCode,
+      sellerCountry: '',
+      buyerVatNumber: resolved.vatNumber,
+      ipAddress: originalLocation.ipAddress,
+      evidence: {
+        originalCountry: originalLocation.countryCode,
+        resolvedCountry: resolved.countryCode,
+        method: resolved.method,
+        confidence: resolved.confidence,
+        state: resolved.state,
+        isValidVat: resolved.isValidVat
+      },
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000)
+    };
+
+    this.evidenceStore.set(evidence.id, evidence);
+    return evidence.id;
+  }
+
+  /**
+   * Get jurisdiction based on country code
+   */
+  getJurisdiction(countryCode: string): TaxJurisdiction {
+    const euCountries = [
+      'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'EL', 'ES',
+      'FI', 'FR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT',
+      'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'XI' // XI = UK (Northern Ireland)
+    ];
+
+    const usStates = [
+      'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+      'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+      'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+      'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+      'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+    ];
+
+    if (euCountries.includes(countryCode.toUpperCase())) {
+      return TaxJurisdiction.EU;
+    }
+
+    if (usStates.includes(countryCode.toUpperCase())) {
+      return TaxJurisdiction.US;
+    }
+
+    return TaxJurisdiction.NONE;
+  }
+
+  /**
+   * Check if country is in EU
+   */
+  isEUCountry(countryCode: string): boolean {
+    return this.getJurisdiction(countryCode) === TaxJurisdiction.EU;
+  }
+
+  /**
+   * Check if country is in US
+   */
+  isUSCountry(countryCode: string): boolean {
+    return this.getJurisdiction(countryCode) === TaxJurisdiction.US;
+  }
+
+  /**
+   * Get stored evidence
+   */
+  getEvidence(): TaxEvidence[] {
+    return Array.from(this.evidenceStore.values());
+  }
+}
+
+/**
+ * Default location resolver instance
+ */
+let defaultResolver: LocationResolver | null = null;
+
+/**
+ * Get or create default location resolver
+ */
+export function getLocationResolver(): LocationResolver {
+  if (!defaultResolver) {
+    defaultResolver = new LocationResolver();
+  }
+  return defaultResolver;
 }
 
 export default LocationResolver;

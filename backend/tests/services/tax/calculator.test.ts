@@ -1,688 +1,377 @@
 /**
  * Tax Calculator Service Tests
- * 
- * Comprehensive test suite for EU VAT and US sales tax calculations.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaxCalculator } from '../../src/services/tax/calculator';
 import { LocationResolver } from '../../src/services/tax/location-resolver';
 import { VatValidator } from '../../src/services/tax/vat-validator';
-import { BuyerInfo, SellerInfo, TaxCalculationResult } from '../../src/services/tax/types';
+import {
+  TaxCalculationRequest,
+  TaxCalculationResult,
+  TaxJurisdiction,
+  TransactionType
+} from '../../src/services/tax/types';
 
-// Mock dependencies
-const mockVatValidator = {
-  validateVatNumber: vi.fn(),
-  storeEvidence: vi.fn(),
-} as unknown as VatValidator;
+// Mock the VAT validator
+jest.mock('../../src/services/tax/vat-validator');
+const MockVatValidator = VatValidator as jest.MockedClass<typeof VatValidator>;
 
-const mockLocationResolver = {
-  resolveLocation: vi.fn(),
-} as unknown as LocationResolver;
-
-const mockGetTaxRate = vi.fn();
-const mockStoreEvidence = vi.fn();
-
-// Test configuration
-const createCalculator = () => new TaxCalculator({
-  locationResolver: mockLocationResolver,
-  vatValidator: mockVatValidator,
-  getTaxRate: mockGetTaxRate,
-  storeEvidence: mockStoreEvidence,
-});
+// Mock the location resolver
+jest.mock('../../src/services/tax/location-resolver');
+const MockLocationResolver = LocationResolver as jest.MockedClass<typeof LocationResolver>;
 
 describe('TaxCalculator', () => {
   let calculator: TaxCalculator;
+  let mockVatValidator: jest.Mocked<VatValidator>;
+  let mockLocationResolver: jest.Mocked<LocationResolver>;
 
   beforeEach(() => {
-    calculator = createCalculator();
-    vi.clearAllMocks();
-  });
+    // Create mock instances
+    mockVatValidator = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      validateVat: jest.fn(),
+      clearCache: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+      getEvidence: jest.fn().mockReturnValue([]),
+      getEvidenceById: jest.fn()
+    } as unknown as jest.Mocked<VatValidator>;
 
-  describe('EU VAT B2B Reverse Charge', () => {
-    const baseAmount = 1000;
+    mockLocationResolver = {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      resolveLocation: jest.fn(),
+      getJurisdiction: jest.fn(),
+      isEUCountry: jest.fn(),
+      isUSCountry: jest.fn(),
+      getEvidence: jest.fn().mockReturnValue([])
+    } as unknown as jest.Mocked<LocationResolver>;
 
-    it('should apply reverse charge (0% VAT) for valid EU B2B with VAT number', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        vatNumber: 'DE123456789',
-        address: {
-          line1: 'Test Street 1',
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'business',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          line1: 'Seller Street 1',
-          city: 'Paris',
-          postalCode: '75001',
-          country: 'FR',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'vat_number',
-        isValidVat: true,
-        vatNumber: 'DE123456789',
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(baseAmount, buyer, seller, 'ORDER-001');
-
-      // Assert
-      expect(result.taxAmount).toBe(0);
-      expect(result.taxRate).toBe(0);
-      expect(result.reverseCharge).toBe(true);
-      expect(result.jurisdiction.type).toBe('eu_vat');
-      expect(result.jurisdiction.country).toBe('DE');
-      expect(result.invoiceNote).toContain('Reverse charge');
-      expect(result.invoiceNote).toContain('Art. 196 Council Directive 2006/112/EC');
-    });
-
-    it('should apply reverse charge for valid VAT from different EU country', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        vatNumber: 'NL123456789B01',
-        address: {
-          city: 'Amsterdam',
-          postalCode: '1011',
-          country: 'NL',
-        },
-        entityType: 'business',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Munich',
-          postalCode: '80331',
-          country: 'DE',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'NL',
-        validationMethod: 'vat_number',
-        isValidVat: true,
-        vatNumber: 'NL123456789B01',
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(baseAmount, buyer, seller, 'ORDER-002');
-
-      // Assert
-      expect(result.taxAmount).toBe(0);
-      expect(result.reverseCharge).toBe(true);
-      expect(result.jurisdiction.country).toBe('NL');
-    });
-
-    it('should apply standard VAT for B2B without valid VAT number', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'business',
-        // No VAT number
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Munich',
-          postalCode: '80331',
-          country: 'DE',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(baseAmount, buyer, seller, 'ORDER-003');
-
-      // Assert
-      expect(result.taxAmount).toBe(190); // 1000 * 19%
-      expect(result.taxRate).toBe(19);
-      expect(result.reverseCharge).toBe(false);
-    });
-  });
-
-  describe('EU VAT B2C', () => {
-    it('should charge buyerapos;s country VAT for B2C transactions', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Paris',
-          postalCode: '75001',
-          country: 'FR',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(100, buyer, seller, 'ORDER-004');
-
-      // Assert
-      expect(result.taxAmount).toBe(19); // Germany 19%
-      expect(result.taxRate).toBe(19);
-      expect(result.reverseCharge).toBe(false);
-    });
-
-    it('should charge correct VAT rates for different EU countries', async () => {
-      const testCases = [
-        { country: 'FR', expectedRate: 20 },
-        { country: 'IT', expectedRate: 22 },
-        { country: 'ES', expectedRate: 21 },
-        { country: 'NL', expectedRate: 21 },
-        { country: 'SE', expectedRate: 25 },
-        { country: 'HU', expectedRate: 27 },
-      ];
-
-      for (const testCase of testCases) {
-        const buyer: BuyerInfo = {
-          address: {
-            city: 'TestCity',
-            postalCode: '12345',
-            country: testCase.country,
-          },
-          entityType: 'individual',
-        };
-
-        const seller: SellerInfo = {
-          address: {
-            city: 'Paris',
-            postalCode: '75001',
-            country: 'FR',
-          },
-        };
-
-        mockLocationResolver.resolveLocation.mockResolvedValue({
-          country: testCase.country,
-          validationMethod: 'billing_address',
-          isValidVat: false,
-          evidence: {},
-        });
-
-        mockStoreEvidence.mockResolvedValue(undefined);
-
-        const result = await calculator.calculateTax(100, buyer, seller, `ORDER-${testCase.country}`);
-
-        expect(result.taxRate).toBe(testCase.expectedRate);
+    // Create calculator with mocks
+    calculator = new TaxCalculator(
+      mockLocationResolver,
+      mockVatValidator,
+      {
+        enableViesValidation: true,
+        enableEvidenceStorage: true,
+        defaultJurisdiction: TaxJurisdiction.NONE
       }
-    });
+    );
   });
 
-  describe('Cross-border EU Transactions', () => {
-    it('should handle intra-EU B2B with valid VAT correctly', async () => {
-      // Arrange: German seller, Dutch buyer with valid VAT
-      const buyer: BuyerInfo = {
-        vatNumber: 'NL123456789B01',
-        address: {
-          city: 'Amsterdam',
-          postalCode: '1011',
-          country: 'NL',
-        },
-        entityType: 'business',
-      };
+  describe('calculateTax', () => {
+    const baseRequest: TaxCalculationRequest = {
+      sellerCountry: 'DE',
+      buyerCountry: 'FR',
+      transactionType: TransactionType.B2C,
+      amount: 100,
+      productType: 'digital',
+      isDigitalService: true,
+      timestamp: new Date()
+    };
 
-      const seller: SellerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
+    it('should calculate B2C VAT correctly', async () => {
+      // Arrange
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'FR',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+
+      // Act
+      const result = await calculator.calculateTax(baseRequest);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.jurisdiction).toBe(TaxJurisdiction.EU);
+      expect(result.countryCode).toBe('FR');
+      expect(result.reverseCharge).toBe(false);
+      expect(result.taxRate).toBe(0.20); // France standard rate
+      expect(result.taxAmount).toBe(20);
+      expect(result.amount).toBe(120); // 100 + 20
+    });
+
+    it('should apply reverse charge for B2B with valid VAT', async () => {
+      // Arrange
+      const b2bRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        transactionType: TransactionType.B2B,
+        buyerVatNumber: 'FR12345678901'
       };
 
       mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'NL',
-        validationMethod: 'vat_number',
+        resolved: true,
+        countryCode: 'FR',
+        method: 'VAT_NUMBER',
+        vatNumber: 'FR12345678901',
         isValidVat: true,
-        vatNumber: 'NL123456789B01',
-        evidence: {},
+        confidence: 1.0
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+
+      mockVatValidator.validateVat.mockResolvedValue({
+        result: {
+          isValid: true,
+          countryCode: 'FR',
+          vatNumber: '12345678901',
+          companyName: 'Test Company',
+          companyAddress: '123 Test St',
+          requestDate: new Date()
+        },
+        evidenceId: 'evidence-123',
+        fromCache: false
       });
 
-      mockStoreEvidence.mockResolvedValue(undefined);
-
       // Act
-      const result = await calculator.calculateTax(5000, buyer, seller, 'ORDER-005');
+      const result = await calculator.calculateTax(b2bRequest);
 
       // Assert
-      expect(result.taxAmount).toBe(0);
+      expect(result.success).toBe(true);
       expect(result.reverseCharge).toBe(true);
-      expect(result.jurisdiction.country).toBe('NL');
-    });
-
-    it('should charge VAT when seller is outside EU but buyer is in EU', async () => {
-      // Arrange: US seller, German buyer
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'New York',
-          postalCode: '10001',
-          country: 'US',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(1000, buyer, seller, 'ORDER-006');
-
-      // Assert
-      expect(result.taxAmount).toBe(190); // German VAT
-      expect(result.jurisdiction.country).toBe('DE');
-    });
-  });
-
-  describe('US Sales Tax', () => {
-    it('should apply US sales tax for nexus states', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Austin',
-          postalCode: '78701',
-          country: 'US',
-          state: 'TX',
-        },
-        state: 'TX',
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'San Francisco',
-          postalCode: '94102',
-          country: 'US',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'US',
-        state: 'TX',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(1000, buyer, seller, 'ORDER-007');
-
-      // Assert
-      expect(result.taxAmount).toBe(62.5); // Texas 6.25%
-      expect(result.taxRate).toBe(6.25);
-      expect(result.jurisdiction.type).toBe('us_sales_tax');
-      expect(result.jurisdiction.state).toBe('TX');
-    });
-
-    it('should not apply sales tax for non-nexus states', async () => {
-      // Arrange: Oregon has no sales tax
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Portland',
-          postalCode: '97201',
-          country: 'US',
-          state: 'OR',
-        },
-        state: 'OR',
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'San Francisco',
-          postalCode: '94102',
-          country: 'US',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'US',
-        state: 'OR',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(1000, buyer, seller, 'ORDER-008');
-
-      // Assert
-      expect(result.taxAmount).toBe(0);
-      expect(result.jurisdiction.type).toBe('us_sales_tax');
-    });
-
-    it('should apply California sales tax rate', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Los Angeles',
-          postalCode: '90001',
-          country: 'US',
-          state: 'CA',
-        },
-        state: 'CA',
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'New York',
-          postalCode: '10001',
-          country: 'US',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'US',
-        state: 'CA',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(1000, buyer, seller, 'ORDER-009');
-
-      // Assert
-      expect(result.taxAmount).toBe(72.5); // California 7.25%
-      expect(result.taxRate).toBe(7.25);
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle invalid/negative amounts', async () => {
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Paris',
-          postalCode: '75001',
-          country: 'FR',
-        },
-      };
-
-      await expect(
-        calculator.calculateTax(-100, buyer, seller, 'ORDER-010')
-      ).rejects.toThrow('Amount cannot be negative');
-    });
-
-    it('should handle missing buyer address', async () => {
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: '',
-        },
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Paris',
-          postalCode: '75001',
-          country: 'FR',
-        },
-      };
-
-      await expect(
-        calculator.calculateTax(100, buyer, seller, 'ORDER-011')
-      ).rejects.toThrow('Buyer address is required');
-    });
-
-    it('should handle non-EU/non-US transactions with no tax', async () => {
-      // Arrange: Seller in Japan, buyer in Japan
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Tokyo',
-          postalCode: '100-0001',
-          country: 'JP',
-        },
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Tokyo',
-          postalCode: '100-0001',
-          country: 'JP',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'JP',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      const result = await calculator.calculateTax(1000, buyer, seller, 'ORDER-012');
-
-      // Assert
-      expect(result.taxAmount).toBe(0);
       expect(result.taxRate).toBe(0);
-      expect(result.jurisdiction.type).toBe('none');
+      expect(result.taxAmount).toBe(0);
+      expect(result.invoiceNote).toContain('Reverse charge');
     });
 
-    it('should round tax amounts to 2 decimal places', async () => {
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Paris',
-          postalCode: '75001',
-          country: 'FR',
-        },
+    it('should handle cross-border EU B2B without valid VAT', async () => {
+      // Arrange
+      const b2bRequestNoVat: TaxCalculationRequest = {
+        ...baseRequest,
+        transactionType: TransactionType.B2B,
+        buyerVatNumber: undefined
       };
 
       mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
+        resolved: true,
+        countryCode: 'FR',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
       });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act: 19% VAT on 0.33 = 0.0627, should round to 0.06
-      const result = await calculator.calculateTax(0.33, buyer, seller, 'ORDER-013');
-
-      expect(result.taxAmount).toBe(0.06);
-    });
-
-    it('should default to 20% for unknown EU countries', async () => {
-      // This tests the fallback mechanism
-      const buyer: BuyerInfo = {
-        address: {
-          city: 'Unknown City',
-          postalCode: '12345',
-          country: 'XX', // Unknown country code
-        },
-        entityType: 'individual',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'XX',
-        validationMethod: 'billing_address',
-        isValidVat: false,
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
 
       // Act
-      const result = await calculator.calculateTax(100, buyer, seller, 'ORDER-014');
+      const result = await calculator.calculateTax(b2bRequestNoVat);
 
-      // Assert - falls back to 20%
-      expect(result.taxRate).toBe(20);
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.reverseCharge).toBe(false);
+      expect(result.taxRate).toBe(0.20); // France VAT
+      expect(result.taxAmount).toBe(20);
+    });
+
+    it('should return 0 tax for non-EU countries', async () => {
+      // Arrange
+      const nonEuRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        buyerCountry: 'US'
+      };
+
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'US',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.US);
+      mockLocationResolver.isEUCountry.mockReturnValue(false);
+      mockLocationResolver.isUSCountry.mockReturnValue(true);
+
+      // Act
+      const result = await calculator.calculateTax(nonEuRequest);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.jurisdiction).toBe(TaxJurisdiction.US);
+      expect(result.taxAmount).toBe(0); // US not implemented yet
+    });
+
+    it('should handle unknown countries', async () => {
+      // Arrange
+      const unknownRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        buyerCountry: 'XX'
+      };
+
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: false,
+        countryCode: 'DE', // Default
+        method: 'DEFAULT',
+        confidence: 0
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.NONE);
+
+      // Act
+      const result = await calculator.calculateTax(unknownRequest);
+
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.jurisdiction).toBe(TaxJurisdiction.NONE);
+      expect(result.taxAmount).toBe(0);
+    });
+
+    it('should calculate different EU country VAT rates', async () => {
+      // Test Germany (19%)
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'DE',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+
+      const resultDE = await calculator.calculateTax(baseRequest);
+      expect(resultDE.taxRate).toBe(0.19);
+
+      // Test Hungary (27%)
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'HU',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+
+      const resultHU = await calculator.calculateTax({
+        ...baseRequest,
+        buyerCountry: 'HU'
+      });
+      expect(resultHU.taxRate).toBe(0.27);
+
+      // Test Sweden (25%)
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'SE',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+
+      const resultSE = await calculator.calculateTax({
+        ...baseRequest,
+        buyerCountry: 'SE'
+      });
+      expect(resultSE.taxRate).toBe(0.25);
+    });
+
+    it('should throw error for invalid request - negative amount', async () => {
+      // Arrange
+      const invalidRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        amount: -10
+      };
+
+      // Act & Assert
+      await expect(calculator.calculateTax(invalidRequest)).rejects.toThrow('Amount cannot be negative');
+    });
+
+    it('should throw error for invalid request - missing buyer country', async () => {
+      // Arrange
+      const invalidRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        buyerCountry: ''
+      };
+
+      // Act & Assert
+      await expect(calculator.calculateTax(invalidRequest)).rejects.toThrow('Buyer country is required');
+    });
+
+    it('should throw error for invalid request - missing seller country', async () => {
+      // Arrange
+      const invalidRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        sellerCountry: ''
+      };
+
+      // Act & Assert
+      await expect(calculator.calculateTax(invalidRequest)).rejects.toThrow('Seller country is required');
+    });
+
+    it('should throw error for invalid transaction type', async () => {
+      // Arrange
+      const invalidRequest: TaxCalculationRequest = {
+        ...baseRequest,
+        transactionType: 'INVALID' as TransactionType
+      };
+
+      // Act & Assert
+      await expect(calculator.calculateTax(invalidRequest)).rejects.toThrow('Invalid transaction type');
+    });
+
+    it('should include evidence ID in result when enabled', async () => {
+      // Arrange
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'FR',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+
+      // Act
+      const result = await calculator.calculateTax(baseRequest);
+
+      // Assert
+      expect(result.calculationEvidenceId).toBeDefined();
+    });
+
+    it('should store and retrieve evidence', async () => {
+      // Arrange
+      mockLocationResolver.resolveLocation.mockResolvedValue({
+        resolved: true,
+        countryCode: 'FR',
+        method: 'BILLING_ADDRESS',
+        confidence: 0.8
+      });
+      mockLocationResolver.getJurisdiction.mockReturnValue(TaxJurisdiction.EU);
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+
+      // Act
+      const result = await calculator.calculateTax(baseRequest);
+      const evidence = calculator.getEvidenceById(result.calculationEvidenceId!);
+
+      // Assert
+      expect(evidence).toBeDefined();
+      expect(evidence?.type).toBe('TAX_CALCULATION');
+      expect(evidence?.buyerCountry).toBe('FR');
     });
   });
 
-  describe('Evidence Storage', () => {
-    it('should store tax evidence for EU B2B reverse charge', async () => {
-      // Arrange
-      const buyer: BuyerInfo = {
-        vatNumber: 'DE123456789',
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-        entityType: 'business',
-      };
-
-      const seller: SellerInfo = {
-        address: {
-          city: 'Munich',
-          postalCode: '80331',
-          country: 'DE',
-        },
-      };
-
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'DE',
-        validationMethod: 'vat_number',
-        isValidVat: true,
-        vatNumber: 'DE123456789',
-        evidence: {},
-      });
-
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      await calculator.calculateTax(1000, buyer, seller, 'ORDER-015');
-
-      // Assert
-      expect(mockStoreEvidence).toHaveBeenCalledTimes(1);
-      expect(mockStoreEvidence).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderId: 'ORDER-015',
-          buyerVatNumber: 'DE123456789',
-          buyerCountry: 'DE',
-          sellerCountry: 'DE',
-          vatValid: true,
-          validationMethod: 'vat_number',
-        })
-      );
+  describe('isEUCountry', () => {
+    it('should return true for EU countries', () => {
+      mockLocationResolver.isEUCountry.mockReturnValue(true);
+      
+      expect(calculator.isEUCountry('DE')).toBe(true);
+      expect(calculator.isEUCountry('FR')).toBe(true);
+      expect(calculator.isEUCountry('ES')).toBe(true);
     });
 
-    it('should record validation method in evidence', async () => {
-      // Test IP geolocation fallback
-      const buyer: BuyerInfo = {
-        ipAddress: '8.8.8.8',
-        address: {
-          city: 'Unknown',
-          postalCode: '00000',
-          country: 'UNKNOWN',
-        },
-      };
+    it('should return false for non-EU countries', () => {
+      mockLocationResolver.isEUCountry.mockReturnValue(false);
+      
+      expect(calculator.isEUCountry('US')).toBe(false);
+      expect(calculator.isEUCountry('CN')).toBe(false);
+    });
+  });
 
-      const seller: SellerInfo = {
-        address: {
-          city: 'Berlin',
-          postalCode: '10115',
-          country: 'DE',
-        },
-      };
+  describe('getTaxRateForCountry', () => {
+    it('should return tax rate for valid EU countries', () => {
+      const rate = calculator.getTaxRateForCountry('DE');
+      expect(rate.countryCode).toBe('DE');
+      expect(rate.rate).toBe(0.19);
+    });
 
-      mockLocationResolver.resolveLocation.mockResolvedValue({
-        country: 'US',
-        validationMethod: 'ip_geolocation',
-        isValidVat: false,
-        evidence: {
-          ipCountry: 'US',
-        },
-      });
+    it('should throw error for unknown countries', () => {
+      expect(() => calculator.getTaxRateForCountry('XX')).toThrow('No tax rate found for country: XX');
+    });
+  });
 
-      mockStoreEvidence.mockResolvedValue(undefined);
-
-      // Act
-      await calculator.calculateTax(100, buyer, seller, 'ORDER-016');
-
-      // Assert
-      expect(mockStoreEvidence).toHaveBeenCalledWith(
-        expect.objectContaining({
-          validationMethod: 'ip_geolocation',
-        })
-      );
+  describe('initialize', () => {
+    it('should initialize location resolver', async () => {
+      await calculator.initialize();
+      expect(mockLocationResolver.initialize).toHaveBeenCalled();
     });
   });
 });

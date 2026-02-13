@@ -1,366 +1,399 @@
 /**
  * Tax Calculator Service
  * 
- * Main tax calculation logic for EU VAT (B2B reverse charge) and US sales tax.
- * 
- * EU VAT Rules:
- * - B2B with valid VAT: Reverse charge (0% VAT)
- * - B2C or no VAT: Charge buyer's country VAT rate
- * 
- * US Sales Tax Rules:
- * - Check economic nexus in buyer's state
- * - Apply state/local sales tax if nexus exists
+ * Main tax calculation logic for:
+ * - EU VAT B2B reverse charge
+ * - EU VAT B2C
+ * - US sales tax (future expansion)
  */
 
-import {
-  BuyerInfo,
-  SellerInfo,
-  TaxCalculationResult,
-  TaxEvidence,
-  TaxRate,
-  Address,
-} from './types';
-import { LocationResolver, ResolvedLocation } from './location-resolver';
+import { v4 as uuidv4 } from 'uuid';
+import { LocationResolver } from './location-resolver';
 import { VatValidator } from './vat-validator';
+import {
+  TaxCalculationRequest,
+  TaxCalculationResult,
+  TaxRate,
+  TaxJurisdiction,
+  TransactionType,
+  TaxEvidence,
+  INVOICE_NOTES
+} from './types';
 
-export interface TaxCalculatorConfig {
-  locationResolver: LocationResolver;
-  vatValidator: VatValidator;
-  getTaxRate: (country: string, state?: string) => Promise<TaxRate | null>;
-  storeEvidence: (evidence: TaxEvidence) => Promise<void>;
+/**
+ * Tax rate database (in production, this would be a real database)
+ * Sample rates - in production, load from database
+ */
+const TAX_RATES: Map<string, TaxRate> = new Map([
+  // EU Member States standard VAT rates
+  ['AT', { id: 'AT-STD', countryCode: 'AT', rate: 0.20, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['BE', { id: 'BE-STD', countryCode: 'BE', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['BG', { id: 'BG-STD', countryCode: 'BG', rate: 0.20, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['CY', { id: 'CY-STD', countryCode: 'CY', rate: 0.19, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['CZ', { id: 'CZ-STD', countryCode: 'CZ', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['DE', { id: 'DE-STD', countryCode: 'DE', rate: 0.19, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['DK', { id: 'DK-STD', countryCode: 'DK', rate: 0.25, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['EE', { id: 'EE-STD', countryCode: 'EE', rate: 0.22, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['EL', { id: 'EL-STD', countryCode: 'EL', rate: 0.24, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['ES', { id: 'ES-STD', countryCode: 'ES', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['FI', { id: 'FI-STD', countryCode: 'FI', rate: 0.255, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['FR', { id: 'FR-STD', countryCode: 'FR', rate: 0.20, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['HR', { id: 'HR-STD', countryCode: 'HR', rate: 0.25, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['HU', { id: 'HU-STD', countryCode: 'HU', rate: 0.27, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['IE', { id: 'IE-STD', countryCode: 'IE', rate: 0.23, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['IT', { id: 'IT-STD', countryCode: 'IT', rate: 0.22, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['LT', { id: 'LT-STD', countryCode: 'LT', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['LU', { id: 'LU-STD', countryCode: 'LU', rate: 0.17, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['LV', { id: 'LV-STD', countryCode: 'LV', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['MT', { id: 'MT-STD', countryCode: 'MT', rate: 0.18, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['NL', { id: 'NL-STD', countryCode: 'NL', rate: 0.21, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['PL', { id: 'PL-STD', countryCode: 'PL', rate: 0.23, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['PT', { id: 'PT-STD', countryCode: 'PT', rate: 0.23, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['RO', { id: 'RO-STD', countryCode: 'RO', rate: 0.19, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['SE', { id: 'SE-STD', countryCode: 'SE', rate: 0.25, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['SI', { id: 'SI-STD', countryCode: 'SI', rate: 0.22, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['SK', { id: 'SK-STD', countryCode: 'SK', rate: 0.20, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }],
+  ['XI', { id: 'XI-STD', countryCode: 'XI', rate: 0.20, effectiveDate: new Date('2024-01-01'), appliesToDigitalServices: true }], // Northern Ireland
+]);
+
+/**
+ * Calculator configuration
+ */
+interface TaxCalculatorConfig {
+  enableViesValidation: boolean;
+  enableEvidenceStorage: boolean;
+  defaultJurisdiction: TaxJurisdiction;
 }
 
+/**
+ * Tax Calculator Service
+ */
 export class TaxCalculator {
   private locationResolver: LocationResolver;
   private vatValidator: VatValidator;
-  private getTaxRate: (country: string, state?: string) => Promise<TaxRate | null>;
-  private storeEvidence: (evidence: TaxEvidence) => Promise<void>;
+  private config: TaxCalculatorConfig;
+  private evidenceStore: Map<string, TaxEvidence> = new Map();
 
-  // EU country VAT rates (standard rates as of 2024)
-  // In production, these should come from a database
-  private readonly EU_VAT_RATES: Record<string, number> = {
-    AT: 20, // Austria
-    BE: 21, // Belgium
-    BG: 20, // Bulgaria
-    CY: 19, // Cyprus
-    CZ: 21, // Czech Republic
-    DE: 19, // Germany
-    DK: 25, // Denmark
-    EE: 22, // Estonia
-    EL: 24, // Greece
-    ES: 21, // Spain
-    FI: 24, // Finland
-    FR: 20, // France
-    HR: 25, // Croatia
-    HU: 27, // Hungary
-    IE: 23, // Ireland
-    IT: 22, // Italy
-    LT: 21, // Lithuania
-    LU: 17, // Luxembourg
-    LV: 21, // Latvia
-    MT: 18, // Malta
-    NL: 21, // Netherlands
-    PL: 23, // Poland
-    PT: 23, // Portugal
-    RO: 19, // Romania
-    SE: 25, // Sweden
-    SI: 22, // Slovenia
-    SK: 20, // Slovakia
-    XI: 20, // Northern Ireland
-  };
+  /**
+   * Create a new TaxCalculator instance
+   * @param locationResolver - Optional location resolver
+   * @param vatValidator - Optional VAT validator
+   * @param config - Optional configuration
+   */
+  constructor(
+    locationResolver?: LocationResolver,
+    vatValidator?: VatValidator,
+    config?: Partial<TaxCalculatorConfig>
+  ) {
+    this.locationResolver = locationResolver || new LocationResolver(vatValidator);
+    this.vatValidator = vatValidator || new VatValidator();
+    this.config = {
+      enableViesValidation: config?.enableViesValidation ?? true,
+      enableEvidenceStorage: config?.enableEvidenceStorage ?? true,
+      defaultJurisdiction: config?.defaultJurisdiction ?? TaxJurisdiction.NONE
+    };
+  }
 
-  // Reduced VAT rates for EU countries (for reference)
-  private readonly EU_REDUCED_VAT_RATES: Record<string, number[]> = {
-    DE: [7],
-    FR: [10, 5.5],
-    ES: [10, 4],
-    IT: [10, 5, 4],
-    // ... other countries have various reduced rates
-  };
-
-  // US states with economic nexus thresholds and sales tax
-  private readonly US_NEXUS_STATES: Record<string, { threshold: number; rate: number }> = {
-    AL: { threshold: 250000, rate: 4.0 },
-    AK: { threshold: 100000, rate: 0 }, // No state sales tax
-    AZ: { threshold: 100000, rate: 5.6 },
-    AR: { threshold: 100000, rate: 6.5 },
-    CA: { threshold: 500000, rate: 7.25 },
-    CO: { threshold: 100000, rate: 2.9 },
-    CT: { threshold: 100000, rate: 6.35 },
-    DE: { threshold: 100000, rate: 0 },
-    FL: { threshold: 100000, rate: 6.0 },
-    GA: { threshold: 100000, rate: 4.0 },
-    HI: { threshold: 100000, rate: 4.0 },
-    ID: { threshold: 100000, rate: 6.0 },
-    IL: { threshold: 100000, rate: 6.25 },
-    IN: { threshold: 100000, rate: 7.0 },
-    IA: { threshold: 100000, rate: 6.0 },
-    KS: { threshold: 100000, rate: 6.5 },
-    KY: { threshold: 100000, rate: 6.0 },
-    LA: { threshold: 100000, rate: 4.45 },
-    ME: { threshold: 100000, rate: 5.5 },
-    MD: { threshold: 100000, rate: 6.0 },
-    MA: { threshold: 100000, rate: 6.25 },
-    MI: { threshold: 100000, rate: 6.0 },
-    MN: { threshold: 100000, rate: 6.875 },
-    MS: { threshold: 250000, rate: 7.0 },
-    MO: { threshold: 100000, rate: 4.225 },
-    NE: { threshold: 100000, rate: 5.5 },
-    NV: { threshold: 100000, rate: 6.85 },
-    NJ: { threshold: 100000, rate: 6.625 },
-    NM: { threshold: 100000, rate: 5.125 },
-    NY: { threshold: 500000, rate: 4.0 },
-    NC: { threshold: 100000, rate: 4.75 },
-    ND: { threshold: 100000, rate: 5.0 },
-    OH: { threshold: 100000, rate: 5.75 },
-    OK: { threshold: 100000, rate: 4.5 },
-    OR: { threshold: 100000, rate: 0 },
-    PA: { threshold: 100000, rate: 6.0 },
-    RI: { threshold: 100000, rate: 7.0 },
-    SC: { threshold: 100000, rate: 6.0 },
-    SD: { threshold: 100000, rate: 4.5 },
-    TN: { threshold: 100000, rate: 7.0 },
-    TX: { threshold: 500000, rate: 6.25 },
-    UT: { threshold: 100000, rate: 6.1 },
-    VT: { threshold: 100000, rate: 6.0 },
-    VA: { threshold: 100000, rate: 5.3 },
-    WA: { threshold: 100000, rate: 6.5 },
-    WV: { threshold: 100000, rate: 6.0 },
-    WI: { threshold: 100000, rate: 5.0 },
-    WY: { threshold: 100000, rate: 4.0 },
-  };
-
-  constructor(config: TaxCalculatorConfig) {
-    this.locationResolver = config.locationResolver;
-    this.vatValidator = config.vatValidator;
-    this.getTaxRate = config.getTaxRate;
-    this.storeEvidence = config.storeEvidence;
+  /**
+   * Initialize the calculator
+   */
+  async initialize(): Promise<void> {
+    await this.locationResolver.initialize();
   }
 
   /**
    * Calculate tax for a transaction
-   * 
-   * @param amount - The transaction amount (before tax)
-   * @param buyer - Buyer information
-   * @param seller - Seller information
-   * @param orderId - Order ID for evidence tracking
-   * @returns Tax calculation result with amount, rate, jurisdiction, and invoice details
+   * @param request - Tax calculation request
+   * @returns Tax calculation result
    */
-  async calculateTax(
-    amount: number,
-    buyer: BuyerInfo,
-    seller: SellerInfo,
-    orderId: string
-  ): Promise<TaxCalculationResult> {
-    // Validate inputs
-    if (amount < 0) {
-      throw new Error('Amount cannot be negative');
+  async calculateTax(request: TaxCalculationRequest): Promise<TaxCalculationResult> {
+    try {
+      // Validate request
+      this.validateRequest(request);
+
+      // Resolve buyer location
+      const buyerLocation = await this.locationResolver.resolveLocation({
+        countryCode: request.buyerCountry,
+        vatNumber: request.buyerVatNumber,
+        ipAddress: request.buyerIpAddress,
+        ...request.buyerBillingAddress
+      });
+
+      // Determine jurisdiction
+      const jurisdiction = this.locationResolver.getJurisdiction(buyerLocation.countryCode);
+
+      // Handle based on jurisdiction
+      switch (jurisdiction) {
+        case TaxJurisdiction.EU:
+          return this.calculateEUTax(request, buyerLocation);
+        
+        case TaxJurisdiction.US:
+          return this.calculateUSTax(request, buyerLocation);
+        
+        default:
+          return this.calculateNoTax(request, buyerLocation);
+      }
+    } catch (error) {
+      return this.createErrorResult(
+        error instanceof Error ? error.message : 'Unknown error',
+        request
+      );
     }
-
-    if (!buyer?.address?.country) {
-      throw new Error('Buyer address is required');
-    }
-
-    // Resolve buyer location
-    const location = await this.locationResolver.resolveLocation(buyer, orderId);
-
-    // Determine tax jurisdiction and calculate
-    const isEuSeller = this.isEuCountry(seller.address?.country);
-    const isEuBuyer = this.isEuCountry(location.country);
-    const isUsTransaction = buyer.address?.country === 'US' || 
-                           (location.country === 'US');
-
-    let result: TaxCalculationResult;
-
-    if (isEuSeller && isEuBuyer) {
-      // EU B2B transaction
-      result = await this.calculateEuVat(amount, buyer, seller, location, orderId);
-    } else if (isUsTransaction) {
-      // US sales tax
-      result = await this.calculateUsSalesTax(amount, buyer, location, orderId);
-    } else {
-      // Outside EU/US or B2C without VAT - no tax
-      result = this.calculateNoTax(amount, location, orderId);
-    }
-
-    // Store evidence for compliance
-    await this.storeEvidence(result.evidence);
-
-    return result;
   }
 
   /**
    * Calculate EU VAT
-   * 
-   * Rules:
-   * - B2B with valid VAT number: Reverse charge (0%)
-   * - B2C or no VAT: Charge buyer's country rate
+   * Applies B2B reverse charge or B2C VAT rules
    */
-  private async calculateEuVat(
-    amount: number,
-    buyer: BuyerInfo,
-    seller: SellerInfo,
-    location: ResolvedLocation,
-    orderId: string
+  private async calculateEUTax(
+    request: TaxCalculationRequest,
+    buyerLocation: { countryCode: string; method: string; vatNumber?: string; isValidVat?: boolean }
   ): Promise<TaxCalculationResult> {
-    // Check if buyer has valid VAT number and is B2B
-    const isB2B = buyer.entityType === 'business' || buyer.vatNumber !== undefined;
-    const hasValidVat = location.isValidVat && buyer.vatNumber !== undefined;
+    // Check if this is B2B with valid VAT number (reverse charge)
+    if (request.transactionType === TransactionType.B2B && request.buyerVatNumber) {
+      // Validate VAT number if enabled
+      if (this.config.enableViesValidation) {
+        const countryCode = request.buyerVatNumber.substring(0, 2).toUpperCase();
+        const vatNumber = request.buyerVatNumber.substring(2);
+        
+        const { result: vatResult, evidenceId: validationEvidenceId } = 
+          await this.vatValidator.validateVat(countryCode, vatNumber, request.buyerIpAddress);
 
-    // Build evidence
-    const evidence: TaxEvidence = {
-      orderId,
-      buyerVatNumber: buyer.vatNumber,
-      buyerCountry: location.country,
-      sellerCountry: seller.address?.country || 'UNKNOWN',
-      vatValid: hasValidVat,
-      vatValidationTimestamp: hasValidVat ? new Date() : undefined,
-      billingAddressCountry: buyer.address?.country,
-      resolvedCountry: location.country,
-      validationMethod: location.validationMethod,
-      evidenceTimestamp: new Date(),
-    };
-
-    // B2B with valid VAT - Reverse Charge
-    if (isB2B && hasValidVat) {
-      return {
-        taxAmount: 0,
-        taxRate: 0,
-        jurisdiction: {
-          country: location.country,
-          type: 'eu_vat',
-        },
-        reverseCharge: true,
-        invoiceNote: 'Reverse charge - Art. 196 Council Directive 2006/112/EC',
-        evidence,
-      };
+        if (vatResult.isValid) {
+          // Reverse charge applies - 0% VAT
+          return {
+            success: true,
+            amount: request.amount,
+            taxAmount: 0,
+            taxRate: 0,
+            jurisdiction: TaxJurisdiction.EU,
+            countryCode: buyerLocation.countryCode,
+            reverseCharge: true,
+            invoiceNote: INVOICE_NOTES.REVERSE_CHARGE,
+            validationEvidenceId
+          };
+        }
+      } else if (buyerLocation.isValidVat) {
+        // If validation disabled but location resolved from VAT, apply reverse charge
+        return {
+          success: true,
+          amount: request.amount,
+          taxAmount: 0,
+          taxRate: 0,
+          jurisdiction: TaxJurisdiction.EU,
+          countryCode: buyerLocation.countryCode,
+          reverseCharge: true,
+          invoiceNote: INVOICE_NOTES.REVERSE_CHARGE
+        };
+      }
     }
 
-    // B2C or B2B without valid VAT - Charge VAT
-    const taxRate = this.getEuVatRate(location.country);
-    const taxAmount = this.roundAmount(amount * (taxRate / 100));
+    // B2C or B2B without valid VAT - charge buyer's country VAT
+    const taxRate = this.getTaxRate(buyerLocation.countryCode);
+    const taxAmount = request.amount * taxRate.rate;
+    const totalAmount = request.amount + taxAmount;
+
+    // Store calculation evidence
+    const calculationEvidenceId = await this.storeCalculationEvidence(
+      request,
+      buyerLocation.countryCode,
+      taxRate.rate,
+      taxAmount,
+      false
+    );
 
     return {
+      success: true,
+      amount: totalAmount,
       taxAmount,
-      taxRate,
-      jurisdiction: {
-        country: location.country,
-        type: 'eu_vat',
-      },
+      taxRate: taxRate.rate,
+      jurisdiction: TaxJurisdiction.EU,
+      countryCode: buyerLocation.countryCode,
       reverseCharge: false,
-      invoiceNote: undefined,
-      evidence,
+      invoiceNote: INVOICE_NOTES.B2C_VAT,
+      calculationEvidenceId
     };
   }
 
   /**
    * Calculate US sales tax
-   * 
-   * Rules:
-   * - Check economic nexus in buyer's state
-   * - Apply state/local tax if nexus exists
+   * Note: This is a placeholder for future US sales tax implementation
    */
-  private async calculateUsSalesTax(
-    amount: number,
-    buyer: BuyerInfo,
-    location: ResolvedLocation,
-    orderId: string
-  ): Promise<TaxCalculationResult> {
-    const state = buyer.state || location.state;
-    
-    if (!state) {
-      return this.calculateNoTax(amount, location, orderId);
-    }
-
-    const nexusState = this.US_NEXUS_STATES[state.toUpperCase()];
-    
-    if (!nexusState || nexusState.rate === 0) {
-      // No nexus or no state tax
-      return this.calculateNoTax(amount, location, orderId);
-    }
-
-    const taxRate = nexusState.rate;
-    const taxAmount = this.roundAmount(amount * (taxRate / 100));
-
-    const evidence: TaxEvidence = {
-      orderId,
-      buyerCountry: 'US',
-      sellerCountry: 'US',
-      vatValid: false,
-      billingAddressCountry: buyer.address?.country || 'US',
-      resolvedCountry: 'US',
-      validationMethod: location.validationMethod,
-      evidenceTimestamp: new Date(),
-    };
-
-    return {
-      taxAmount,
-      taxRate,
-      jurisdiction: {
-        country: 'US',
-        state,
-        type: 'us_sales_tax',
-      },
-      reverseCharge: false,
-      invoiceNote: undefined,
-      evidence,
-    };
-  }
-
-  /**
-   * No tax applicable
-   */
-  private calculateNoTax(
-    amount: number,
-    location: ResolvedLocation,
-    orderId: string
+  private calculateUSTax(
+    request: TaxCalculationRequest,
+    buyerLocation: { countryCode: string; state?: string }
   ): TaxCalculationResult {
-    const evidence: TaxEvidence = {
-      orderId,
-      buyerCountry: location.country,
-      sellerCountry: 'UNKNOWN',
-      vatValid: false,
-      billingAddressCountry: location.evidence?.billingAddressCountry || location.country,
-      resolvedCountry: location.country,
-      validationMethod: location.validationMethod,
-      evidenceTimestamp: new Date(),
-    };
+    // Future implementation:
+    // 1. Check economic nexus in buyer's state
+    // 2. If nexus exists, apply state + local sales tax
+    // 3. For digital services, check if state taxes digital goods
 
+    // For now, return no tax (requires nexus setup)
     return {
+      success: true,
+      amount: request.amount,
       taxAmount: 0,
       taxRate: 0,
-      jurisdiction: {
-        country: location.country,
-        state: location.state,
-        type: 'none',
-      },
-      reverseCharge: false,
-      invoiceNote: undefined,
-      evidence,
+      jurisdiction: TaxJurisdiction.US,
+      countryCode: 'US',
+      state: buyerLocation.state,
+      reverseCharge: false
     };
   }
 
   /**
-   * Get EU VAT rate for a country
+   * Calculate for non-EU/US transactions (no tax)
    */
-  private getEuVatRate(countryCode: string): number {
-    return this.EU_VAT_RATES[countryCode.toUpperCase()] || 20; // Default to 20%
+  private calculateNoTax(
+    request: TaxCalculationRequest,
+    buyerLocation: { countryCode: string }
+  ): TaxCalculationResult {
+    return {
+      success: true,
+      amount: request.amount,
+      taxAmount: 0,
+      taxRate: 0,
+      jurisdiction: TaxJurisdiction.NONE,
+      countryCode: buyerLocation.countryCode,
+      reverseCharge: false,
+      invoiceNote: INVOICE_NOTES.OUTSIDE_SCOPE
+    };
   }
 
   /**
-   * Check if country is in EU
+   * Get tax rate for a country
    */
-  private isEuCountry(countryCode?: string): boolean {
-    if (!countryCode) return false;
-    return countryCode.toUpperCase() in this.EU_VAT_RATES;
+  private getTaxRate(countryCode: string): TaxRate {
+    const rate = TAX_RATES.get(countryCode.toUpperCase());
+    
+    if (!rate) {
+      throw new Error(`No tax rate found for country: ${countryCode}`);
+    }
+
+    return rate;
   }
 
   /**
-   * Round amount to 2 decimal places
+   * Validate tax calculation request
    */
-  private roundAmount(amount: number): number {
-    return Math.round(amount * 100) / 100;
+  private validateRequest(request: TaxCalculationRequest): void {
+    if (!request.sellerCountry) {
+      throw new Error('Seller country is required');
+    }
+
+    if (!request.buyerCountry) {
+      throw new Error('Buyer country is required');
+    }
+
+    if (request.amount < 0) {
+      throw new Error('Amount cannot be negative');
+    }
+
+    if (!Object.values(TransactionType).includes(request.transactionType)) {
+      throw new Error('Invalid transaction type');
+    }
+
+    // Validate EU country codes
+    const euCountries = Array.from(TAX_RATES.keys());
+    if (!euCountries.includes(request.sellerCountry.toUpperCase()) && 
+        request.sellerCountry !== 'US') {
+      console.warn(`Seller country ${request.sellerCountry} may not be supported`);
+    }
   }
+
+  /**
+   * Store calculation evidence
+   */
+  private async storeCalculationEvidence(
+    request: TaxCalculationRequest,
+    taxCountry: string,
+    taxRate: number,
+    taxAmount: number,
+    reverseCharge: boolean
+  ): Promise<string> {
+    const evidence: TaxEvidence = {
+      id: uuidv4(),
+      type: 'TAX_CALCULATION',
+      buyerCountry: taxCountry,
+      sellerCountry: request.sellerCountry,
+      buyerVatNumber: request.buyerVatNumber,
+      ipAddress: request.buyerIpAddress,
+      evidence: {
+        transactionType: request.transactionType,
+        amount: request.amount,
+        taxRate,
+        taxAmount,
+        reverseCharge,
+        productType: request.productType,
+        isDigitalService: request.isDigitalService,
+        timestamp: request.timestamp
+      },
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000)
+    };
+
+    this.evidenceStore.set(evidence.id, evidence);
+    return evidence.id;
+  }
+
+  /**
+   * Create error result
+   */
+  private createErrorResult(error: string, request: TaxCalculationRequest): TaxCalculationResult {
+    return {
+      success: false,
+      amount: request.amount,
+      taxAmount: 0,
+      taxRate: 0,
+      jurisdiction: this.config.defaultJurisdiction,
+      countryCode: request.buyerCountry,
+      reverseCharge: false,
+      error
+    };
+  }
+
+  /**
+   * Get all stored evidence
+   */
+  getEvidence(): TaxEvidence[] {
+    return Array.from(this.evidenceStore.values());
+  }
+
+  /**
+   * Get evidence by ID
+   */
+  getEvidenceById(id: string): TaxEvidence | undefined {
+    return this.evidenceStore.get(id);
+  }
+
+  /**
+   * Get tax rate for a country (public method)
+   */
+  getTaxRateForCountry(countryCode: string): TaxRate {
+    return this.getTaxRate(countryCode);
+  }
+
+  /**
+   * Check if a country is in the EU
+   */
+  isEUCountry(countryCode: string): boolean {
+    return this.locationResolver.isEUCountry(countryCode);
+  }
+}
+
+/**
+ * Default calculator instance
+ */
+let defaultCalculator: TaxCalculator | null = null;
+
+/**
+ * Get or create default calculator
+ */
+export function getTaxCalculator(): TaxCalculator {
+  if (!defaultCalculator) {
+    defaultCalculator = new TaxCalculator();
+  }
+  return defaultCalculator;
 }
 
 export default TaxCalculator;
