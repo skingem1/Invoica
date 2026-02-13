@@ -1,48 +1,19 @@
 import { setInterval, clearInterval } from 'timers';
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import { PrismaClient, InvoiceStatus } from '@prisma/client';
-import Bull, { Queue, Job } from 'bull';
-import { Logger } from 'winston';
-import { z } from 'zod';
+import { Logger } from '@nestjs/common';
+import axios, { AxiosInstance } from 'axios';
+import { PrismaClient, Invoice, InvoiceStatus } from '@prisma/client';
+import Bull, { Queue } from 'bull';
 
-/**
- * Custom error class for settlement poller errors
- */
-export class SettlementPollerError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message);
-    this.name = 'SettlementPollerError';
-    Error.captureStackTrace(this, SettlementPollerError);
-  }
-}
-
-/**
- * Custom error class for PayAI API errors
- */
-export class PayAIApiError extends Error {
-  constructor(message: string, public readonly statusCode?: number) {
-    super(message);
-    this.name = 'PayAIApiError';
-    Error.captureStackTrace(this, PayAIApiError);
-  }
-}
-
-/**
- * Represents a settlement from the PayAI facilitator
- */
 export interface PayAISettlement {
   id: string;
   transaction_id: string;
   amount: number;
   currency: string;
-  status: string;
+  status: 'settled' | 'pending' | 'failed';
   settled_at: string;
   created_at: string;
 }
 
-/**
- * Response from PayAI /list endpoint
- */
 export interface PayAIListResponse {
   settlements: PayAISettlement[];
   pagination?: {
@@ -52,72 +23,332 @@ export interface PayAIListResponse {
   };
 }
 
-/**
- * Configuration options for the settlement poller
- */
 export interface SettlementPollerConfig {
-  /** Polling interval in milliseconds (default: 30000) */
-  pollIntervalMs: number;
-  /** Base URL for PayAI facilitator API */
   payaiBaseUrl: string;
-  /** API key for PayAI facilitator */
   payaiApiKey: string;
-  /** Request timeout in milliseconds (default: 10000) */
-  requestTimeoutMs?: number;
+  pollIntervalMs: number;
+  redisUrl: string;
+}
+
+export interface InvoiceSettlementMatch {
+  invoice: Invoice;
+  settlement: PayAISettlement;
 }
 
 /**
- * Job data for PDF generation queue
+ * Custom error class for settlement poller errors
  */
-export interface PdfGenerationJobData {
-  invoiceId: string;
-  transactionId: string;
-  settlementId: string;
+export class SettlementPollerError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly cause?: Error
+  ) {
+    super(message);
+    this.name = 'SettlementPollerError';
+    Error.captureStackTrace(this, SettlementPollerError);
+  }
 }
 
 /**
- * Default configuration values
+ * Service that polls PayAI facilitator for settlements and matches them to pending invoices
  */
-const DEFAULT_CONFIG: Partial<SettlementPollerConfig> = {
-  pollIntervalMs: 30000,
-  requestTimeoutMs: 10000,
-};
+export class SettlementPollerService {
+  private readonly logger: Logger;
+  private readonly prisma: PrismaClient;
+  private readonly httpClient: AxiosInstance;
+  private readonly queue: Bull.Queue;
+  private pollTimer: NodeJS.Timeout | null = null;
+  private isPolling: boolean = false;
+  private processedTransactionIds: Set<string> = new Set();
+
+  constructor(
+    private readonly config: SettlementPollerConfig,
+    prismaClient?: PrismaClient,
+    httpClient?: AxiosInstance,
+    queue?: Bull.Queue
+  ) {
+    this.logger = new Logger(SettlementPollerService.name);
+    this.prisma = prismaClient || new PrismaClient();
+    
+    this.httpClient = httpClient || axios.create({
+      baseURL: config.payaiBaseUrl,
+      headers: {
+        'Authorization': `Bearer ${config.payaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
+
+    this.queue = queue || new Bull('invoice-pdf-generation', config.redisUrl);
+  }
+
+  /**
+   * Start the settlement poller
+   * @returns void
+   */
+  start(): void {
+    if (this.pollTimer) {
+      this.logger.warn('Settlement poller is already running');
+      return;
+    }
+
+    this.logger.log(
+      `Starting settlement poller with interval: ${this.config.pollIntervalMs}ms`
+    );
+
+    // Perform initial poll
+    this.pollSettlements().catch((error) => {
+      this.logger.error('Initial settlement poll failed', error);
+    });
+
+    // Set up interval for subsequent polls
+    this.pollTimer = setInterval(() => {
+      this.pollSettlements().catch((error) => {
+        this.logger.error('Scheduled settlement poll failed', error);
+      });
+    }, this.config.pollIntervalMs);
+
+    this.logger.log('Settlement poller started successfully');
+  }
+
+  /**
+   * Stop the settlement poller
+   * @returns Promise<void>
+   */
+  async stop(): Promise<void> {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+      this.logger.log('Settlement poller stopped');
+    }
+
+    // Wait for any ongoing poll to complete
+    while (this.isPolling) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    await this.prisma.$disconnect();
+    this.logger.log('Settlement poller resources cleaned up');
+  }
+
+  /**
+   * Poll PayAI facilitator for settlements
+   * @returns Promise<void>
+   */
+  async pollSettlements(): Promise<void> {
+    if (this.isPolling) {
+      this.logger.debug('Skipping poll - previous poll still in progress');
+      return;
+    }
+
+    this.isPolling = true;
+    const startTime = Date.now();
+
+    try {
+      this.logger.debug('Polling PayAI settlements...');
+
+      const response = await this.httpClient.get<PayAIListResponse>('/list');
+      const { settlements } = response.data;
+
+      this.logger.debug(`Received ${settlements.length} settlements from PayAI`);
+
+      // Process each settlement
+      for (const settlement of settlements) {
+        await this.processSettlement(settlement);
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.log(`Poll completed in ${duration}ms, processed ${settlements.length} settlements`);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const statusCode = error.response?.status;
+        const message = error.message;
+        
+        this.logger.error(
+          `PayAI API error: ${statusCode} - ${message}`,
+          error.stack
+        );
+
+        throw new SettlementPollerError(
+          `PayAI API error: ${statusCode}`,
+          'PAYA_API_ERROR',
+          error
+        );
+      }
+
+      this.logger.error('Unexpected error during settlement polling', error);
+      throw new SettlementPollerError(
+        'Unexpected error during settlement polling',
+        'UNKNOWN_ERROR',
+        error instanceof Error ? error : undefined
+      );
+    } finally {
+      this.isPolling = false;
+    }
+  }
+
+  /**
+   * Process a single settlement - match to invoice and queue for PDF generation
+   * @param settlement - The settlement from PayAI
+   * @returns Promise<void>
+   */
+  async processSettlement(settlement: PayAISettlement): Promise<void> {
+    const { transaction_id } = settlement;
+
+    // Skip if already processed in memory
+    if (this.processedTransactionIds.has(transaction_id)) {
+      this.logger.debug(`Settlement ${transaction_id} already processed in this session`);
+      return;
+    }
+
+    // Check if already processed in database (idempotency)
+    const existingInvoice = await this.prisma.invoice.findFirst({
+      where: {
+        transactionId: transaction_id,
+        status: {
+          in: ['processing', 'completed'],
+        },
+      },
+    });
+
+    if (existingInvoice) {
+      this.logger.debug(
+        `Settlement ${transaction_id} already processed (invoice: ${existingInvoice.id})`
+      );
+      this.processedTransactionIds.add(transaction_id);
+      return;
+    }
+
+    // Find pending invoice by transaction_id
+    const pendingInvoice = await this.prisma.invoice.findFirst({
+      where: {
+        transactionId: transaction_id,
+        status: 'pending',
+      },
+    });
+
+    if (!pendingInvoice) {
+      this.logger.warn(
+        `No pending invoice found for transaction: ${transaction_id}`
+      );
+      return;
+    }
+
+    // Match found - update invoice and queue for PDF generation
+    await this.handleSettlementMatch(pendingInvoice, settlement);
+  }
+
+  /**
+   * Handle a matched settlement-invoice pair
+   * @param invoice - The matched invoice
+   * @param settlement - The matched settlement
+   * @returns Promise<void>
+   */
+  private async handleSettlementMatch(
+    invoice: Invoice,
+    settlement: PayAISettlement
+  ): Promise<void> {
+    const { transaction_id, settled_at } = settlement;
+
+    this.logger.log(
+      `Matched settlement ${transaction_id} to invoice ${invoice.id}`
+    );
+
+    try {
+      // Update invoice status to processing
+      await this.prisma.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          status: 'processing',
+          settledAt: new Date(settled_at),
+          updatedAt: new Date(),
+        },
+      });
+
+      // Queue for PDF generation
+      await this.queue.add(
+        {
+          invoiceId: invoice.id,
+          transactionId: transaction_id,
+          settledAt: settled_at,
+        },
+        {
+          jobId: `invoice-${invoice.id}-${transaction_id}`,
+          removeOnComplete: true,
+          removeOnFail: false,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        }
+      );
+
+      // Mark as processed in memory
+      this.processedTransactionIds.add(transaction_id);
+
+      this.logger.log(
+        `Queued invoice ${invoice.id} for PDF generation (transaction: ${transaction_id})`
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to process settlement match for invoice ${invoice.id}`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get current polling status
+   * @returns Polling status object
+   */
+  getStatus(): {
+    isRunning: boolean;
+    isPolling: boolean;
+    processedCount: number;
+    pollInterval: number;
+  } {
+    return {
+      isRunning: this.pollTimer !== null,
+      isPolling: this.isPolling,
+      processedCount: this.processedTransactionIds.size,
+      pollInterval: this.config.pollIntervalMs,
+    };
+  }
+
+  /**
+   * Clear the in-memory processed transaction IDs set
+   * Useful for testing
+   * @returns void
+   */
+  clearProcessedCache(): void {
+    this.processedTransactionIds.clear();
+    this.logger.debug('Cleared processed transaction cache');
+  }
+}
 
 /**
- * Zod schema for validating PayAI settlement response
+ * Factory function to create a SettlementPollerService with configuration from environment
+ * @param config - Optional config overrides
+ * @returns SettlementPollerService instance
  */
-const PayAISettlementSchema = z.object({
-  id: z.string(),
-  transaction_id: z.string(),
-  amount: z.number(),
-  currency: z.string(),
-  status: z.string(),
-  settled_at: z.string(),
-  created_at: z.string(),
-});
+export function createSettlementPollerService(
+  config?: Partial<SettlementPollerConfig>
+): SettlementPollerService {
+  const fullConfig: SettlementPollerConfig = {
+    payaiBaseUrl: config?.payaiBaseUrl || process.env.PAYAI_BASE_URL || 'https://api.payai.example.com',
+    payaiApiKey: config?.payaiApiKey || process.env.PAYAI_API_KEY || '',
+    pollIntervalMs: config?.pollIntervalMs || 30000,
+    redisUrl: config?.redisUrl || process.env.REDIS_URL || 'redis://localhost:6379',
+  };
 
-/**
- * Zod schema for validating PayAI list response
- */
-const PayAIListResponseSchema = z.object({
-  settlements: z.array(PayAISettlementSchema),
-  pagination: z
-    .object({
-      page: z.number(),
-      limit: z.number(),
-      total: z.number(),
-    })
-    .optional(),
-});
+  if (!fullConfig.payaiApiKey) {
+    throw new Error('PAYAI_API_KEY is required');
+  }
 
-/**
- * Service that polls the PayAI facilitator for settlements
- * and matches them to pending invoices in the database.
- * 
- * @remarks
- * This service runs as a background process, polling every 30 seconds
- * by default. It matches settlements to invoices by transaction_id
- * and publishes jobs to a Bull queue for PDF generation.
- * 
- * @example
- *
+  return new SettlementPollerService(fullConfig);
+}
+
+export default SettlementPollerService;

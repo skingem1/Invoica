@@ -84,7 +84,7 @@
         "backend/src/services/settlement-poller.ts",
         "backend/tests/services/settlement-poller.test.ts"
       ],
-      "commit": "763a7f8",
+      "commit": "6dcb421",
       "model": "MiniMax-M2.5"
     }
   },

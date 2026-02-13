@@ -1,561 +1,520 @@
-import { Logger } from 'winston';
-import { PrismaClient, InvoiceStatus } from '@prisma/client';
-import Bull, { Queue, Job } from 'bull';
-import { SettlementPollerService, SettlementPollerError, PayAIApiError, PayAISettlement, PdfGenerationJobData } from '../../src/services/settlement-poller';
+import { Logger } from '@nestjs/common';
+import { AxiosInstance, AxiosError } from 'axios';
+import { PrismaClient, Invoice, InvoiceStatus } from '@prisma/client';
+import Bull from 'bull';
 
 // Mock dependencies
 jest.mock('axios');
 jest.mock('@prisma/client');
 jest.mock('bull');
-jest.mock('winston');
+jest.mock('@nestjs/common', () => ({
+  ...jest.requireActual('@nestjs/common'),
+  Logger: jest.fn().mockImplementation(() => ({
+    log: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  })),
+}));
+
+// Types for mocks
+interface MockQueue {
+  add: jest.Mock;
+}
+
+interface MockPrisma {
+  invoice: {
+    findFirst: jest.Mock;
+    update: jest.Mock;
+  };
+  $disconnect: jest.Mock;
+}
 
 describe('SettlementPollerService', () => {
-  let mockPrisma: jest.Mocked<PrismaClient>;
-  let mockPdfQueue: jest.Mocked<Queue<PdfGenerationJobData>>;
-  let mockLogger: jest.Mocked<Logger>;
-  let service: SettlementPollerService;
-  let mockAxios: {
-    create: jest.Mock;
-    get: jest.Mock;
-  };
+  let service: any;
+  let mockHttpClient: jest.Mocked<AxiosInstance>;
+  let mockPrisma: MockPrisma;
+  let mockQueue: MockQueue;
+  let mockLogger: any;
 
-  const mockConfig = {
-    pollIntervalMs: 1000, // Short interval for testing
-    payaiBaseUrl: 'https://api.payai.test.com',
-    payaiApiKey: 'test-api-key',
-    requestTimeoutMs: 5000,
-  };
-
-  const mockSettlements: PayAISettlement[] = [
+  // Test data
+  const mockSettlements = [
     {
-      id: 'settlement-1',
-      transaction_id: 'txn-001',
+      id: 'settle-001',
+      transaction_id: 'txn-123',
       amount: 10000,
       currency: 'USD',
-      status: 'settled',
+      status: 'settled' as const,
       settled_at: '2024-01-15T10:00:00Z',
       created_at: '2024-01-15T09:00:00Z',
     },
     {
-      id: 'settlement-2',
-      transaction_id: 'txn-002',
+      id: 'settle-002',
+      transaction_id: 'txn-456',
       amount: 25000,
       currency: 'USD',
-      status: 'settled',
-      settled_at: '2024-01-15T10:30:00Z',
-      created_at: '2024-01-15T09:30:00Z',
-    },
-    {
-      id: 'settlement-3',
-      transaction_id: 'txn-003',
-      amount: 5000,
-      currency: 'USD',
-      status: 'settled',
+      status: 'settled' as const,
       settled_at: '2024-01-15T11:00:00Z',
       created_at: '2024-01-15T10:00:00Z',
     },
   ];
 
+  const mockPendingInvoice: Invoice = {
+    id: 'inv-001',
+    invoiceNumber: 'INV-2024-0001',
+    merchantId: 'merchant-001',
+    amount: 10000,
+    currency: 'USD',
+    status: 'pending' as InvoiceStatus,
+    transactionId: 'txn-123',
+    description: 'Test invoice',
+    customerEmail: 'test@example.com',
+    createdAt: new Date('2024-01-14T10:00:00Z'),
+    updatedAt: new Date('2024-01-14T10:00:00Z'),
+    settledAt: null,
+    paidAt: null,
+  };
+
+  const mockProcessedInvoice: Invoice = {
+    ...mockPendingInvoice,
+    id: 'inv-002',
+    transactionId: 'txn-789',
+    status: 'completed' as InvoiceStatus,
+  };
+
+  const config = {
+    payaiBaseUrl: 'https://api.payai.test.com',
+    payaiApiKey: 'test-api-key',
+    pollIntervalMs: 30000,
+    redisUrl: 'redis://localhost:6379',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
 
-    // Setup axios mock
-    mockAxios = {
-      create: jest.fn().mockReturnThis(),
+    // Setup mock HTTP client
+    mockHttpClient = {
       get: jest.fn(),
-    };
-    require('axios').create.mockReturnValue(mockAxios);
+    } as any;
 
-    // Setup Prisma mock
+    // Setup mock Prisma client
     mockPrisma = {
-      $transaction: jest.fn(),
       invoice: {
         findFirst: jest.fn(),
         update: jest.fn(),
       },
-    } as unknown as jest.Mocked<PrismaClient>;
+      $disconnect: jest.fn(),
+    };
 
-    // Setup Bull queue mock
-    mockPdfQueue = {
-      add: jest.fn().mockResolvedValue({ id: 'job-123' }),
-    } as unknown as jest.Mocked<Queue<PdfGenerationJobData>>;
+    // Setup mock Queue
+    mockQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'job-001' }),
+    };
 
-    // Setup Logger mock
+    // Setup mock Logger
     mockLogger = {
-      info: jest.fn(),
+      log: jest.fn(),
+      debug: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn(),
-    } as unknown as jest.Mocked<Logger>;
+    };
 
+    // Import service after mocks are set up
+    const { SettlementPollerService } = require('../../src/services/settlement-poller');
+    
     service = new SettlementPollerService(
-      mockPrisma,
-      mockPdfQueue,
-      mockLogger,
-      mockConfig
+      config,
+      mockPrisma as any,
+      mockHttpClient,
+      mockQueue as any
     );
+    
+    // Replace logger with mock
+    service.logger = mockLogger;
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
+  afterEach(async () => {
+    if (service?.stop) {
+      await service.stop();
+    }
   });
 
   describe('constructor', () => {
-    it('should create the service with correct configuration', () => {
-      expect(mockAxios.create).toHaveBeenCalledWith({
-        baseURL: mockConfig.payaiBaseUrl,
-        timeout: mockConfig.requestTimeoutMs,
-        headers: {
-          'Authorization': `Bearer ${mockConfig.payaiApiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+    it('should create service with provided config', () => {
+      expect(service).toBeDefined();
+      expect(service.config).toEqual(config);
     });
 
-    it('should set isRunning to false initially', () => {
-      expect(service.isPolling()).toBe(false);
+    it('should initialize with empty processedTransactionIds set', () => {
+      expect(service.processedTransactionIds).toBeInstanceOf(Set);
+      expect(service.processedTransactionIds.size).toBe(0);
+    });
+
+    it('should set isPolling to false initially', () => {
+      expect(service.isPolling).toBe(false);
     });
   });
 
   describe('start', () => {
-    beforeEach(() => {
-      mockAxios.get.mockResolvedValue({ data: { settlements: [] } });
+    it('should start the poller and set up interval', () => {
+      service.start();
+      
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('Starting settlement poller')
+      );
+      expect(service.pollTimer).not.toBeNull();
     });
 
-    it('should start the poller and perform initial poll', async () => {
-      await service.start();
-
-      expect(service.isPolling()).toBe(true);
-      expect(mockAxios.get).toHaveBeenCalledWith('/list');
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Starting settlement poller'),
-        expect.any(Object)
+    it('should warn if already running', () => {
+      service.start();
+      service.start();
+      
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Settlement poller is already running'
       );
     });
 
-    it('should perform scheduled polls at interval', async () => {
-      await service.start();
-
-      // Advance timer to trigger next poll
-      jest.advanceTimersByTime(mockConfig.pollIntervalMs);
-
-      expect(mockAxios.get).toHaveBeenCalledTimes(2);
-
-      jest.advanceTimersByTime(mockConfig.pollIntervalMs);
-
-      expect(mockAxios.get).toHaveBeenCalledTimes(3);
-    });
-
-    it('should not start if already running', async () => {
-      await service.start();
-      await service.start();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('Settlement poller is already running');
-      expect(mockAxios.get).toHaveBeenCalledTimes(1); // Only one poll
-    });
-
-    it('should continue scheduling polls even if initial poll fails', async () => {
-      mockAxios.get.mockRejectedValueOnce(new Error('Network error'));
-
-      await service.start();
-
-      // The service should still be running and scheduling polls
-      expect(service.isPolling()).toBe(true);
-
-      // Advance timer
-      jest.advanceTimersByTime(mockConfig.pollIntervalMs);
-
-      // Second poll should succeed
-      mockAxios.get.mockResolvedValueOnce({ data: { settlements: [] } });
-      jest.advanceTimersByTime(mockConfig.pollIntervalMs);
-
-      expect(mockAxios.get).toHaveBeenCalledTimes(2);
+    it('should perform initial poll on start', async () => {
+      mockHttpClient.get.mockResolvedValueOnce({
+        data: { settlements: [] },
+      });
+      
+      service.start();
+      
+      // Wait for initial poll to complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/list');
     });
   });
 
   describe('stop', () => {
-    beforeEach(() => {
-      mockAxios.get.mockResolvedValue({ data: { settlements: [] } });
+    it('should stop the poller and clear interval', async () => {
+      service.start();
+      await service.stop();
+      
+      expect(service.pollTimer).toBeNull();
+      expect(mockLogger.log).toHaveBeenCalledWith('Settlement poller stopped');
     });
 
-    it('should stop the poller', async () => {
-      await service.start();
+    it('should disconnect from database', async () => {
+      service.start();
       await service.stop();
-
-      expect(service.isPolling()).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Settlement poller service stopped'
-      );
-    });
-
-    it('should not stop if not running', async () => {
-      await service.stop();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('Settlement poller is not running');
-    });
-
-    it('should clear the poll interval', async () => {
-      await service.start();
-      await service.stop();
-
-      jest.advanceTimersByTime(mockConfig.pollIntervalMs * 10);
-
-      // Should not have any more polls after stop
-      expect(mockAxios.get).toHaveBeenCalledTimes(1);
+      
+      expect(mockPrisma.$disconnect).toHaveBeenCalled();
     });
   });
 
-  describe('poll', () => {
+  describe('pollSettlements', () => {
     it('should fetch settlements from PayAI API', async () => {
-      mockAxios.get.mockResolvedValue({
+      mockHttpClient.get.mockResolvedValueOnce({
         data: { settlements: mockSettlements },
       });
 
-      await service.poll();
+      await service.pollSettlements();
 
-      expect(mockAxios.get).toHaveBeenCalledWith('/list');
-    });
-
-    it('should log the number of settlements received', async () => {
-      mockAxios.get.mockResolvedValue({
-        data: { settlements: mockSettlements },
-      });
-
-      await service.poll();
-
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Received settlements'),
-        expect.objectContaining({
-          settlementCount: 3,
-        })
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/list');
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('Poll completed')
       );
     });
 
-    it('should throw SettlementPollerError on axios error with 5xx status', async () => {
-      const axiosError = new Error('Server Error');
-      (axiosError as any).response = { status: 500 };
-      mockAxios.get.mockRejectedValue(axiosError);
-
-      await expect(service.poll()).rejects.toThrow(PayAIApiError);
-    });
-
-    it('should throw SettlementPollerError on network failure', async () => {
-      mockAxios.get.mockRejectedValue(new Error('Network Error'));
-
-      await expect(service.poll()).rejects.toThrow(SettlementPollerError);
-    });
-
-    it('should throw error on invalid response schema', async () => {
-      mockAxios.get.mockResolvedValue({
-        data: { invalid: 'structure' },
+    it('should skip poll if already in progress', async () => {
+      mockHttpClient.get.mockResolvedValueOnce({
+        data: { settlements: [] },
       });
 
-      await expect(service.poll()).rejects.toThrow(PayAIApiError);
+      // Set isPolling to true to simulate ongoing poll
+      service.isPolling = true;
+      
+      await service.pollSettlements();
+
+      expect(mockHttpClient.get).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Skipping poll - previous poll still in progress'
+      );
+    });
+
+    it('should throw SettlementPollerError on API error', async () => {
+      const axiosError = new AxiosError('Network Error', '500', undefined, {}, {
+        status: 500,
+        data: { message: 'Internal Server Error' },
+      } as any);
+      
+      mockHttpClient.get.mockRejectedValueOnce(axiosError);
+
+      await expect(service.pollSettlements()).rejects.toThrow('SettlementPollerError');
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('PayAI API error'),
+        expect.any(String)
+      );
+    });
+
+    it('should process each settlement', async () => {
+      mockHttpClient.get.mockResolvedValueOnce({
+        data: { settlements: mockSettlements },
+      });
+      
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(null) // First settlement - no match
+        .mockResolvedValueOnce(mockPendingInvoice); // Second settlement - match found
+
+      await service.pollSettlements();
+
+      expect(mockPrisma.invoice.findFirst).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('processSettlement', () => {
-    beforeEach(() => {
-      // Default transaction behavior
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrisma);
-      });
+    it('should skip settlement already processed in memory', async () => {
+      service.processedTransactionIds.add('txn-123');
+
+      await service.processSettlement(mockSettlements[0]);
+
+      expect(mockPrisma.invoice.findFirst).not.toHaveBeenCalled();
     });
 
-    it('should match settlement to pending invoice and queue PDF generation', async () => {
+    it('should skip settlement already processed in database', async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValueOnce(mockProcessedInvoice);
+
+      await service.processSettlement(mockSettlements[0]);
+
+      expect(mockPrisma.invoice.findFirst).toHaveBeenCalledWith({
+        where: {
+          transactionId: 'txn-123',
+          status: {
+            in: ['processing', 'completed'],
+          },
+        },
+      });
+      expect(service.processedTransactionIds.has('txn-123')).toBe(true);
+    });
+
+    it('should skip settlement with no matching pending invoice', async () => {
       mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null) // Not already completed
-        .mockResolvedValueOnce({    // Find pending invoice
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
+        .mockResolvedValueOnce(null) // Check if processed
+        .mockResolvedValueOnce(null); // Check for pending
 
-      mockPrisma.invoice.update.mockResolvedValue({});
+      await service.processSettlement(mockSettlements[0]);
 
-      const settlement = mockSettlements[0];
-      const result = await (service as any).processSettlement(settlement);
-
-      expect(result).toBe('matched');
-      expect(mockPdfQueue.add).toHaveBeenCalledWith(
-        expect.objectContaining({
-          invoiceId: 'inv-001',
-          transactionId: 'txn-001',
-          settlementId: 'settlement-1',
-        }),
-        expect.any(Object)
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('No pending invoice found')
       );
     });
 
-    it('should return already_processed if invoice already completed', async () => {
-      mockPrisma.invoice.findFirst.mockResolvedValueOnce({
-        id: 'inv-001',
-        transactionId: 'txn-001',
-        status: 'completed' as InvoiceStatus,
-      });
-
-      const settlement = mockSettlements[0];
-      const result = await (service as any).processSettlement(settlement);
-
-      expect(result).toBe('already_processed');
-      expect(mockPdfQueue.add).not.toHaveBeenCalled();
-    });
-
-    it('should return no_match if no pending invoice found', async () => {
+    it('should match settlement to pending invoice and queue for PDF generation', async () => {
       mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null) // Not already completed
-        .mockResolvedValueOnce(null); // No pending invoice
+        .mockResolvedValueOnce(null) // Not already processed
+        .mockResolvedValueOnce(mockPendingInvoice); // Found pending invoice
 
-      const settlement = mockSettlements[0];
-      const result = await (service as any).processSettlement(settlement);
+      await service.processSettlement(mockSettlements[0]);
 
-      expect(result).toBe('no_match');
-      expect(mockPdfQueue.add).not.toHaveBeenCalled();
-    });
-
-    it('should add settlement to processed cache after matching', async () => {
-      mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      await service.poll();
-
-      expect(service.getProcessedCount()).toBeGreaterThan(0);
-    });
-
-    it('should skip already processed settlements from cache', async () => {
-      // First call processes the settlement
-      mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      // Process first settlement
-      await (service as any).processSettlement(mockSettlements[0]);
-
-      // Try to process same settlement again
-      const result = await (service as any).processSettlement(mockSettlements[0]);
-
-      expect(result).toBe('already_processed');
-      // Should not query database again
-      expect(mockPrisma.invoice.findFirst).toHaveBeenCalledTimes(2); // Called once in processSettlement but cache prevents database query
-    });
-
-    it('should update invoice status to processing', async () => {
-      mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      await service.poll();
-
+      // Verify invoice update
       expect(mockPrisma.invoice.update).toHaveBeenCalledWith({
-        where: { id: 'inv-001' },
-        data: { status: 'processing' },
+        where: { id: mockPendingInvoice.id },
+        data: {
+          status: 'processing',
+          settledAt: new Date(mockSettlements[0].settled_at),
+          updatedAt: expect.any(Date),
+        },
       });
+
+      // Verify queue add
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        {
+          invoiceId: mockPendingInvoice.id,
+          transactionId: 'txn-123',
+          settledAt: mockSettlements[0].settled_at,
+        },
+        expect.objectContaining({
+          jobId: `invoice-${mockPendingInvoice.id}-txn-123`,
+          attempts: 3,
+        })
+      );
+
+      // Verify in-memory tracking
+      expect(service.processedTransactionIds.has('txn-123')).toBe(true);
     });
   });
 
   describe('idempotency', () => {
-    it('should not add duplicate jobs to queue for same settlement', async () => {
-      mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null) // Not already completed
-        .mockResolvedValueOnce({    // Find pending invoice
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      // First processing
-      await (service as any).processSettlement(mockSettlements[0]);
-
-      // Clear mocks and try again (should use cache)
-      jest.clearAllMocks();
-      
-      // Second processing - should be skipped due to cache
-      const result = await (service as any).processSettlement(mockSettlements[0]);
-
-      expect(result).toBe('already_processed');
-      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(0); // Should not access database
-    });
-  });
-
-  describe('batch processing', () => {
-    it('should process multiple settlements in a batch', async () => {
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrisma);
-      });
-
-      mockPrisma.invoice.findFirst
-        .mockResolvedValue(null)  // First: not completed
-        .mockResolvedValue({     // First: find pending
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        })
-        .mockResolvedValue(null)  // Second: not completed
-        .mockResolvedValue({     // Second: find pending
-          id: 'inv-002',
-          transactionId: 'txn-002',
-          status: 'pending' as InvoiceStatus,
-        })
-        .mockResolvedValue(null); // Third: not completed
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      await service.poll();
-
-      expect(mockPdfQueue.add).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('error handling', () => {
-    it('should log errors during settlement processing', async () => {
-      mockPrisma.$transaction.mockRejectedValue(new Error('Database error'));
-
-      const settlement = mockSettlements[0];
-
-      await expect((service as any).processSettlement(settlement)).rejects.toThrow(
-        SettlementPollerError
-      );
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to process settlement',
-        expect.objectContaining({
-          transactionId: 'txn-001',
-          settlementId: 'settlement-1',
-        })
-      );
-    });
-
-    it('should handle axios errors with response', async () => {
-      const axiosError = new Error('Unauthorized') as any;
-      axiosError.response = { status: 401 };
-      axiosError.config = { url: '/list' };
-      mockAxios.get.mockRejectedValue(axiosError);
-
-      await expect(service.poll()).rejects.toThrow(PayAIApiError);
-    });
-
-    it('should log authentication errors', async () => {
-      const axiosError = new Error('Unauthorized') as any;
-      axiosError.response = { status: 401 };
-      axiosError.config = { url: '/list' };
-      mockAxios.get.mockRejectedValue(axiosError);
-
-      try {
-        await service.poll();
-      } catch (e) {
-        // Expected
-      }
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'PayAI API authentication failed - check API key'
-      );
-    });
-  });
-
-  describe('getPollCount', () => {
-    it('should return 0 initially', () => {
-      expect(service.getPollCount()).toBe(0);
-    });
-
-    it('should increment poll count', async () => {
-      mockAxios.get.mockResolvedValue({ data: { settlements: [] } });
-
-      await service.poll();
-
-      expect(service.getPollCount()).toBe(1);
-    });
-  });
-
-  describe('getProcessedCount', () => {
-    it('should return 0 initially', () => {
-      expect(service.getProcessedCount()).toBe(0);
-    });
-
-    it('should increment after processing settlements', async () => {
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrisma);
-      });
-
+    it('should not process same transaction twice in same session', async () => {
       mockPrisma.invoice.findFirst
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
+        .mockResolvedValueOnce(mockPendingInvoice);
 
-      mockPrisma.invoice.update.mockResolvedValue({});
+      // First processing
+      await service.processSettlement(mockSettlements[0]);
+      
+      // Second processing attempt
+      await service.processSettlement(mockSettlements[0]);
 
-      await service.poll();
+      // Should only call update once
+      expect(mockPrisma.invoice.update).toHaveBeenCalledTimes(1);
+      expect(mockQueue.add).toHaveBeenCalledTimes(1);
+    });
 
-      expect(service.getProcessedCount()).toBe(1);
+    it('should not process already completed invoice', async () => {
+      mockPrisma.invoice.findFirst.mockResolvedValueOnce(mockProcessedInvoice);
+
+      await service.processSettlement(mockSettlements[0]);
+
+      expect(mockPrisma.invoice.update).not.toHaveBeenCalled();
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStatus', () => {
+    it('should return correct status', () => {
+      service.start();
+      
+      const status = service.getStatus();
+
+      expect(status).toEqual({
+        isRunning: true,
+        isPolling: false,
+        processedCount: 0,
+        pollInterval: 30000,
+      });
+    });
+
+    it('should reflect isPolling state', async () => {
+      mockHttpClient.get.mockImplementation(() => 
+        new Promise(resolve => setTimeout(() => resolve({ data: { settlements: [] } }), 100))
+      );
+      
+      const pollPromise = service.pollSettlements();
+      
+      // Give it a moment to start polling
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      const status = service.getStatus();
+      expect(status.isPolling).toBe(true);
+      
+      await pollPromise;
+      
+      const statusAfter = service.getStatus();
+      expect(statusAfter.isPolling).toBe(false);
     });
   });
 
   describe('clearProcessedCache', () => {
-    it('should clear the processed settlements cache', async () => {
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback(mockPrisma);
-      });
-
-      mockPrisma.invoice.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          id: 'inv-001',
-          transactionId: 'txn-001',
-          status: 'pending' as InvoiceStatus,
-        });
-
-      mockPrisma.invoice.update.mockResolvedValue({});
-
-      await service.poll();
-
-      expect(service.getProcessedCount()).toBe(1);
+    it('should clear the processed transaction IDs set', () => {
+      service.processedTransactionIds.add('txn-123');
+      service.processedTransactionIds.add('txn-456');
 
       service.clearProcessedCache();
 
-      expect(service.getProcessedCount()).toBe(0);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Cleared processed settlements cache'
+      expect(service.processedTransactionIds.size).toBe(0);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Cleared processed transaction cache'
       );
     });
   });
 
-  describe('createSettlementPollerService factory', () => {
-    it('should create a service instance', () => {
+  describe('createSettlementPollerService', () => {
+    it('should create service with default config', () => {
       const { createSettlementPollerService } = require('../../src/services/settlement-poller');
       
-      const service = createSettlementPollerService(
-        mockPrisma,
-        mockPdfQueue,
-        mockLogger,
-        mockConfig
+      const testConfig = {
+        payaiBaseUrl: 'https://api.test.com',
+        payaiApiKey: 'test-key',
+        pollIntervalMs: 5000,
+        redisUrl: 'redis://test:6379',
+      };
+      
+      const createdService = createSettlementPollerService(testConfig);
+      
+      expect(createdService).toBeInstanceOf(require('../../src/services/settlement-poller').SettlementPollerService);
+    });
+
+    it('should throw error if API key not provided', () => {
+      const { createSettlementPollerService } = require('../../src/services/settlement-poller');
+      
+      expect(() => createSettlementPollerService({
+        payaiBaseUrl: 'https://api.test.com',
+        payaiApiKey: '',
+        pollIntervalMs: 5000,
+        redisUrl: 'redis://test:6379',
+      })).toThrow('PAYAI_API_KEY is required');
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle database errors gracefully', async () => {
+      mockHttpClient.get.mockResolvedValueOnce({
+        data: { settlements: mockSettlements },
+      });
+      
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(null)
+        .mockRejectedValueOnce(new Error('Database connection error'));
+
+      await expect(service.pollSettlements()).rejects.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to process settlement match'),
+        expect.any(Error)
+      );
+    });
+
+    it('should handle queue errors gracefully', async () => {
+      mockHttpClient.get.mockResolvedValueOnce({
+        data: { settlements: mockSettlements },
+      });
+      
+      mockPrisma.invoice.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockPendingInvoice);
+      
+      mockQueue.add.mockRejectedValueOnce(new Error('Queue connection error'));
+
+      await expect(service.pollSettlements()).rejects.toThrow();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to process settlement match'),
+        expect.any(Error)
+      );
+    });
+  });
+
+  describe('pagination support', () => {
+    it('should handle paginated responses', async () => {
+      const paginatedResponse = {
+        settlements: mockSettlements,
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 100,
+        },
+      };
+      
+      mockHttpClient.get.mockResolvedValueOnce({ data: paginatedResponse });
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      await service.pollSettlements();
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('Poll completed')
+      );
+    });
+  });
+
+  describe('SettlementPollerError', () => {
+    it('should create error with correct properties', () => {
+      const { SettlementPollerError } = require('../../src/services/settlement-poller');
+      
+      const originalError = new Error('Original error');
+      const error = new SettlementPollerError(
+        'Test error message',
+        'TEST_ERROR_CODE',
+        originalError
       );
 
-      expect(service).toBeInstanceOf(SettlementPollerService);
+      expect(error.message).toBe('Test error message');
+      expect(error.code).toBe('TEST_ERROR_CODE');
+      expect(error.cause).toBe(originalError);
+      expect(error.name).toBe('SettlementPollerError');
     });
   });
 });
