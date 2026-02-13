@@ -302,10 +302,10 @@ class SupervisorClient {
   async requestReview(
     task: AgentTask,
     files: string[]
-  ): Promise<'approved' | 'rejected'> {
+  ): Promise<'approved' | 'rejected' | 'unreachable'> {
     if (!this.available) {
-      log(c.yellow, `  -> Supervisor unavailable, auto-approving`);
-      return 'approved';
+      log(c.yellow, `  -> Supervisor not configured`);
+      return 'unreachable';
     }
 
     log(c.yellow, `\nRequesting supervisor review for ${task.id}...`);
@@ -335,8 +335,7 @@ class SupervisorClient {
       }
     } catch (error: any) {
       log(c.yellow, `  ! Supervisor unreachable: ${error.message}`);
-      log(c.yellow, `  -> Auto-approving (supervisor offline)`);
-      return 'approved';
+      return 'unreachable';
     }
   }
 
@@ -397,12 +396,9 @@ class Orchestrator {
   private tasks: AgentTask[] = [];
   private supervisor: SupervisorClient;
   private sprintFile: string;
-  private singleTaskMode: boolean;
 
   constructor() {
     this.sprintFile = process.argv[2] || './sprints/week-2.json';
-    this.singleTaskMode =
-      process.argv.includes('--one') || process.argv.includes('--single');
     this.loadAgents();
     this.loadTasks();
     this.supervisor = new SupervisorClient();
@@ -459,43 +455,130 @@ class Orchestrator {
       return dep?.status === 'done' || dep?.status === 'approved';
     });
   }
-  private async executeTask(task: AgentTask) {
+  private async promptUser(question: string): Promise<string> {
+    return new Promise((resolve) => {
+      const readline = require('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      rl.question(`${c.yellow}${question}${c.reset}`, (answer: string) => {
+        rl.close();
+        resolve(answer.trim().toLowerCase());
+      });
+    });
+  }
+
+  private async executeTask(task: AgentTask): Promise<'done' | 'rejected' | 'paused'> {
     const agent = this.agents.get(task.agent);
     if (!agent) {
       log(c.red, `x Agent not found: ${task.agent}`);
-      return;
+      return 'paused';
     }
 
-    task.status = 'in_progress';
-    this.saveTasks();
+    const MAX_RETRIES = 3;
 
-    try {
-      const result = await agent.execute(task);
-      task.output = {
-        files: result.files,
-        commit: this.getLatestCommit(),
-        model: result.model,
-      };
-
-      // Critical and high priority tasks go through supervisor review
-      if (task.priority === 'critical' || task.priority === 'high') {
-        task.status = 'review';
-        this.saveTasks();
-
-        const decision = await this.supervisor.requestReview(task, result.files);
-        task.status = decision === 'approved' ? 'done' : 'rejected';
-      } else {
-        // Medium/low priority auto-approved
-        task.status = 'done';
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 1) {
+        log(c.yellow, `\n--- Retry #${attempt} for ${task.id} ---`);
       }
 
+      task.status = 'in_progress';
       this.saveTasks();
-      log(c.green, `\nTask ${task.id} -> ${task.status}`);
-    } catch (error: any) {
-      log(c.red, `\nx Task ${task.id} failed: ${error.message}`);
-      task.status = 'pending'; // Reset to pending for retry
-      this.saveTasks();
+
+      try {
+        const result = await agent.execute(task);
+        task.output = {
+          files: result.files,
+          commit: this.getLatestCommit(),
+          model: result.model,
+        };
+
+        // Critical and high priority tasks go through supervisor review
+        if (task.priority === 'critical' || task.priority === 'high') {
+          task.status = 'review';
+          this.saveTasks();
+
+          const decision = await this.supervisor.requestReview(task, result.files);
+
+          if (decision === 'approved') {
+            task.status = 'done';
+            this.saveTasks();
+            log(c.green, `\nTask ${task.id} -> done`);
+            return 'done';
+          } else if (decision === 'rejected') {
+            log(c.red, `\nTask ${task.id} rejected (attempt ${attempt}/${MAX_RETRIES})`);
+            if (attempt < MAX_RETRIES) {
+              task.status = 'pending';
+              this.saveTasks();
+              // Will retry in next loop iteration
+              continue;
+            } else {
+              log(c.red, `Task ${task.id} rejected after ${MAX_RETRIES} attempts, skipping`);
+              task.status = 'rejected';
+              this.saveTasks();
+              return 'rejected';
+            }
+          } else {
+            // unreachable
+            log(c.yellow, `\nSupervisor unreachable for ${task.id}.`);
+            const answer = await this.promptUser(
+              `[a]pprove manually, [r]etry review, or [p]ause sprint? (a/r/p): `
+            );
+            if (answer === 'a') {
+              task.status = 'done';
+              this.saveTasks();
+              log(c.green, `Task ${task.id} -> manually approved`);
+              return 'done';
+            } else if (answer === 'r') {
+              // Retry the review only (not regeneration)
+              const retryDecision = await this.supervisor.requestReview(task, result.files);
+              if (retryDecision === 'approved') {
+                task.status = 'done';
+                this.saveTasks();
+                log(c.green, `Task ${task.id} -> done`);
+                return 'done';
+              } else if (retryDecision === 'rejected') {
+                task.status = 'pending';
+                this.saveTasks();
+                continue;
+              } else {
+                task.status = 'done';
+                this.saveTasks();
+                log(c.yellow, `Still unreachable, auto-approving ${task.id}`);
+                return 'done';
+              }
+            } else {
+              task.status = 'pending';
+              this.saveTasks();
+              log(c.yellow, `Sprint paused. Re-run to continue.`);
+              return 'paused';
+            }
+          }
+        } else {
+          // Medium/low priority auto-approved
+          task.status = 'done';
+          this.saveTasks();
+          log(c.green, `\nTask ${task.id} -> done (auto-approved, ${task.priority} priority)`);
+          return 'done';
+        }
+      } catch (error: any) {
+        log(c.red, `\nx Task ${task.id} failed: ${error.message}`);
+        if (attempt < MAX_RETRIES) {
+          log(c.yellow, `Retrying (attempt ${attempt}/${MAX_RETRIES})...`);
+          task.status = 'pending';
+          this.saveTasks();
+          continue;
+        } else {
+          log(c.red, `Task ${task.id} failed after ${MAX_RETRIES} attempts`);
+          task.status = 'pending';
+          this.saveTasks();
+          return 'paused';
+        }
+      }
     }
+
+    return 'paused';
   }
 
   private getLatestCommit(): string {
@@ -508,15 +591,13 @@ class Orchestrator {
     }
   }
   async run() {
-    log(`${c.bold}${c.blue}`, '\nStarting Orchestration');
-    log(
-      c.gray,
-      `Mode: ${this.singleTaskMode ? 'single task' : 'full sprint'}\n`
-    );
+    log(`${c.bold}${c.blue}`, '\nStarting Orchestration (auto mode)');
+    log(c.gray, `Reject -> retry | Approve -> next | Unreachable -> prompt\n`);
 
     let tasksExecuted = 0;
+    let paused = false;
 
-    while (true) {
+    while (!paused) {
       const pending = this.tasks.filter((t) => t.status === 'pending');
       const executable = pending.filter((t) => this.canExecute(t));
 
@@ -551,13 +632,18 @@ class Orchestrator {
 
       // Execute one task at a time (sequential for predictability)
       const task = executable[0];
-      await this.executeTask(task);
+      const result = await this.executeTask(task);
       tasksExecuted++;
 
-      // In single task mode, stop after one
-      if (this.singleTaskMode) {
-        log(c.blue, `\nSingle task mode: stopping after ${task.id}`);
+      if (result === 'paused') {
+        paused = true;
         break;
+      }
+
+      // Brief pause between tasks
+      if (!paused) {
+        log(c.gray, `\n--- Waiting 3s before next task ---`);
+        await new Promise((r) => setTimeout(r, 3000));
       }
     }
     // Final summary

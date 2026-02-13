@@ -78,7 +78,15 @@
         "backend/tests/services/settlement-poller.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "in_progress",
+    "output": {
+      "files": [
+        "backend/src/services/settlement-poller.ts",
+        "backend/tests/services/settlement-poller.test.ts"
+      ],
+      "commit": "763a7f8",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "TAX-001",
