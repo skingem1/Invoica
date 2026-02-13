@@ -1,7 +1,6 @@
 /**
  * RDS Module Variables
- * 
- * @module rds_variables
+ * @module rds
  */
 
 variable "environment" {
@@ -9,94 +8,74 @@ variable "environment" {
   type        = string
 }
 
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "VPC CIDR block for security group"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "db_subnet_group_name" {
+  description = "Database subnet group name"
+  type        = string
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs for RDS Proxy"
+  type        = list(string)
+  default     = []
+}
+
+variable "engine_version" {
+  description = "Aurora PostgreSQL engine version"
+  type        = string
+  default     = "15.3"
+}
+
 variable "database_name" {
-  description = "Name of the database"
+  description = "Database name"
   type        = string
   default     = "appdb"
 }
 
 variable "master_username" {
-  description = "Master username for the database"
+  description = "Master username"
   type        = string
   default     = "dbadmin"
 }
 
 variable "master_password" {
-  description = "Master password for the database (leave empty to generate)"
+  description = "Master password (use random or SSM)"
   type        = string
-  default     = ""
   sensitive   = true
 }
 
 variable "port" {
-  description = "Port for the database"
+  description = "Database port"
   type        = number
   default     = 5432
 }
 
-variable "engine_version" {
-  description = "PostgreSQL engine version"
-  type        = string
-  default     = "15.4"
-}
-
-variable "instance_count" {
-  description = "Number of cluster instances"
-  type        = number
-  default     = 2
-}
-
-# Serverless v2 scaling
 variable "min_acus" {
-  description = "Minimum Aurora Capacity Units (0.5 - 128)"
+  description = "Minimum Aurora Capacity Units (0.5-128)"
   type        = number
   default     = 0.5
 }
 
 variable "max_acus" {
-  description = "Maximum Aurora Capacity Units (0.5 - 128)"
+  description = "Maximum Aurora Capacity Units (0.5-128)"
   type        = number
   default     = 16
 }
 
-variable "allocated_storage" {
-  description = "Allocated storage in GB"
-  type        = number
-  default     = 100
-}
-
-variable "db_subnet_group_name" {
-  description = "Name of the DB subnet group"
-  type        = string
-}
-
-variable "vpc_security_group_ids" {
-  description = "Security group IDs for the RDS cluster"
-  type        = list(string)
-}
-
-variable "kms_key_id" {
-  description = "KMS key ID for encryption"
-  type        = string
-  default     = ""
-}
-
-variable "backup_retention_days" {
-  description = "Number of days to retain backups"
-  type        = number
-  default     = 7
-}
-
-variable "preferred_backup_window" {
-  description = "Preferred backup window (e.g., '03:00-04:00')"
-  type        = string
-  default     = "03:00-04:00"
-}
-
-variable "preferred_maintenance_window" {
-  description = "Preferred maintenance window (e.g., 'mon:04:00-mon:05:00')"
-  type        = string
-  default     = "mon:04:00-mon:05:00"
+variable "multi_az" {
+  description = "Enable multi-AZ deployment"
+  type        = bool
+  default     = false
 }
 
 variable "deletion_protection" {
@@ -105,58 +84,64 @@ variable "deletion_protection" {
   default     = true
 }
 
+variable "skip_final_snapshot" {
+  description = "Skip final snapshot on deletion"
+  type        = bool
+  default     = false
+}
+
+variable "backup_retention_days" {
+  description = "Backup retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "preferred_backup_window" {
+  description = "Preferred backup window"
+  type        = string
+  default     = "03:00-04:00"
+}
+
+variable "preferred_maintenance_window" {
+  description = "Preferred maintenance window"
+  type        = string
+  default     = "mon:04:00-mon:05:00"
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption"
+  type        = string
+  default     = null
+}
+
 variable "enable_performance_insights" {
   description = "Enable Performance Insights"
   type        = bool
   default     = true
 }
 
-variable "performance_insights_kms_key_id" {
-  description = "KMS key for Performance Insights"
-  type        = string
-  default     = ""
-}
-
-variable "enabled_cloudwatch_logs_exports" {
-  description = "CloudWatch logs to export"
-  type        = list(string)
-  default     = ["postgresql", "upgrade"]
-}
-
-variable "monitoring_interval" {
-  description = "Monitoring interval in seconds"
-  type        = number
-  default     = 60
-}
-
-variable "create_monitoring_role" {
-  description = "Create IAM role for enhanced monitoring"
+variable "enable_enhanced_monitoring" {
+  description = "Enable Enhanced Monitoring"
   type        = bool
   default     = true
 }
 
-variable "monitoring_role_arn" {
-  description = "Existing monitoring role ARN"
-  type        = string
-  default     = ""
-}
-
-variable "create_secrets" {
-  description = "Create Secrets Manager secret for credentials"
+variable "enable_cloudwatch_logs" {
+  description = "Enable CloudWatch logs export"
   type        = bool
   default     = true
+}
+
+variable "enable_rds_proxy" {
+  description = "Enable RDS Proxy for connection pooling"
+  type        = bool
+  default     = false
 }
 
 variable "recovery_window_in_days" {
-  description = "Recovery window for secrets"
+  description = "Secrets Manager recovery window in days"
   type        = number
-  default     = 0
-}
-
-variable "secrets_kms_key_id" {
-  description = "KMS key for secrets"
-  type        = string
-  default     = ""
+  default     = 7
 }
 
 variable "tags" {

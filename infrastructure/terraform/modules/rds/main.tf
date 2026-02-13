@@ -1,15 +1,15 @@
 /**
  * RDS Aurora Serverless v2 Module
  * 
- * Creates an Aurora Serverless v2 PostgreSQL cluster with auto-scaling ACUs.
- * Supports multi-AZ deployment with automatic failover.
+ * Creates an Aurora PostgreSQL Serverless v2 cluster with auto-scaling,
+ * multi-AZ deployment, and automated backups.
  * 
  * @module rds
- * @requires terraform-aws-modules/rds-aurora/aws >= 8.0
+ * @requires aws >= 4.0
  */
 
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.0"
   
   required_providers {
     aws = {
@@ -19,337 +19,277 @@ terraform {
   }
 }
 
-variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod"
-  }
-}
+# =============================================================================
+# Secrets Manager Secret for Database Credentials
+# =============================================================================
 
-variable "vpc_id" {
-  description = "VPC ID where RDS will be deployed"
-  type        = string
-}
-
-variable "subnet_ids" {
-  description = "List of subnet IDs for RDS cluster (should be database subnets)"
-  type        = list(string)
-}
-
-variable "db_name" {
-  description = "Name of the database"
-  type        = string
-  default     = "appdb"
-}
-
-variable "master_username" {
-  description = "Master username for the database"
-  type        = string
-  default     = "dbadmin"
-}
-
-variable "master_password" {
-  description = "Master password for the database (use SSM parameter or secrets manager in production)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "storage_encrypted" {
-  description = "Enable storage encryption"
-  type        = bool
-  default     = true
-}
-
-variable "engine_version" {
-  description = "PostgreSQL engine version"
-  type        = string
-  default     = "15.4"
-}
-
-variable "serverlessv2_scaling_configuration" {
-  description = "Serverless v2 scaling configuration"
-  type = object({
-    min_capacity = number
-    max_capacity = number
-  })
-  default = {
-    min_capacity = 0.5
-    max_capacity = 16
-  }
-}
-
-variable "backup_retention_period" {
-  description = "Days to retain backups"
-  type        = number
-  default     = 7
-}
-
-variable "preferred_backup_window" {
-  description = "Preferred backup window (UTC)"
-  type        = string
-  default     = "03:00-04:00"
-}
-
-variable "preferred_maintenance_window" {
-  description = "Preferred maintenance window (UTC)"
-  type        = string
-  default     = "mon:04:00-mon:05:00"
-}
-
-variable "deletion_protection" {
-  description = "Enable deletion protection"
-  type        = bool
-  default     = true
-}
-
-variable "skip_final_snapshot" {
-  description = "Skip final snapshot on deletion (for dev only)"
-  type        = bool
-  default     = false
-}
-
-variable "final_snapshot_identifier" {
-  description = "Final snapshot identifier"
-  type        = string
-  default     = null
-}
-
-variable "enable_http_endpoint" {
-  description = "Enable HTTP endpoint for Aurora Serverless v2"
-  type        = bool
-  default     = false
-}
-
-variable "copy_tags_to_snapshot" {
-  description = "Copy tags to snapshots"
-  type        = bool
-  default     = true
-}
-
-variable "performance_insights_enabled" {
-  description = "Enable Performance Insights"
-  type        = bool
-  default     = true
-}
-
-variable "performance_insights_retention_period" {
-  description = "Performance Insights retention period in days"
-  type        = number
-  default     = 7
-}
-
-variable "cloudwatch_log_exports" {
-  description = "CloudWatch log exports"
-  type        = list(string)
-  default     = ["postgresql", "upgrade"]
-}
-
-variable "enabled_cloudwatch_logs_exports" {
-  description = "Enabled CloudWatch logs exports"
-  type        = list(string)
-  default     = ["postgresql", "upgrade"]
-}
-
-variable "database_port" {
-  description = "Database port"
-  type        = number
-  default     = 5432
-}
-
-variable "vpc_security_group_ids" {
-  description = "Additional VPC security group IDs"
-  type        = list(string)
-  default     = []
-}
-
-variable "tags" {
-  description = "Additional tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
-
-locals {
-  common_tags = merge(
+resource "aws_secretsmanager_secret" "credentials" {
+  name_prefix = "${var.environment}-aurora-"
+  description = "Aurora PostgreSQL credentials for ${var.environment}"
+  
+  recovery_window_in_days = var.recovery_window_in_days
+  
+  tags = merge(
+    var.tags,
     {
+      Name        = "${var.environment}-db-credentials"
       Environment = var.environment
-      Project     = "infrastructure"
-      ManagedBy   = "terraform"
-    },
-    var.tags
+    }
   )
 }
 
-# Get the master password from SSM Parameter Store if not provided
-data "aws_ssm_parameter" "db_password" {
-  count = var.master_password == "" ? 1 : 0
-  name  = "/${var.environment}/rds/master-password"
+resource "aws_secretsmanager_secret_version" "credentials" {
+  secret_id = aws_secretsmanager_secret.credentials.id
+  
+  secret_string = jsonencode({
+    username = var.master_username
+    password = var.master_password
+    engine   = "aurora-postgresql"
+    host     = aws_rds_cluster.main.endpoint
+    port     = var.port
+    db_name  = var.database_name
+  })
 }
 
-locals {
-  db_password = var.master_password != "" ? var.master_password : try(data.aws_ssm_parameter.db_password[0].value, "changeme")
+# =============================================================================
+# RDS Cluster Parameter Group
+# =============================================================================
+
+resource "aws_rds_cluster_parameter_group" "main" {
+  name   = "${var.environment}-aurora-pg15"
+  family = "aurora-postgresql15"
+  
+  parameter {
+    name  = "aurora_parallel_query"
+    value = "1"
+  }
+  
+  parameter {
+    name  = "aurora_enable_read_replica"
+    value = "1"
+  }
+  
+  parameter {
+    name  = "rds.force_ssl"
+    value = "1"
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-aurora-pg15-param-group"
+      Environment = var.environment
+    }
+  )
 }
 
-# Security Group for RDS
-resource "aws_security_group" "rds" {
-  name        = "${var.environment}-rds-sg"
-  description = "Security group for RDS Aurora cluster"
-  vpc_id      = var.vpc_id
+# =============================================================================
+# RDS Cluster
+# =============================================================================
 
-  ingress {
-    from_port       = var.database_port
-    to_port         = var.database_port
-    protocol        = "tcp"
-    security_groups = var.vpc_security_group_ids
-    description     = "PostgreSQL from allowed security groups"
+resource "aws_rds_cluster" "main" {
+  cluster_identifier        = "${var.environment}-aurora-cluster"
+  engine                    = "aurora-postgresql"
+  engine_version            = var.engine_version
+  engine_mode               = "provisioned"
+  
+  database_name             = var.database_name
+  master_username           = var.master_username
+  master_password           = var.master_password
+  
+  port                      = var.port
+  
+  db_subnet_group_name      = var.db_subnet_group_name
+  vpc_security_group_ids    = [aws_security_group.rds.id]
+  
+  serverlessv2_scale_configuration {
+    min_capacity = var.min_acus
+    max_capacity = var.max_acus
   }
-
-  ingress {
-    from_port   = var.database_port
-    to_port     = var.database_port
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]
-    description = "PostgreSQL from VPC"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound"
-  }
-
-  tags = local.common_tags
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# RDS Aurora Serverless v2 Cluster
-module "aurora" {
-  source  = "terraform-aws-modules/rds-aurora/aws"
-  version = "8.4.0"
-
-  # Naming
-  # The "random" resource below requires the random provider
-  # For production, use a stable name or pass it as a variable
-  cluster_identifier = "${var.environment}-aurora-postgresql"
-
-  # Engine configuration
-  engine               = "aurora-postgresql"
-  engine_mode          = "provisioned"  # Serverless v2 uses provisioned mode
-  engine_version       = var.engine_version
-  database_name        = var.db_name
-  master_username      = var.master_username
-  master_password      = local.db_password
-  port                 = var.database_port
-
-  # Serverless v2 configuration
-  serverlessv2_scaling_configuration = {
-    min_capacity = var.serverlessv2_scaling_configuration.min_capacity
-    max_capacity = var.serverlessv2_scaling_configuration.max_capacity
-  }
-
-  # Storage
-  storage_encrypted   = var.storage_encrypted
-  kms_key_id          = "alias/aws/rds"  # Use default AWS KMS key
-
-  # Network
-  vpc_id                 = var.vpc_id
-  subnets                = var.subnet_ids
-  create_db_subnet_group = true
-
-  # Security groups
-  security_group_ids = concat([aws_security_group.rds.id], var.vpc_security_group_ids)
-
-  # Backup and maintenance
-  backup_retention_period   = var.backup_retention_period
+  
+  storage_encrypted         = true
+  kms_key_id                = var.kms_key_id
+  
+  backup_retention_period   = var.backup_retention_days
   preferred_backup_window   = var.preferred_backup_window
   preferred_maintenance_window = var.preferred_maintenance_window
+  
   deletion_protection       = var.deletion_protection
   skip_final_snapshot       = var.skip_final_snapshot
-  final_snapshot_identifier = var.final_snapshot_identifier
-
-  # Monitoring
-  enabled_cloudwatch_logs_exports = var.enabled_cloudwatch_logs_exports
-  create_cloudwatch_log_group     = true
-  cloudwatch_log_group_retention  = 7
-
-  # Performance Insights
-  performance_insights_enabled            = var.performance_insights_enabled
-  performance_insights_retention_period   = var.performance_insights_retention_period
-  create_performance_insights_kms_key     = false  # Use default AWS KMS key
-
-  # Tags
-  tags = local.common_tags
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.environment}-aurora-final-snapshot"
+  
+  copy_tags_to_snapshot     = true
+  
+  enabled_cloudwatch_logs_exports = var.enable_cloudwatch_logs ? [
+    "postgresql",
+    "upgrade"
+  ] : []
+  
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes        = [master_password]
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-aurora-cluster"
+      Environment = var.environment
+    }
+  )
 }
 
-# Database Instance Auto Minor Version Upgrade
-resource "aws_rds_cluster_instance" "this" {
-  count = length(var.subnet_ids) > 2 ? 3 : length(var.subnet_ids)
+# =============================================================================
+# RDS Cluster Instance
+# =============================================================================
 
-  identifier         = "${var.environment}-aurora-instance-${count.index}"
-  cluster_identifier = module.aurora.arn
-
-  # Instance configuration
-  instance_class    = "db.serverless"  # Serverless v2 uses serverless instance class
-  engine            = module.aurora.engine
-  engine_version    = module.aurora.engine_version
-
-  # Publicly accessible
+resource "aws_rds_cluster_instance" "main" {
+  count = var.multi_az ? 2 : 1
+  
+  cluster_identifier = aws_rds_cluster.main.id
+  
+  instance_identifier = "${var.environment}-aurora-instance-${count.index + 1}"
+  
+  engine                    = aws_rds_cluster.main.engine
+  engine_version            = aws_rds_cluster.main.engine_version
+  instance_class            = "db.serverless"
+  
   publicly_accessible = false
-
-  # Auto minor version upgrade
+  
+  performance_insights_enabled     = var.enable_performance_insights
+  performance_insights_kms_key_id  = var.kms_key_id
+  
+  monitoring_interval = var.enable_enhanced_monitoring ? 60 : 0
+  monitoring_role_arn = var.enable_enhanced_monitoring ? aws_iam_role.rds_monitoring.arn : null
+  
   auto_minor_version_upgrade = true
-
-  # Promotion tier (0 for primary, 1+ for replicas)
-  promotion_tier = count.index
-
-  tags = local.common_tags
-
+  promotion_tier             = count.index == 0 ? 0 : 1
+  
   lifecycle {
     create_before_destroy = true
   }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-aurora-instance-${count.index + 1}"
+      Environment = var.environment
+    }
+  )
 }
 
-# Outputs
-output "cluster_id" {
-  description = "ID of the RDS cluster"
-  value       = module.aurora.cluster_id
+# =============================================================================
+# RDS Security Group
+# =============================================================================
+
+resource "aws_security_group" "rds" {
+  name        = "${var.environment}-rds-sg"
+  description = "Security group for Aurora RDS cluster"
+  vpc_id      = var.vpc_id
+  
+  ingress {
+    description     = "PostgreSQL from VPC"
+    from_port       = var.port
+    to_port         = var.port
+    protocol        = "tcp"
+    cidr_blocks     = [var.vpc_cidr]
+  }
+  
+  egress {
+    description     = "Allow all outbound"
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    cidr_blocks     = ["0.0.0.0/0"]
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-rds-sg"
+      Environment = var.environment
+    }
+  )
 }
 
-output "cluster_arn" {
-  description = "ARN of the RDS cluster"
-  value       = module.aurora.cluster_arn
+# =============================================================================
+# IAM Role for Enhanced Monitoring
+# =============================================================================
+
+resource "aws_iam_role" "rds_monitoring" {
+  count = var.enable_enhanced_monitoring ? 1 : 0
+  
+  name = "${var.environment}-rds-monitoring-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "monitoring.rds.amazonaws.com"
+        }
+      }
+    ]
+  })
 }
 
-output "cluster_endpoint" {
-  description = "Endpoint of the RDS cluster"
-  value       = module.aurora.cluster_endpoint
-  sensitive   = true
+resource "aws_iam_role_policy_attachment" "rds_monitoring" {
+  count = var.enable_enhanced_monitoring ? 1 : 0
+  
+  role       = aws_iam_role.rds_monitoring[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
-output "cluster_reader_endpoint" {
-  description = "Reader endpoint of the RDS cluster"
-  value       = module.aurora.cluster_reader_endpoint
-  sensitive   = true
+# =============================================================================
+# RDS Proxy (for connection pooling - optional)
+# =============================================================================
+
+resource "aws_db_proxy" "main" {
+  count = var.enable_rds_proxy ? 1 : 0
+  
+  name                   = "${var.environment}-rds-proxy"
+  debug_logging          = false
+  engine_family          = "POSTGRESQL"
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  vpc_subnet_ids         = var.private_subnet_ids
+  
+  auth {
+    auth_scheme = "SECRETS"
+    secret_arn  = aws_secretsmanager_secret.credentials.arn
+    iam_auth    = "DISABLED"
+  }
+  
+  idle_client_timeout    = 1800
+  max_connections_percent = 100
+  min_connections_percent = 10
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-rds-proxy"
+      Environment = var.environment
+    }
+  )
 }
 
-output "cluster_port" {
-  description = "Port of the RDS cluster"
-  value       = module.aurora.cluster_port
+resource "aws_db_proxy_default_target_group" "main" {
+  count = var.enable_rds_proxy ? 1 : 0
+  
+  db_proxy_name = aws_db_proxy.main[0].name
+  
+  connection_pool_config {
+    max_connections_percent = 100
+    min_connections_percent = 10
+    connection_timeout      = 120
+  }
 }
 
-output "cluster_security_group_id" {
-  description = "ID of the security group"
-  value       = aws_security_group.rds.id
-}
-
-output "database_name" {
-  description = "Name of the database"
-  value       = var.db_name
+resource "aws_db_proxy_target" "main" {
+  count = var.enable_rds_proxy ? 1 : 0
+  
+  db_proxy_name    = aws_db_proxy.main[0].name
+  target_group_name = aws_db_proxy_default_target_group.main[0].name
+  db_cluster_identifier = aws_rds_cluster.main.id
 }

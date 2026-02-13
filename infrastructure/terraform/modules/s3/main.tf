@@ -1,305 +1,141 @@
 /**
- * S3 Bucket Module
+ * S3 Module with CloudFront CDN
  * 
- * Creates S3 buckets with:
- * - Intelligent-Tiering configuration for cost optimization
- * - Versioning enabled
- * - Encryption at rest
- * - CloudFront OAC integration for secure static asset delivery
+ * Creates S3 buckets with Intelligent-Tiering, versioning, and
+ * CloudFront distribution for content delivery.
  * 
  * @module s3
- * @requires hashicorp/aws >= 5.0
+ * @requires aws >= 4.0
  */
 
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.0"
   
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-  }
-}
-
-variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod"
-  }
-}
-
-variable "bucket_name" {
-  description = "Name of the S3 bucket (must be globally unique)"
-  type        = string
-}
-
-variable "enable_intelligent_tiering" {
-  description = "Enable S3 Intelligent-Tiering for cost optimization"
-  type        = bool
-  default     = true
-}
-
-variable "enable_versioning" {
-  description = "Enable versioning for the bucket"
-  type        = bool
-  default     = true
-}
-
-variable "enable_server_side_encryption" {
-  description = "Enable server-side encryption"
-  type        = bool
-  default     = true
-}
-
-variable "sse_algorithm" {
-  description = "Server-side encryption algorithm"
-  type        = string
-  default     = "AES256"
-  validation {
-    condition     = contains(["AES256", "aws:kms"], var.sse_algorithm)
-    error_message = "SSE algorithm must be AES256 or aws:kms"
-  }
-}
-
-variable "kms_key_id" {
-  description = "KMS key ID for encryption (use default AWS key if null)"
-  type        = string
-  default     = null
-}
-
-variable "lifecycle_rules" {
-  description = "Lifecycle rules for the bucket"
-  type = list(object({
-    id     = string
-    status = string
-    filter = optional(object({
-      prefix = string
-      tags   = map(string)
-    }), {})
-    transition = optional(list(object({
-      days          = number
-      storage_class = string
-    })), [])
-    expiration = optional(number, null)
-    noncurrent_version_expiration = optional(number, null)
-  }))
-  default = []
-}
-
-variable "enable_public_access_block" {
-  description = "Block public access to the bucket"
-  type        = bool
-  default     = true
-}
-
-variable "allowed_bucket_actions" {
-  description = "IAM actions allowed on the bucket (for bucket policies)"
-  type        = list(string)
-  default     = ["s3:GetObject"]
-}
-
-variable "cors_configuration" {
-  description = "CORS configuration for the bucket"
-  type = list(object({
-    allowed_headers = list(string)
-    allowed_methods = list(string)
-    allowed_origins = list(string)
-    expose_headers  = optional(list(string))
-    max_age_seconds = optional(number)
-  }))
-  default = []
-}
-
-variable "logging_configuration" {
-  description = "S3 access logging configuration"
-  type = object({
-    target_bucket = string
-    target_prefix = optional(string, "logs/")
-  })
-  default = null
-}
-
-variable "tags" {
-  description = "Additional tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
-
-locals {
-  common_tags = merge(
-    {
-      Environment = var.environment
-      Project     = "infrastructure"
-      ManagedBy   = "terraform"
-    },
-    var.tags
-  )
-  
-  # Default Intelligent-Tiering rule if enabled and no lifecycle rules provided
-  default_intelligent_tiering = var.enable_intelligent_tiering && length(var.lifecycle_rules) == 0 ? [
-    {
-      name                       = "intelligent-tiering-archive"
-      status                     = "Enabled"
-      filter = {
-        prefix = ""
-      }
-      tiering = {
-        "ARCHIVE_ACCESS" = 180
-        "DEEP_ARCHIVE_ACCESS" = 365
-      }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
-  ] : []
+  }
 }
 
-# S3 Bucket
+# =============================================================================
+# S3 Bucket for Static Assets / Invoices
+# =============================================================================
+
 resource "aws_s3_bucket" "main" {
   bucket = var.bucket_name
-
-  tags = local.common_tags
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = var.bucket_name
+      Environment = var.environment
+    }
+  )
 }
 
-# Bucket Versioning
 resource "aws_s3_bucket_versioning" "main" {
-  count = var.enable_versioning ? 1 : 0
-
   bucket = aws_s3_bucket.main.id
-
+  
   versioning_configuration {
-    status = "Enabled"
+    status = var.enable_versioning ? "Enabled" : "Suspended"
   }
 }
 
-# Server-Side Encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
-  count = var.enable_server_side_encryption ? 1 : 0
-
   bucket = aws_s3_bucket.main.id
-
+  
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm     = var.sse_algorithm
-      kms_master_key_id = var.kms_key_id
+      sse_algorithm = var.sse_algorithm
     }
   }
+}
+
+resource "aws_s3_bucket_public_access_block" "main" {
+  bucket = aws_s3_bucket.main.id
+  
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # Intelligent-Tiering Configuration
 resource "aws_s3_bucket_intelligent_tiering_configuration" "main" {
   count = var.enable_intelligent_tiering ? 1 : 0
-
+  
   bucket = aws_s3_bucket.main.id
-  name   = "intelligent-tiering-config"
-
-  # Use default configuration or provided lifecycle rules
-  dynamic "tiering" {
-    for_each = local.default_intelligent_tiering
-    content {
-      name                 = tiering.value.name
-      status                = tiering.value.status
-      access_tier_transition = lookup(tiering.value, "tiering", {})
-    }
+  name   = "IntelligentTiering"
+  
+  tiering {
+    name          = "ARCHIVE_ACCESS"
+    access_tier   = "ARCHIVE_ACCESS"
+    days          = 90
   }
-
-  # Simplified tiering configuration
-  dynamic "tiering" {
-    for_each = var.enable_intelligent_tiering ? ["enabled"] : []
-    content {
-      name        = "Standard"
-      status      = "Enabled"
-      access_tier = ["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
-    }
+  
+  tiering {
+    name          = "DEEP_ARCHIVE_ACCESS"
+    access_tier   = "DEEP_ARCHIVE_ACCESS"
+    days          = 180
   }
-
+  
   filter {
-    prefix = ""
+    prefix = var.intelligent_tiering_prefix
   }
 }
 
 # Lifecycle Rules
 resource "aws_s3_bucket_lifecycle_configuration" "main" {
-  count = length(var.lifecycle_rules) > 0 ? 1 : 0
-
   bucket = aws_s3_bucket.main.id
-
-  dynamic "rule" {
-    for_each = var.lifecycle_rules
-    content {
-      id     = rule.value.id
-      status = rule.value.status
-
-      filter {
-        prefix = lookup(rule.value.filter, "prefix", "")
-        tags   = lookup(rule.value.filter, "tags", {})
-      }
-
-      dynamic "transition" {
-        for_each = rule.value.transition
-        content {
-          days          = transition.value.days
-          storage_class = transition.value.storage_class
-        }
-      }
-
-      expiration {
-        days = rule.value.expiration
-      }
-
-      noncurrent_version_expiration {
-        noncurrent_days = rule.value.noncurrent_version_expiration
-      }
+  
+  rule {
+    id     = "transition-to-ia"
+    status = var.enable_lifecycle_rules ? "Enabled" : "Disabled"
+    
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+    
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+    
+    expiration {
+      days = var.expiration_days
+    }
+    
+    filter {
+      prefix = var.lifecycle_prefix
+    }
+  }
+  
+  rule {
+    id     = "abort-incomplete-multipart-upload"
+    status = "Enabled"
+    
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 }
 
-# Public Access Block
-resource "aws_s3_bucket_public_access_block" "main" {
-  count = var.enable_public_access_block ? 1 : 0
+# =============================================================================
+# S3 Bucket Policy for CloudFront OAC
+# =============================================================================
 
-  bucket = aws_s3_bucket.main.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls     = true
-  restrict_public_buckets = true
-}
-
-# CORS Configuration
-resource "aws_s3_bucket_cors_configuration" "main" {
-  count = length(var.cors_configuration) > 0 ? 1 : 0
-
-  bucket = aws_s3_bucket.main.id
-
-  dynamic "cors_rule" {
-    for_each = var.cors_configuration
-    content {
-      allowed_headers = cors_rule.value.allowed_headers
-      allowed_methods = cors_rule.value.allowed_methods
-      allowed_origins = cors_rule.value.allowed_origins
-      expose_headers  = cors_rule.value.expose_headers
-      max_age_seconds = cors_rule.value.max_age_seconds
-    }
-  }
-}
-
-# Logging Configuration
-resource "aws_s3_bucket_logging" "main" {
-  count = var.logging_configuration != null ? 1 : 0
-
-  bucket = aws_s3_bucket.main.id
-
-  target_bucket = var.logging_configuration.target_bucket
-  target_prefix = var.logging_configuration.target_prefix
-}
-
-# Bucket Policy (optional - for CloudFront OAC)
 resource "aws_s3_bucket_policy" "main" {
-  count = var.allowed_bucket_actions != null && length(var.allowed_bucket_actions) > 0 ? 1 : 0
-
+  count = var.enable_cloudfront && var.cloudfront_origin_access_control != null ? 1 : 0
+  
   bucket = aws_s3_bucket.main.id
-
+  
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -313,7 +149,7 @@ resource "aws_s3_bucket_policy" "main" {
         Resource = "${aws_s3_bucket.main.arn}/*"
         Condition = {
           StringEquals = {
-            "AWS:SourceArn" = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.cloudfront_distribution_id != null ? var.cloudfront_distribution_id : ""}"
+            "AWS:SourceArn" : aws_cloudfront_distribution.main[0].arn
           }
         }
       }
@@ -321,36 +157,175 @@ resource "aws_s3_bucket_policy" "main" {
   })
 }
 
-variable "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID for OAC (optional)"
-  type        = string
-  default     = null
+# =============================================================================
+# CloudFront Origin Access Control
+# =============================================================================
+
+resource "aws_cloudfront_origin_access_control" "main" {
+  count = var.enable_cloudfront ? 1 : 0
+  
+  name                              = "${var.environment}-oac"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                   = "sigv4"
 }
 
-data "aws_caller_identity" "current" {}
+# =============================================================================
+# CloudFront Distribution
+# =============================================================================
 
-# Outputs
-output "bucket_id" {
-  description = "ID of the S3 bucket"
-  value       = aws_s3_bucket.main.id
+resource "aws_cloudfront_distribution" "main" {
+  count = var.enable_cloudfront ? 1 : 0
+  
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "CloudFront for ${var.bucket_name}"
+  
+  aliases = var.cloudfront_aliases
+  
+  origin {
+    domain_name = aws_s3_bucket.main.bucket_regional_domain_name
+    origin_id   = "S3-${var.bucket_name}"
+    
+    origin_access_control_id = aws_cloudfront_origin_access_control.main[0].id
+    
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+  
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "S3-${var.bucket_name}"
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+    
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+    
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = var.lambda_edge_arn != null ? var.lambda_edge_arn : null
+    }
+    
+    min_ttl     = var.min_ttl
+    default_ttl = var.default_ttl
+    max_ttl     = var.max_ttl
+  }
+  
+  # Custom error responses for SPA
+  dynamic "custom_error_response" {
+    for_each = var.spa_mode ? [1] : []
+    content {
+      error_code            = 403
+      error_caching_min_ttl = 0
+      response_code         = 200
+      response_page_path    = "/index.html"
+    }
+  }
+  
+  dynamic "custom_error_response" {
+    for_each = var.spa_mode ? [1] : []
+    content {
+      error_code            = 404
+      error_caching_min_ttl = 0
+      response_code         = 200
+      response_page_path    = "/index.html"
+    }
+  }
+  
+  price_class = var.price_class
+  
+  restrictions {
+    geo_restriction {
+      restriction_type = var.geo_restriction_type
+      locations         = var.geo_restriction_locations
+    }
+  }
+  
+  viewer_certificate {
+    acm_certificate_arn            = var.acm_certificate_arn
+    ssl_support_method             = "sni-only"
+    minimum_protocol_version       = "TLSv1.2_2021"
+  }
+  
+  logging_config {
+    bucket          = var.logging_bucket != null ? var.logging_bucket : "${var.bucket_name}-logs.s3.amazonaws.com"
+    include_cookies = false
+    prefix          = "cloudfront/"
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-cloudfront"
+      Environment = var.environment
+    }
+  )
 }
 
-output "bucket_arn" {
-  description = "ARN of the S3 bucket"
-  value       = aws_s3_bucket.main.arn
+# =============================================================================
+# CloudFront Cache Policy
+# =============================================================================
+
+resource "aws_cloudfront_cache_policy" "main" {
+  count = var.enable_cloudfront ? 1 : 0
+  
+  name       = "${var.environment}-cache-policy"
+  comment    = "Cache policy for ${var.bucket_name}"
+  
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    
+    headers_config {
+      header_behavior = "none"
+    }
+    
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+    
+    enable_accept_encoding = true
+    gzip                   = true
+  }
 }
 
-output "bucket_name" {
-  description = "Name of the S3 bucket"
-  value       = aws_s3_bucket.main.bucket
-}
+# =============================================================================
+# S3 Inventory Configuration (optional)
+# =============================================================================
 
-output "bucket_domain_name" {
-  description = "Domain name of the S3 bucket"
-  value       = aws_s3_bucket.main.bucket_domain_name
-}
-
-output "bucket_regional_domain_name" {
-  description = "Regional domain name of the S3 bucket"
-  value       = aws_s3_bucket.main.bucket_regional_domain_name
+resource "aws_s3_bucket_inventory" "main" {
+  count = var.enable_inventory ? 1 : 0
+  
+  bucket = aws_s3_bucket.main.id
+  name   = "daily-inventory"
+  
+  included_object_versions = "All"
+  
+  schedule {
+    frequency = "Daily"
+  }
+  
+  destination {
+    s3_bucket_destination {
+      bucket = var.inventory_bucket != null ? var.inventory_bucket : aws_s3_bucket.main.id
+      format = "Parquet"
+      
+      encryption {
+        sse_kms {
+          object_key_encryption_suffix = "kms"
+        }
+      }
+    }
+  }
 }

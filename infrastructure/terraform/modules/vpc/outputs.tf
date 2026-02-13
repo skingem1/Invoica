@@ -1,7 +1,6 @@
 /**
  * VPC Module Outputs
- * 
- * @module vpc_outputs
+ * @module vpc
  */
 
 output "vpc_id" {
@@ -19,57 +18,47 @@ output "public_subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 
-output "private_subnet_ids" {
-  description = "IDs of private subnets"
-  value       = aws_subnet.private[*].id
+output "private_app_subnet_ids" {
+  description = "IDs of private application subnets"
+  value       = aws_subnet.private_app[*].id
 }
 
-output "database_subnet_ids" {
-  description = "IDs of database subnets"
-  value       = aws_subnet.database[*].id
+output "private_db_subnet_ids" {
+  description = "IDs of private database subnets"
+  value       = aws_subnet.private_db[*].id
 }
 
-output "cache_subnet_ids" {
-  description = "IDs of cache subnets"
-  value       = aws_subnet.cache[*].id
+output "nat_gateway_ids" {
+  description = "IDs of NAT gateways"
+  value       = aws_nat_gateway.main[*].id
+}
+
+output "public_route_table_id" {
+  description = "ID of public route table"
+  value       = aws_route_table.public.id
+}
+
+output "private_app_route_table_id" {
+  description = "ID of private app route table"
+  value       = aws_route_table.private_app.id
 }
 
 output "db_subnet_group_name" {
-  description = "Name of the RDS subnet group"
+  description = "Name of RDS subnet group"
   value       = aws_db_subnet_group.main.name
 }
 
 output "cache_subnet_group_name" {
-  description = "Name of the ElastiCache subnet group"
+  description = "Name of ElastiCache subnet group"
   value       = aws_elasticache_subnet_group.main.name
 }
 
-output "alb_security_group_id" {
-  description = "ID of the ALB security group"
-  value       = aws_security_group.alb.id
+output "vpc_endpoint_security_group_id" {
+  description = "Security group ID for VPC endpoints"
+  value       = aws_security_group.vpc_endpoints.id
 }
 
-output "ecs_tasks_security_group_id" {
-  description = "ID of the ECS tasks security group"
-  value       = aws_security_group.ecs_tasks.id
-}
-
-output "rds_security_group_id" {
-  description = "ID of the RDS security group"
-  value       = aws_security_group.rds.id
-}
-
-output "redis_security_group_id" {
-  description = "ID of the Redis security group"
-  value       = aws_security_group.redis.id
-}
-
-output "nat_gateway_ips" {
-  description = "Elastic IP addresses for NAT Gateways"
-  value       = aws_eip.nat[*].id
-}
-
-output "igw_id" {
-  description = "ID of the Internet Gateway"
+output "internet_gateway_id" {
+  description = "ID of internet gateway"
   value       = aws_internet_gateway.main.id
 }

@@ -1,7 +1,6 @@
 /**
  * Redis Module Variables
- * 
- * @module redis_variables
+ * @module redis
  */
 
 variable "environment" {
@@ -9,32 +8,26 @@ variable "environment" {
   type        = string
 }
 
-variable "subnet_ids" {
-  description = "Subnet IDs for ElastiCache"
-  type        = list(string)
-}
-
 variable "vpc_id" {
   description = "VPC ID"
   type        = string
 }
 
-variable "allowed_security_groups" {
-  description = "Security groups allowed to access Redis"
-  type        = list(string)
-  default     = []
+variable "vpc_cidr" {
+  description = "VPC CIDR block for security group"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "subnet_group_name" {
+  description = "ElastiCache subnet group name"
+  type        = string
 }
 
 variable "node_type" {
-  description = "Node type for Redis (e.g., t4g.small, cache.t3.medium)"
+  description = "Node type for Redis cluster"
   type        = string
   default     = "cache.t4g.small"
-}
-
-variable "num_cache_clusters" {
-  description = "Number of cache clusters in the replication group"
-  type        = number
-  default     = 2
 }
 
 variable "engine_version" {
@@ -43,45 +36,62 @@ variable "engine_version" {
   default     = "7.0"
 }
 
+variable "port" {
+  description = "Redis port"
+  type        = number
+  default     = 6379
+}
+
+variable "num_cache_clusters" {
+  description = "Number of cache clusters (2 for HA)"
+  type        = number
+  default     = 2
+}
+
+variable "num_node_groups" {
+  description = "Number of node groups (shards)"
+  type        = number
+  default     = 1
+}
+
 variable "multi_az_enabled" {
   description = "Enable Multi-AZ"
   type        = bool
   default     = true
 }
 
-variable "auth_token" {
-  description = "Redis auth token (leave empty to generate)"
-  type        = string
-  default     = ""
-  sensitive   = true
+variable "enable_encryption" {
+  description = "Enable encryption at rest and in transit"
+  type        = bool
+  default     = true
 }
 
-variable "kms_key_id" {
-  description = "KMS key ID for encryption"
-  type        = string
-  default     = ""
+variable "enable_auth" {
+  description = "Enable Redis Auth (AUTH command)"
+  type        = bool
+  default     = true
 }
 
-variable "backup_retention_days" {
-  description = "Number of days to retain automatic backups"
-  type        = number
-  default     = 7
+variable "enable_global_replication" {
+  description = "Enable global replication for DR"
+  type        = bool
+  default     = false
 }
 
 variable "snapshot_retention_days" {
-  description = "Number of days to retain snapshots"
+  description = "Snapshot retention days"
   type        = number
   default     = 7
 }
 
 variable "snapshot_window" {
-  description = "Snapshot window (e.g., '03:00-05:00')"
+  description = "Snapshot window"
   type        = string
   default     = "03:00-05:00"
 }
 
 variable "maintenance_window" {
-  description = "Maintenance window (e.g., 'mon:05:00-mon:07:00')"
+  description = "Maintenance window"
   type        = string
   default     = "mon:05:00-mon:07:00"
 }
@@ -90,30 +100,6 @@ variable "log_retention_days" {
   description = "CloudWatch log retention days"
   type        = number
   default     = 7
-}
-
-variable "create_final_snapshot" {
-  description = "Create final snapshot on deletion"
-  type        = bool
-  default     = true
-}
-
-variable "create_secrets" {
-  description = "Create Secrets Manager secret for credentials"
-  type        = bool
-  default     = true
-}
-
-variable "recovery_window_in_days" {
-  description = "Recovery window for secrets"
-  type        = number
-  default     = 0
-}
-
-variable "secrets_kms_key_id" {
-  description = "KMS key for secrets"
-  type        = string
-  default     = ""
 }
 
 variable "tags" {

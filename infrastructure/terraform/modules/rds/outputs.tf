@@ -1,60 +1,51 @@
 /**
  * RDS Module Outputs
- * 
- * @module rds_outputs
+ * @module rds
  */
 
+output "cluster_endpoint" {
+  description = "Cluster endpoint"
+  value       = aws_rds_cluster.main.endpoint
+  sensitive   = true
+}
+
+output "cluster_reader_endpoint" {
+  description = "Cluster reader endpoint"
+  value       = aws_rds_cluster.main.reader_endpoint
+  sensitive   = true
+}
+
 output "cluster_arn" {
-  description = "ARN of the Aurora cluster"
+  description = "Cluster ARN"
   value       = aws_rds_cluster.main.arn
 }
 
 output "cluster_id" {
-  description = "ID of the Aurora cluster"
+  description = "Cluster ID"
   value       = aws_rds_cluster.main.id
 }
 
-output "cluster_endpoint" {
-  description = "Writer endpoint for the cluster"
-  value       = aws_rds_cluster.main.endpoint
-}
-
-output "cluster_reader_endpoint" {
-  description = "Reader endpoint for the cluster"
-  value       = aws_rds_cluster.main.reader_endpoint
-}
-
-output "cluster_port" {
-  description = "Port of the cluster"
-  value       = aws_rds_cluster.main.port
-}
-
-output "cluster_resource_id" {
-  description = "Resource ID of the cluster"
-  value       = aws_rds_cluster.main.resource_id
-}
-
 output "instance_ids" {
-  description = "IDs of the cluster instances"
+  description = "List of instance IDs"
   value       = aws_rds_cluster_instance.main[*].id
 }
 
-output "instance_endpoints" {
-  description = "Endpoints of the cluster instances"
-  value       = aws_rds_cluster_instance.main[*].endpoint
+output "security_group_id" {
+  description = "RDS security group ID"
+  value       = aws_security_group.rds.id
 }
 
-output "secretsmanager_secret_arn" {
-  description = "ARN of the Secrets Manager secret"
-  value       = var.create_secrets ? aws_secretsmanager_secret.db_credentials[0].arn : ""
+output "secret_arn" {
+  description = "Secrets Manager secret ARN"
+  value       = aws_secretsmanager_secret.credentials.arn
 }
 
-output "db_name" {
-  description = "Name of the database"
-  value       = var.database_name
+output "rds_proxy_endpoint" {
+  description = "RDS Proxy endpoint (if enabled)"
+  value       = try(aws_db_proxy.main[0].endpoint, null)
 }
 
-output "master_username" {
-  description = "Master username"
-  value       = var.master_username
+output "port" {
+  description = "Database port"
+  value       = var.port
 }

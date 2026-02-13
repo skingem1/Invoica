@@ -1,7 +1,6 @@
 /**
  * S3 Module Variables
- * 
- * @module s3_variables
+ * @module s3
  */
 
 variable "environment" {
@@ -9,111 +8,139 @@ variable "environment" {
   type        = string
 }
 
-variable "bucket_prefix" {
-  description = "Prefix for bucket names"
+variable "bucket_name" {
+  description = "S3 bucket name"
   type        = string
-  default     = "myapp"
+}
+
+variable "enable_versioning" {
+  description = "Enable S3 versioning"
+  type        = bool
+  default     = true
+}
+
+variable "enable_intelligent_tiering" {
+  description = "Enable S3 Intelligent-Tiering"
+  type        = bool
+  default     = true
+}
+
+variable "intelligent_tiering_prefix" {
+  description = "Prefix for Intelligent-Tiering"
+  type        = string
+  default     = "invoices/"
+}
+
+variable "enable_lifecycle_rules" {
+  description = "Enable lifecycle rules"
+  type        = bool
+  default     = true
+}
+
+variable "lifecycle_prefix" {
+  description = "Prefix for lifecycle rules"
+  type        = string
+  default     = ""
+}
+
+variable "expiration_days" {
+  description = "Days before objects expire"
+  type        = number
+  default     = 365
+}
+
+variable "sse_algorithm" {
+  description = "SSE algorithm"
+  type        = string
+  default     = "AES256"
+}
+
+variable "enable_cloudfront" {
+  description = "Enable CloudFront CDN"
+  type        = bool
+  default     = true
+}
+
+variable "cloudfront_aliases" {
+  description = "CloudFront aliases (CNAMEs)"
+  type        = list(string)
+  default     = []
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN for CloudFront"
+  type        = string
+  default     = null
+}
+
+variable "price_class" {
+  description = "CloudFront price class"
+  type        = string
+  default     = "PriceClass_All"
+}
+
+variable "spa_mode" {
+  description = "Enable SPA mode (serve index.html for 403/404)"
+  type        = bool
+  default     = false
+}
+
+variable "min_ttl" {
+  description = "Minimum TTL for CloudFront cache"
+  type        = number
+  default     = 0
+}
+
+variable "default_ttl" {
+  description = "Default TTL for CloudFront cache"
+  type        = number
+  default     = 86400
+}
+
+variable "max_ttl" {
+  description = "Maximum TTL for CloudFront cache"
+  type        = number
+  default     = 31536000
+}
+
+variable "geo_restriction_type" {
+  description = "Geo restriction type"
+  type        = string
+  default     = "none"
+}
+
+variable "geo_restriction_locations" {
+  description = "Geo restriction locations"
+  type        = list(string)
+  default     = []
+}
+
+variable "logging_bucket" {
+  description = "Logging bucket for CloudFront"
+  type        = string
+  default     = null
+}
+
+variable "lambda_edge_arn" {
+  description = "Lambda@Edge ARN for request/response modification"
+  type        = string
+  default     = null
+}
+
+variable "enable_inventory" {
+  description = "Enable S3 inventory"
+  type        = bool
+  default     = false
+}
+
+variable "inventory_bucket" {
+  description = "Inventory destination bucket"
+  type        = string
+  default     = null
 }
 
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
-}
-
-# CloudFront Configuration
-variable "enable_cloudfront" {
-  description = "Enable CloudFront distribution"
-  type        = bool
-  default     = true
-}
-
-variable "cloudfront_aliases" {
-  description = "Aliases for CloudFront distribution"
-  type        = list(string)
-  default     = []
-}
-
-variable "cloudfront_min_ttl" {
-  description = "CloudFront minimum TTL in seconds"
-  type        = number
-  default     = 0
-}
-
-variable "cloudfront_default_ttl" {
-  description = "CloudFront default TTL in seconds"
-  type        = number
-  default     = 3600
-}
-
-variable "cloudfront_max_ttl" {
-  description = "CloudFront maximum TTL in seconds"
-  type        = number
-  default     = 86400
-}
-
-variable "cloudfront_origin_shield_region" {
-  description = "CloudFront origin shield region"
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "cloudfront_price_class" {
-  description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
-  type        = string
-  default     = "PriceClass_All"
-}
-
-variable "acm_certificate_arn" {
-  description = "ACM certificate ARN for CloudFront"
-  type        = string
-  default     = ""
-}
-
-variable "ssl_support_method" {
-  description = "SSL support method (sni-only, vip)"
-  type        = string
-  default     = "sni-only"
-}
-
-variable "minimum_tls_version" {
-  description = "Minimum TLS version (TLSv1.2_2021, TLSv1.2_2019, TLSv1.1_2016, TLSv1_2016)"
-  type        = string
-  default     = "TLSv1.2_2021"
-}
-
-variable "geo_restriction_type" {
-  description = "Geo restriction type (none, whitelist, blacklist)"
-  type        = string
-  default     = "none"
-}
-
-variable "geo_restriction_locations" {
-  description = "List of countries to allow/block"
-  type        = list(string)
-  default     = []
-}
-
-variable "custom_error_responses" {
-  description = "Custom error responses configuration"
-  type = list(object({
-    error_code            = number
-    error_caching_min_ttl = number
-    response_code         = number
-    response_page_path    = string
-  }))
-  default = [
-    {
-      error_code            = 403
-      error_caching_min_ttl = 300
-      response_code         = 403
-      response_page_path    = "/error.html"
-    },
-    {
-      error_code            = 404
-      error_caching_min_ttl = 300
-      response_code         = 404
-      response_page_path    = "/error.html"
-    }
-  ]
 }

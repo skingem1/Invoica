@@ -1,60 +1,44 @@
 /**
  * S3 Module Outputs
- * 
- * @module s3_outputs
+ * @module s3
  */
 
-output "invoices_bucket_name" {
-  description = "Name of the invoices S3 bucket"
-  value       = aws_s3_bucket.invoices.id
+output "bucket_name" {
+  description = "S3 bucket name"
+  value       = aws_s3_bucket.main.id
 }
 
-output "invoices_bucket_arn" {
-  description = "ARN of the invoices S3 bucket"
-  value       = aws_s3_bucket.invoices.arn
+output "bucket_arn" {
+  description = "S3 bucket ARN"
+  value       = aws_s3_bucket.main.arn
 }
 
-output "assets_bucket_name" {
-  description = "Name of the assets S3 bucket"
-  value       = aws_s3_bucket.assets.id
-}
-
-output "assets_bucket_arn" {
-  description = "ARN of the assets S3 bucket"
-  value       = aws_s3_bucket.assets.arn
-}
-
-output "uploads_bucket_name" {
-  description = "Name of the uploads S3 bucket"
-  value       = aws_s3_bucket.uploads.id
-}
-
-output "uploads_bucket_arn" {
-  description = "ARN of the uploads S3 bucket"
-  value       = aws_s3_bucket.uploads.arn
-}
-
-output "logs_bucket_name" {
-  description = "Name of the logs S3 bucket"
-  value       = aws_s3_bucket.logs.id
-}
-
-output "logs_bucket_arn" {
-  description = "ARN of the logs S3 bucket"
-  value       = aws_s3_bucket.logs.arn
+output "bucket_regional_domain_name" {
+  description = "S3 bucket regional domain name"
+  value       = aws_s3_bucket.main.bucket_regional_domain_name
 }
 
 output "cloudfront_distribution_id" {
-  description = "ID of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].id : ""
-}
-
-output "cloudfront_distribution_domain_name" {
-  description = "Domain name of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].domain_name : ""
+  description = "CloudFront distribution ID"
+  value       = try(aws_cloudfront_distribution.main[0].id, null)
 }
 
 output "cloudfront_distribution_arn" {
-  description = "ARN of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].arn : ""
+  description = "CloudFront distribution ARN"
+  value       = try(aws_cloudfront_distribution.main[0].arn, null)
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront domain name"
+  value       = try(aws_cloudfront_distribution.main[0].domain_name, null)
+}
+
+output "cloudfront_zone_id" {
+  description = "CloudFront zone ID for Route53"
+  value       = try(aws_cloudfront_distribution.main[0].hosted_zone_id, null)
+}
+
+output "origin_access_control_id" {
+  description = "CloudFront OAC ID"
+  value       = try(aws_cloudfront_origin_access_control.main[0].id, null)
 }

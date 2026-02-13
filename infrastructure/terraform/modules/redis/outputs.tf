@@ -1,46 +1,39 @@
 /**
  * Redis Module Outputs
- * 
- * @module redis_outputs
+ * @module redis
  */
 
-output "redis_endpoint" {
-  description = "Primary endpoint for the Redis cluster"
+output "primary_endpoint" {
+  description = "Primary endpoint"
   value       = aws_elasticache_replication_group.main.primary_endpoint_address
 }
 
-output "redis_port" {
-  description = "Port of the Redis cluster"
-  value       = aws_elasticache_replication_group.main.port
+output "reader_endpoint" {
+  description = "Reader endpoint"
+  value       = try(aws_elasticache_replication_group.main.reader_endpoint_address, null)
 }
 
-output "redis_reader_endpoint" {
-  description = "Reader endpoint for the Redis cluster"
-  value       = aws_elasticache_replication_group.main.reader_endpoint_address
+output "port" {
+  description = "Redis port"
+  value       = var.port
 }
 
 output "replication_group_id" {
-  description = "ID of the replication group"
+  description = "Replication group ID"
   value       = aws_elasticache_replication_group.main.id
 }
 
-output "replication_group_arn" {
-  description = "ARN of the replication group"
-  value       = aws_elasticache_replication_group.main.arn
-}
-
 output "security_group_id" {
-  description = "ID of the Redis security group"
+  description = "Redis security group ID"
   value       = aws_security_group.redis.id
 }
 
-output "auth_token" {
-  description = "Redis authentication token"
-  value       = var.auth_token != "" ? var.auth_token : random_id.redis_auth[0].hex
-  sensitive   = true
+output "member_clusters" {
+  description = "List of member cluster IDs"
+  value       = aws_elasticache_replication_group.main.member_clusters
 }
 
-output "secretsmanager_secret_arn" {
-  description = "ARN of the Secrets Manager secret"
-  value       = var.create_secrets ? aws_secretsmanager_secret.redis_credentials[0].arn : ""
+output "global_replication_group_id" {
+  description = "Global replication group ID (if enabled)"
+  value       = try(aws_elasticache_global_replication_group.main[0].id, null)
 }

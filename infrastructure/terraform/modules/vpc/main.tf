@@ -1,15 +1,15 @@
 /**
  * VPC Module
  * 
- * Creates a VPC with public and private subnets across multiple availability zones.
- * Includes NAT Gateways for private subnet internet access.
+ * Creates a VPC with public and private subnets across multiple availability zones,
+ * NAT gateways for private subnet internet access, and route tables.
  * 
  * @module vpc
- * @requires terraform-aws-modules/vpc/aws >= 5.0
+ * @requires aws >= 4.0
  */
 
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.0"
   
   required_providers {
     aws = {
@@ -19,214 +19,397 @@ terraform {
   }
 }
 
-variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be one of: dev, staging, prod"
-  }
-}
+# =============================================================================
+# VPC Configuration
+# =============================================================================
 
-variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-variable "availability_zones" {
-  description = "List of availability zones"
-  type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
-}
-
-variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-}
-
-variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets"
-  type        = list(string)
-  default     = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-}
-
-variable "database_subnet_cidrs" {
-  description = "CIDR blocks for database subnets"
-  type        = list(string)
-  default     = ["10.0.21.0/24", "10.0.22.0/24", "10.0.23.0/24"]
-}
-
-variable "single_nat_gateway" {
-  description = "Use a single NAT Gateway for all private subnets (cost optimization)"
-  type        = bool
-  default     = false
-}
-
-variable "enable_dns_hostnames" {
-  description = "Enable DNS hostnames in VPC"
-  type        = bool
-  default     = true
-}
-
-variable "enable_dns_support" {
-  description = "Enable DNS support in VPC"
-  type        = bool
-  default     = true
-}
-
-variable "tags" {
-  description = "Additional tags to apply to resources"
-  type        = map(string)
-  default     = {}
-}
-
-locals {
-  common_tags = merge(
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  
+  tags = merge(
+    var.tags,
     {
+      Name        = "${var.environment}-vpc"
       Environment = var.environment
-      Project     = "infrastructure"
-      ManagedBy   = "terraform"
-    },
-    var.tags
+    }
   )
 }
 
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "5.0.0"
+# =============================================================================
+# Internet Gateway
+# =============================================================================
 
-  name = "${var.environment}-vpc"
-
-  cidr            = var.vpc_cidr
-  azs             = var.availability_zones
-  public_subnets  = var.public_subnet_cidrs
-  private_subnets = var.private_subnet_cidrs
-
-  # Database subnets - separate for RDS and ElastiCache
-  database_subnets                   = var.database_subnet_cidrs
-  create_database_subnet_group       = true
-  create_database_subnet_route_table = true
-
-  # NAT Gateway configuration
-  single_nat_gateway     = var.single_nat_gateway
-  one_nat_gateway_per_az = !var.single_nat_gateway
-
-  # DNS Configuration
-  enable_dns_hostnames = var.enable_dns_hostnames
-  enable_dns_support   = var.enable_dns_support
-
-  # Tags
-  tags = local.common_tags
-
-  # Additional tag for public subnets
-  public_subnet_tags = {
-    Type = "public"
-  }
-
-  # Additional tag for private subnets
-  private_subnet_tags = {
-    Type = "private"
-  }
-
-  # Additional tag for database subnets
-  database_subnet_tags = {
-    Type = "database"
-  }
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-igw"
+      Environment = var.environment
+    }
+  )
 }
 
-# Security Group for NAT Gateway (if needed)
-resource "aws_security_group" "nat_gateway" {
-  name        = "${var.environment}-nat-sg"
-  description = "Security group for NAT Gateway"
-  vpc_id      = module.vpc.vpc_id
+# =============================================================================
+# Public Subnets
+# =============================================================================
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]
-    description = "HTTPS from VPC"
-  }
+resource "aws_subnet" "public" {
+  count = length(var.availability_zones) > 0 ? length(var.availability_zones) : 2
+  
+  vpc_id                  = aws_vpc.main.id
+  cidr_block             = cidrsubnet(var.vpc_cidr, 8, count.index)
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = true
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-public-subnet-${count.index + 1}"
+      Environment = var.environment
+      Type        = "public"
+    }
+  )
+}
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound"
-  }
+# =============================================================================
+# Private Application Subnets
+# =============================================================================
 
-  tags = local.common_tags
+resource "aws_subnet" "private_app" {
+  count = length(var.availability_zones) > 0 ? length(var.availability_zones) : 2
+  
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 10)
+  availability_zone = var.availability_zones[count.index]
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-private-app-subnet-${count.index + 1}"
+      Environment = var.environment
+      Type        = "private_app"
+    }
+  )
+}
 
+# =============================================================================
+# Private Database Subnets
+# =============================================================================
+
+resource "aws_subnet" "private_db" {
+  count = length(var.availability_zones) > 0 ? length(var.availability_zones) : 2
+  
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 20)
+  availability_zone = var.availability_zones[count.index]
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-private-db-subnet-${count.index + 1}"
+      Environment = var.environment
+      Type        = "private_db"
+    }
+  )
+}
+
+# =============================================================================
+# NAT Gateways (one per AZ for high availability)
+# =============================================================================
+
+resource "aws_eip" "nat" {
+  count = var.enable_single_nat ? 1 : length(var.availability_zones)
+  
+  domain = "vpc"
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-eip-${count.index + 1}"
+      Environment = var.environment
+    }
+  )
+  
   lifecycle {
     create_before_destroy = true
   }
 }
 
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = module.vpc.vpc_id
+resource "aws_nat_gateway" "main" {
+  count = var.enable_single_nat ? 1 : length(var.availability_zones)
+  
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-nat-gw-${count.index + 1}"
+      Environment = var.environment
+    }
+  )
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
-output "vpc_cidr_block" {
-  description = "CIDR block of the VPC"
-  value       = module.vpc.vpc_cidr_block
+# =============================================================================
+# Route Tables
+# =============================================================================
+
+# Public Route Table
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-public-rt"
+      Environment = var.environment
+    }
+  )
 }
 
-output "public_subnet_ids" {
-  description = "IDs of the public subnets"
-  value       = module.vpc.public_subnet_ids
+resource "aws_route_table_association" "public" {
+  count = length(aws_subnet.public)
+  
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
-output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = module.vpc.private_subnet_ids
+# Private App Route Table
+resource "aws_route_table" "private_app" {
+  vpc_id = aws_vpc.main.id
+  
+  dynamic "route" {
+    for_each = var.enable_single_nat ? [1] : aws_nat_gateway.main
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = route.value.id
+    }
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-private-app-rt"
+      Environment = var.environment
+    }
+  )
 }
 
-output "database_subnet_ids" {
-  description = "IDs of the database subnets"
-  value       = module.vpc.database_subnet_ids
+resource "aws_route_table_association" "private_app" {
+  count = length(aws_subnet.private_app)
+  
+  subnet_id      = aws_subnet.private_app[count.index].id
+  route_table_id = aws_route_table.private_app.id
 }
 
-output "public_route_table_id" {
-  description = "ID of the public route table"
-  value       = module.vpc.public_route_table_id
+# Private DB Route Table (no NAT - databases only need to be accessed from app)
+resource "aws_route_table" "private_db" {
+  vpc_id = aws_vpc.main.id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-private-db-rt"
+      Environment = var.environment
+    }
+  )
 }
 
-output "private_route_table_ids" {
-  description = "IDs of the private route tables"
-  value       = module.vpc.private_route_table_ids
+resource "aws_route_table_association" "private_db" {
+  count = length(aws_subnet.private_db)
+  
+  subnet_id      = aws_subnet.private_db[count.index].id
+  route_table_id = aws_route_table.private_db.id
 }
 
-output "nat_gateway_ids" {
-  description = "IDs of the NAT Gateways"
-  value       = module.vpc.nat_gateway_ids
+# =============================================================================
+# VPC Endpoints (for AWS services)
+# =============================================================================
+
+# S3 Gateway Endpoint
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.${var.aws_region}.s3"
+  
+  route_table_ids = [
+    aws_route_table.private_app.id,
+    aws_route_table.private_db.id
+  ]
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-s3-endpoint"
+      Environment = var.environment
+    }
+  )
 }
 
-output "nat_gateway_ips" {
-  description = "Elastic IPs of the NAT Gateways"
-  value       = module.vpc.nat_gateway_public_ips
+# Secrets Manager Endpoint
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.${var.aws_region}.secretsmanager"
+  
+  vpc_endpoint_type = "Interface"
+  
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  
+  private_dns_enabled = true
+  
+  subnet_ids = aws_subnet.private_app[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-secretsmanager-endpoint"
+      Environment = var.environment
+    }
+  )
 }
 
-output "internet_gateway_id" {
-  description = "ID of the Internet Gateway"
-  value       = module.vpc.igw_id
+# SSM Endpoint
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.${var.aws_region}.ssm"
+  
+  vpc_endpoint_type = "Interface"
+  
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  
+  private_dns_enabled = true
+  
+  subnet_ids = aws_subnet.private_app[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-ssm-endpoint"
+      Environment = var.environment
+    }
+  )
 }
 
-output "database_subnet_group_id" {
-  description = "ID of the database subnet group"
-  value       = module.vpc.database_subnet_group_id
+# ECS Endpoint
+resource "aws_vpc_endpoint" "ecs" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.${var.aws_region}.ecs"
+  
+  vpc_endpoint_type = "Interface"
+  
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  
+  private_dns_enabled = true
+  
+  subnet_ids = aws_subnet.private_app[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-ecs-endpoint"
+      Environment = var.environment
+    }
+  )
 }
 
-output "security_group_nat_id" {
-  description = "ID of the NAT Gateway security group"
-  value       = aws_security_group.nat_gateway.id
+# ECS Agent Endpoint
+resource "aws_vpc_endpoint" "ecs_agent" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.${var.aws_region}.ecs-agent"
+  
+  vpc_endpoint_type = "Interface"
+  
+  security_group_ids = [aws_security_group.vpc_endpoints.id]
+  
+  private_dns_enabled = true
+  
+  subnet_ids = aws_subnet.private_app[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-ecs-agent-endpoint"
+      Environment = var.environment
+    }
+  )
+}
+
+# =============================================================================
+# Security Groups
+# =============================================================================
+
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "${var.environment}-vpc-endpoints-sg"
+  description = "Security group for VPC endpoints"
+  vpc_id      = aws_vpc.main.id
+  
+  ingress {
+    description = "HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+  
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-vpc-endpoints-sg"
+      Environment = var.environment
+    }
+  )
+}
+
+# =============================================================================
+# Database Subnet Group
+# =============================================================================
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.environment}-db-subnet-group"
+  subnet_ids = aws_subnet.private_db[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-db-subnet-group"
+      Environment = var.environment
+    }
+  )
+}
+
+# =============================================================================
+# Elasticache Subnet Group
+# =============================================================================
+
+resource "aws_elasticache_subnet_group" "main" {
+  name       = "${var.environment}-cache-subnet-group"
+  subnet_ids = aws_subnet.private_db[*].id
+  
+  tags = merge(
+    var.tags,
+    {
+      Name        = "${var.environment}-cache-subnet-group"
+      Environment = var.environment
+    }
+  )
 }
