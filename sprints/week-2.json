@@ -49,7 +49,17 @@
         "backend/tests/services/invoice.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/prisma/schema.prisma",
+        "backend/src/db/client.ts",
+        "backend/src/services/invoice.ts",
+        "backend/tests/services/invoice.test.ts"
+      ],
+      "commit": "ffd6408",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "BC-003",
@@ -68,7 +78,7 @@
         "backend/tests/services/settlement-poller.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "TAX-001",
