@@ -78,13 +78,14 @@
         "backend/tests/services/settlement-poller.test.ts"
       ]
     },
-    "status": "in_progress",
+    "status": "done",
     "output": {
       "files": [
         "backend/src/services/settlement-poller.ts",
+        "backend/src/services/settlement-poller.ts",
         "backend/tests/services/settlement-poller.test.ts"
       ],
-      "commit": "6dcb421",
+      "commit": "42373de",
       "model": "MiniMax-M2.5"
     }
   },
@@ -107,7 +108,7 @@
         "backend/tests/services/tax/vat-validator.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "LED-001",
@@ -129,7 +130,7 @@
         "backend/tests/services/ledger/budget.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "FE-001",

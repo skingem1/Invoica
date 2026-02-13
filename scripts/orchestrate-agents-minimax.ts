@@ -380,9 +380,9 @@ class SupervisorClient {
       );
 
       req.on('error', reject);
-      req.setTimeout(30000, () => {
+      req.setTimeout(120000, () => {
         req.destroy();
-        reject(new Error('Supervisor request timed out'));
+        reject(new Error('Supervisor request timed out (120s)'));
       });
       req.write(body);
       req.end();
