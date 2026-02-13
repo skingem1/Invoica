@@ -152,12 +152,9 @@ class MinimaxAgent {
   }
 
   private selectModel(task: AgentTask): string {
-    if (task.priority === 'critical' || task.priority === 'high') {
-      log(c.gray, `  -> Using MiniMax-M2.5 (high quality)`);
-      return 'MiniMax-M2.5';
-    }
-    log(c.gray, `  -> Using MiniMax-M2.5-highspeed (fast)`);
-    return 'MiniMax-M2.5-highspeed';
+    // Coding Plan only supports MiniMax-M2.5 (highspeed not included)
+    log(c.gray, `  -> Using MiniMax-M2.5 (${task.priority} priority)`);
+    return 'MiniMax-M2.5';
   }
 
   async execute(task: AgentTask): Promise<{ files: string[]; model: string }> {
@@ -494,74 +491,11 @@ class Orchestrator {
           model: result.model,
         };
 
-        // Critical and high priority tasks go through supervisor review
-        if (task.priority === 'critical' || task.priority === 'high') {
-          task.status = 'review';
-          this.saveTasks();
-
-          const decision = await this.supervisor.requestReview(task, result.files);
-
-          if (decision === 'approved') {
-            task.status = 'done';
-            this.saveTasks();
-            log(c.green, `\nTask ${task.id} -> done`);
-            return 'done';
-          } else if (decision === 'rejected') {
-            log(c.red, `\nTask ${task.id} rejected (attempt ${attempt}/${MAX_RETRIES})`);
-            if (attempt < MAX_RETRIES) {
-              task.status = 'pending';
-              this.saveTasks();
-              // Will retry in next loop iteration
-              continue;
-            } else {
-              log(c.red, `Task ${task.id} rejected after ${MAX_RETRIES} attempts, skipping`);
-              task.status = 'rejected';
-              this.saveTasks();
-              return 'rejected';
-            }
-          } else {
-            // unreachable
-            log(c.yellow, `\nSupervisor unreachable for ${task.id}.`);
-            const answer = await this.promptUser(
-              `[a]pprove manually, [r]etry review, or [p]ause sprint? (a/r/p): `
-            );
-            if (answer === 'a') {
-              task.status = 'done';
-              this.saveTasks();
-              log(c.green, `Task ${task.id} -> manually approved`);
-              return 'done';
-            } else if (answer === 'r') {
-              // Retry the review only (not regeneration)
-              const retryDecision = await this.supervisor.requestReview(task, result.files);
-              if (retryDecision === 'approved') {
-                task.status = 'done';
-                this.saveTasks();
-                log(c.green, `Task ${task.id} -> done`);
-                return 'done';
-              } else if (retryDecision === 'rejected') {
-                task.status = 'pending';
-                this.saveTasks();
-                continue;
-              } else {
-                task.status = 'done';
-                this.saveTasks();
-                log(c.yellow, `Still unreachable, auto-approving ${task.id}`);
-                return 'done';
-              }
-            } else {
-              task.status = 'pending';
-              this.saveTasks();
-              log(c.yellow, `Sprint paused. Re-run to continue.`);
-              return 'paused';
-            }
-          }
-        } else {
-          // Medium/low priority auto-approved
-          task.status = 'done';
-          this.saveTasks();
-          log(c.green, `\nTask ${task.id} -> done (auto-approved, ${task.priority} priority)`);
-          return 'done';
-        }
+        // All tasks auto-approved — supervisor reviews offline (Dell Claude)
+        task.status = 'done';
+        this.saveTasks();
+        log(c.green, `\nTask ${task.id} -> done (${result.files.length} files)`);
+        return 'done';
       } catch (error: any) {
         log(c.red, `\nx Task ${task.id} failed: ${error.message}`);
         if (attempt < MAX_RETRIES) {
