@@ -17,7 +17,18 @@
         "backend/tests/proxy/headers.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/src/proxy/headers.ts",
+        "backend/src/proxy/middleware.ts",
+        "backend/src/proxy/server.ts",
+        "backend/tests/proxy/headers.test.ts",
+        "backend/tests/proxy/server.test.ts"
+      ],
+      "commit": "b89ab23",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "BC-002",
@@ -38,7 +49,7 @@
         "backend/tests/services/invoice.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "BC-003",
