@@ -1,77 +1,60 @@
 /**
  * RDS Module Outputs
  * 
- * Exposes Aurora cluster endpoints and connection information.
+ * @module rds_outputs
  */
 
-output "cluster_identifier" {
-  description = "Aurora cluster identifier"
-  value       = aws_rds_cluster.aurora.id
+output "cluster_arn" {
+  description = "ARN of the Aurora cluster"
+  value       = aws_rds_cluster.main.arn
+}
+
+output "cluster_id" {
+  description = "ID of the Aurora cluster"
+  value       = aws_rds_cluster.main.id
 }
 
 output "cluster_endpoint" {
-  description = "Writer endpoint for the Aurora cluster"
-  value       = aws_rds_cluster.aurora.endpoint
-  sensitive   = true
+  description = "Writer endpoint for the cluster"
+  value       = aws_rds_cluster.main.endpoint
 }
 
 output "cluster_reader_endpoint" {
-  description = "Reader endpoint for the Aurora cluster"
-  value       = aws_rds_cluster.aurora.reader_endpoint
-  sensitive   = true
+  description = "Reader endpoint for the cluster"
+  value       = aws_rds_cluster.main.reader_endpoint
 }
 
-output "cluster_arn" {
-  description = "Aurora cluster ARN"
-  value       = aws_rds_cluster.aurora.arn
+output "cluster_port" {
+  description = "Port of the cluster"
+  value       = aws_rds_cluster.main.port
 }
 
 output "cluster_resource_id" {
-  description = "Aurora cluster resource ID"
-  value       = aws_rds_cluster.aurora.resource_id
-}
-
-output "db_name" {
-  description = "Database name"
-  value       = var.database_name
-}
-
-output "db_port" {
-  description = "Database port"
-  value       = var.db_port
-}
-
-output "db_security_group_id" {
-  description = "Security group ID for Aurora cluster"
-  value       = aws_security_group.aurora.id
-}
-
-output "db_subnet_group_name" {
-  description = "Database subnet group name"
-  value       = aws_db_subnet_group.aurora.name
-}
-
-output "secret_arn" {
-  description = "Secrets Manager secret ARN for database credentials"
-  value       = aws_secretsmanager_secret.db_credentials.arn
-}
-
-output "secret_name" {
-  description = "Secrets Manager secret name"
-  value       = aws_secretsmanager_secret.db_credentials.name
+  description = "Resource ID of the cluster"
+  value       = aws_rds_cluster.main.resource_id
 }
 
 output "instance_ids" {
-  description = "List of Aurora instance IDs"
-  value       = aws_rds_cluster_instance.aurora[*].id
+  description = "IDs of the cluster instances"
+  value       = aws_rds_cluster_instance.main[*].id
 }
 
-output "reader_instance_id" {
-  description = "Reader instance ID (if created)"
-  value       = length(aws_rds_cluster_instance.reader) > 0 ? aws_rds_cluster_instance.reader[0].id : null
+output "instance_endpoints" {
+  description = "Endpoints of the cluster instances"
+  value       = aws_rds_cluster_instance.main[*].endpoint
 }
 
-output "cloudwatch_alarm_arns" {
-  description = "ARNs of CloudWatch alarms"
-  value       = aws_cloudwatch_metric_alarm.cpu_utilization[*].arn
+output "secretsmanager_secret_arn" {
+  description = "ARN of the Secrets Manager secret"
+  value       = var.create_secrets ? aws_secretsmanager_secret.db_credentials[0].arn : ""
+}
+
+output "db_name" {
+  description = "Name of the database"
+  value       = var.database_name
+}
+
+output "master_username" {
+  description = "Master username"
+  value       = var.master_username
 }

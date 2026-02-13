@@ -1,38 +1,40 @@
 /**
- * ElastiCache Redis Module Variables
+ * Redis Module Variables
  * 
- * Configuration for Redis cluster with t4g.small nodes.
+ * @module redis_variables
  */
 
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  validation {
-    condition     = can(regex("^(dev|staging|prod)$", var.environment))
-    error_message = "Environment must be one of: dev, staging, prod"
-  }
 }
 
 variable "subnet_ids" {
-  description = "Subnet IDs for Redis cluster"
+  description = "Subnet IDs for ElastiCache"
   type        = list(string)
 }
 
 variable "vpc_id" {
-  description = "VPC ID for security group"
+  description = "VPC ID"
   type        = string
 }
 
+variable "allowed_security_groups" {
+  description = "Security groups allowed to access Redis"
+  type        = list(string)
+  default     = []
+}
+
 variable "node_type" {
-  description = "Node type for Redis cluster"
+  description = "Node type for Redis (e.g., t4g.small, cache.t3.medium)"
   type        = string
   default     = "cache.t4g.small"
 }
 
-variable "engine" {
-  description = "Redis engine"
-  type        = string
-  default     = "redis"
+variable "num_cache_clusters" {
+  description = "Number of cache clusters in the replication group"
+  type        = number
+  default     = 2
 }
 
 variable "engine_version" {
@@ -41,52 +43,17 @@ variable "engine_version" {
   default     = "7.0"
 }
 
-variable "port" {
-  description = "Redis port"
-  type        = number
-  default     = 6379
-}
-
-variable "num_node_groups" {
-  description = "Number of node groups (shards) for Redis Cluster mode"
-  type        = number
-  default     = 1
-}
-
-variable "replicas_per_node_group" {
-  description = "Number of replicas per node group"
-  type        = number
-  default     = 1
-}
-
-variable "automatic_failover_enabled" {
-  description = "Enable automatic failover"
-  type        = bool
-  default     = true
-}
-
 variable "multi_az_enabled" {
   description = "Enable Multi-AZ"
   type        = bool
   default     = true
 }
 
-variable "at_rest_encryption_enabled" {
-  description = "Enable at-rest encryption"
-  type        = bool
-  default     = true
-}
-
-variable "transit_encryption_enabled" {
-  description = "Enable transit encryption"
-  type        = bool
-  default     = true
-}
-
-variable "auth_token_enabled" {
-  description = "Enable AUTH token"
-  type        = bool
-  default     = true
+variable "auth_token" {
+  description = "Redis auth token (leave empty to generate)"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "kms_key_id" {
@@ -96,21 +63,9 @@ variable "kms_key_id" {
 }
 
 variable "backup_retention_days" {
-  description = "Number of days to retain backups"
+  description = "Number of days to retain automatic backups"
   type        = number
   default     = 7
-}
-
-variable "backup_window" {
-  description = "Preferred backup window (UTC)"
-  type        = string
-  default     = "03:00-04:00"
-}
-
-variable "maintenance_window" {
-  description = "Preferred maintenance window (UTC)"
-  type        = string
-  default     = "mon:05:00-mon:06:00"
 }
 
 variable "snapshot_retention_days" {
@@ -120,106 +75,49 @@ variable "snapshot_retention_days" {
 }
 
 variable "snapshot_window" {
-  description = "Preferred snapshot window (UTC)"
+  description = "Snapshot window (e.g., '03:00-05:00')"
   type        = string
-  default     = "04:00-05:00"
+  default     = "03:00-05:00"
 }
 
-variable "apply_immediately" {
-  description = "Apply changes immediately"
-  type        = bool
-  default     = false
-}
-
-variable "final_snapshot_enabled" {
-  description = "Enable final snapshot on deletion"
-  type        = bool
-  default     = true
-}
-
-variable "description" {
-  description = "Description for the replication group"
+variable "maintenance_window" {
+  description = "Maintenance window (e.g., 'mon:05:00-mon:07:00')"
   type        = string
-  default     = "Managed by Terraform"
-}
-
-variable "allowed_security_groups" {
-  description = "Security groups allowed to access Redis"
-  type        = list(string)
-  default     = []
-}
-
-variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access Redis"
-  type        = list(string)
-  default     = []
-}
-
-variable "custom_parameters" {
-  description = "Custom Redis parameters"
-  type = list(object({
-    name  = string
-    value = string
-  }))
-  default = []
-}
-
-variable "enable_slow_log" {
-  description = "Enable slow log"
-  type        = bool
-  default     = true
-}
-
-variable "enable_engine_log" {
-  description = "Enable engine log"
-  type        = bool
-  default     = false
+  default     = "mon:05:00-mon:07:00"
 }
 
 variable "log_retention_days" {
-  description = "CloudWatch log retention in days"
+  description = "CloudWatch log retention days"
   type        = number
   default     = 7
 }
 
-variable "create_alarms" {
-  description = "Create CloudWatch alarms"
+variable "create_final_snapshot" {
+  description = "Create final snapshot on deletion"
   type        = bool
   default     = true
 }
 
-variable "alarm_actions" {
-  description = "SNS topic ARNs for alarm actions"
-  type        = list(string)
-  default     = []
+variable "create_secrets" {
+  description = "Create Secrets Manager secret for credentials"
+  type        = bool
+  default     = true
 }
 
-variable "cpu_alarm_threshold" {
-  description = "CPU utilization alarm threshold percentage"
+variable "recovery_window_in_days" {
+  description = "Recovery window for secrets"
   type        = number
-  default     = 75
+  default     = 0
 }
 
-variable "memory_alarm_threshold" {
-  description = "Memory usage alarm threshold percentage"
-  type        = number
-  default     = 80
-}
-
-variable "evictions_alarm_threshold" {
-  description = "Evictions alarm threshold"
-  type        = number
-  default     = 1000
-}
-
-variable "replication_lag_threshold" {
-  description = "Replication lag alarm threshold in seconds"
-  type        = number
-  default     = 30
+variable "secrets_kms_key_id" {
+  description = "KMS key for secrets"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {
-  description = "Common tags to apply to all resources"
+  description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
 }

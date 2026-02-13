@@ -1,65 +1,60 @@
 /**
  * S3 Module Outputs
  * 
- * Exposes S3 bucket ARNs and names for use by other modules.
+ * @module s3_outputs
  */
 
-output "invoices_bucket_id" {
-  description = "Invoices bucket ID"
+output "invoices_bucket_name" {
+  description = "Name of the invoices S3 bucket"
   value       = aws_s3_bucket.invoices.id
 }
 
 output "invoices_bucket_arn" {
-  description = "Invoices bucket ARN"
+  description = "ARN of the invoices S3 bucket"
   value       = aws_s3_bucket.invoices.arn
 }
 
-output "invoices_bucket_name" {
-  description = "Invoices bucket name"
-  value       = aws_s3_bucket.invoices.bucket
-}
-
-output "assets_bucket_id" {
-  description = "Assets bucket ID"
-  value       = var.create_assets_bucket ? aws_s3_bucket.assets[0].id : null
+output "assets_bucket_name" {
+  description = "Name of the assets S3 bucket"
+  value       = aws_s3_bucket.assets.id
 }
 
 output "assets_bucket_arn" {
-  description = "Assets bucket ARN"
-  value       = var.create_assets_bucket ? aws_s3_bucket.assets[0].arn : null
+  description = "ARN of the assets S3 bucket"
+  value       = aws_s3_bucket.assets.arn
 }
 
-output "assets_bucket_name" {
-  description = "Assets bucket name"
-  value       = var.create_assets_bucket ? aws_s3_bucket.assets[0].bucket : null
+output "uploads_bucket_name" {
+  description = "Name of the uploads S3 bucket"
+  value       = aws_s3_bucket.uploads.id
 }
 
-output "logs_bucket_id" {
-  description = "Logs bucket ID"
-  value       = var.create_logs_bucket ? aws_s3_bucket.logs[0].id : null
-}
-
-output "logs_bucket_arn" {
-  description = "Logs bucket ARN"
-  value       = var.create_logs_bucket ? aws_s3_bucket.logs[0].arn : null
+output "uploads_bucket_arn" {
+  description = "ARN of the uploads S3 bucket"
+  value       = aws_s3_bucket.uploads.arn
 }
 
 output "logs_bucket_name" {
-  description = "Logs bucket name"
-  value       = var.create_logs_bucket ? aws_s3_bucket.logs[0].bucket : null
+  description = "Name of the logs S3 bucket"
+  value       = aws_s3_bucket.logs.id
 }
 
-output "app_data_bucket_id" {
-  description = "App data bucket ID"
-  value       = var.create_app_data_bucket ? aws_s3_bucket.app_data[0].id : null
+output "logs_bucket_arn" {
+  description = "ARN of the logs S3 bucket"
+  value       = aws_s3_bucket.logs.arn
 }
 
-output "app_data_bucket_arn" {
-  description = "App data bucket ARN"
-  value       = var.create_app_data_bucket ? aws_s3_bucket.app_data[0].arn : null
+output "cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution"
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].id : ""
 }
 
-output "app_data_bucket_name" {
-  description = "App data bucket name"
-  value       = var.create_app_data_bucket ? aws_s3_bucket.app_data[0].bucket : null
+output "cloudfront_distribution_domain_name" {
+  description = "Domain name of the CloudFront distribution"
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].domain_name : ""
+}
+
+output "cloudfront_distribution_arn" {
+  description = "ARN of the CloudFront distribution"
+  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].arn : ""
 }

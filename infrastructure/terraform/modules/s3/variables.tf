@@ -1,127 +1,119 @@
 /**
  * S3 Module Variables
  * 
- * Configuration for S3 buckets with Intelligent-Tiering.
+ * @module s3_variables
  */
 
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  validation {
-    condition     = can(regex("^(dev|staging|prod)$", var.environment))
-    error_message = "Environment must be one of: dev, staging, prod"
-  }
 }
 
 variable "bucket_prefix" {
   description = "Prefix for bucket names"
   type        = string
-  default     = "app"
+  default     = "myapp"
 }
 
-variable "bucket_name" {
-  description = "Exact bucket name (if creating new bucket is false)"
-  type        = string
-  default     = ""
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }
 
-variable "create_new_bucket" {
-  description = "Create new bucket with prefix"
+# CloudFront Configuration
+variable "enable_cloudfront" {
+  description = "Enable CloudFront distribution"
   type        = bool
   default     = true
 }
 
-variable "enable_versioning" {
-  description = "Enable S3 versioning"
-  type        = bool
-  default     = true
-}
-
-variable "enable_intelligent_tiering" {
-  description = "Enable S3 Intelligent-Tiering"
-  type        = bool
-  default     = true
-}
-
-variable "enable_lifecycle_rules" {
-  description = "Enable lifecycle rules"
-  type        = bool
-  default     = true
-}
-
-variable "lifecycle_expiration_days" {
-  description = "Days before lifecycle expiration"
-  type        = number
-  default     = 2555  # ~7 years
-}
-
-variable "sse_algorithm" {
-  description = "Server-side encryption algorithm"
-  type        = string
-  default     = "AES256"
-  
-  validation {
-    condition     = can(regex("^(AES256|aws:kms)$", var.sse_algorithm))
-    error_message = "Must be AES256 or aws:kms"
-  }
-}
-
-variable "kms_key_arn" {
-  description = "KMS key ARN for encryption"
-  type        = string
-  default     = ""
-}
-
-variable "cloudfront_origin_access_control_id" {
-  description = "CloudFront OAC ID for private bucket access"
-  type        = string
-  default     = ""
-}
-
-variable "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID for bucket policy"
-  type        = string
-  default     = ""
-}
-
-variable "account_id" {
-  description = "AWS account ID for bucket policy"
-  type        = string
-  default     = ""
-}
-
-variable "create_assets_bucket" {
-  description = "Create assets/media bucket"
-  type        = bool
-  default     = true
-}
-
-variable "create_logs_bucket" {
-  description = "Create logs bucket"
-  type        = bool
-  default     = true
-}
-
-variable "create_app_data_bucket" {
-  description = "Create private app data bucket"
-  type        = bool
-  default     = true
-}
-
-variable "log_retention_days" {
-  description = "Log retention in days"
-  type        = number
-  default     = 90
-}
-
-variable "allowed_iam_principals" {
-  description = "IAM principals allowed to access the invoices bucket"
+variable "cloudfront_aliases" {
+  description = "Aliases for CloudFront distribution"
   type        = list(string)
   default     = []
 }
 
-variable "tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default     = {}
+variable "cloudfront_min_ttl" {
+  description = "CloudFront minimum TTL in seconds"
+  type        = number
+  default     = 0
+}
+
+variable "cloudfront_default_ttl" {
+  description = "CloudFront default TTL in seconds"
+  type        = number
+  default     = 3600
+}
+
+variable "cloudfront_max_ttl" {
+  description = "CloudFront maximum TTL in seconds"
+  type        = number
+  default     = 86400
+}
+
+variable "cloudfront_origin_shield_region" {
+  description = "CloudFront origin shield region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "cloudfront_price_class" {
+  description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
+  type        = string
+  default     = "PriceClass_All"
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN for CloudFront"
+  type        = string
+  default     = ""
+}
+
+variable "ssl_support_method" {
+  description = "SSL support method (sni-only, vip)"
+  type        = string
+  default     = "sni-only"
+}
+
+variable "minimum_tls_version" {
+  description = "Minimum TLS version (TLSv1.2_2021, TLSv1.2_2019, TLSv1.1_2016, TLSv1_2016)"
+  type        = string
+  default     = "TLSv1.2_2021"
+}
+
+variable "geo_restriction_type" {
+  description = "Geo restriction type (none, whitelist, blacklist)"
+  type        = string
+  default     = "none"
+}
+
+variable "geo_restriction_locations" {
+  description = "List of countries to allow/block"
+  type        = list(string)
+  default     = []
+}
+
+variable "custom_error_responses" {
+  description = "Custom error responses configuration"
+  type = list(object({
+    error_code            = number
+    error_caching_min_ttl = number
+    response_code         = number
+    response_page_path    = string
+  }))
+  default = [
+    {
+      error_code            = 403
+      error_caching_min_ttl = 300
+      response_code         = 403
+      response_page_path    = "/error.html"
+    },
+    {
+      error_code            = 404
+      error_caching_min_ttl = 300
+      response_code         = 404
+      response_page_path    = "/error.html"
+    }
+  ]
 }

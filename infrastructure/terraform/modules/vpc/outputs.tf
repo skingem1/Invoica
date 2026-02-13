@@ -1,7 +1,7 @@
 /**
  * VPC Module Outputs
  * 
- * Exposes VPC, subnet, and security group IDs for use by other modules.
+ * @module vpc_outputs
  */
 
 output "vpc_id" {
@@ -19,14 +19,19 @@ output "public_subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 
-output "private_app_subnet_ids" {
-  description = "IDs of private application subnets"
-  value       = aws_subnet.private_app[*].id
+output "private_subnet_ids" {
+  description = "IDs of private subnets"
+  value       = aws_subnet.private[*].id
 }
 
-output "private_db_subnet_ids" {
-  description = "IDs of private database subnets"
-  value       = aws_subnet.private_db[*].id
+output "database_subnet_ids" {
+  description = "IDs of database subnets"
+  value       = aws_subnet.database[*].id
+}
+
+output "cache_subnet_ids" {
+  description = "IDs of cache subnets"
+  value       = aws_subnet.cache[*].id
 }
 
 output "db_subnet_group_name" {
@@ -34,32 +39,37 @@ output "db_subnet_group_name" {
   value       = aws_db_subnet_group.main.name
 }
 
-output "nat_gateway_ids" {
-  description = "IDs of NAT Gateways"
-  value       = aws_nat_gateway.main[*].id
+output "cache_subnet_group_name" {
+  description = "Name of the ElastiCache subnet group"
+  value       = aws_elasticache_subnet_group.main.name
 }
 
-output "internet_gateway_id" {
+output "alb_security_group_id" {
+  description = "ID of the ALB security group"
+  value       = aws_security_group.alb.id
+}
+
+output "ecs_tasks_security_group_id" {
+  description = "ID of the ECS tasks security group"
+  value       = aws_security_group.ecs_tasks.id
+}
+
+output "rds_security_group_id" {
+  description = "ID of the RDS security group"
+  value       = aws_security_group.rds.id
+}
+
+output "redis_security_group_id" {
+  description = "ID of the Redis security group"
+  value       = aws_security_group.redis.id
+}
+
+output "nat_gateway_ips" {
+  description = "Elastic IP addresses for NAT Gateways"
+  value       = aws_eip.nat[*].id
+}
+
+output "igw_id" {
   description = "ID of the Internet Gateway"
   value       = aws_internet_gateway.main.id
-}
-
-output "public_route_table_id" {
-  description = "ID of the public route table"
-  value       = aws_route_table.public.id
-}
-
-output "private_route_table_ids" {
-  description = "IDs of private route tables"
-  value       = aws_route_table.private[*].id
-}
-
-output "vpc_endpoints_security_group_id" {
-  description = "ID of the VPC endpoints security group"
-  value       = aws_security_group.vpc_endpoints.id
-}
-
-output "flow_log_group_name" {
-  description = "CloudWatch log group name for flow logs"
-  value       = aws_cloudwatch_log_group.vpc_flow_logs.name
 }
