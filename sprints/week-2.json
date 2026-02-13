@@ -130,7 +130,20 @@
         "backend/tests/services/ledger/budget.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/src/services/ledger/types.ts",
+        "backend/src/services/ledger/recorder.ts",
+        "backend/src/services/ledger/budget.ts",
+        "backend/src/services/ledger/enforcement.ts",
+        "backend/src/services/ledger/query.ts",
+        "backend/src/services/ledger/config.ts",
+        "backend/tests/services/ledger/recorder.test.ts"
+      ],
+      "commit": "a88bba4",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "FE-001",
@@ -148,7 +161,14 @@
         "frontend/components/ui/button.tsx"
       ]
     },
-    "status": "pending"
+    "status": "done",
+    "output": {
+      "files": [
+        "output/FE-001-raw.md"
+      ],
+      "commit": "a88bba4",
+      "model": "MiniMax-M2.5-highspeed"
+    }
   },
   {
     "id": "OPS-001",
@@ -170,7 +190,7 @@
         "infrastructure/docs/deployment.md"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "SEC-001",
