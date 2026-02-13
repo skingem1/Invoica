@@ -1,16 +1,15 @@
 /**
  * VPC Module
  * 
- * Creates a VPC with public and private subnets across multiple availability zones,
- * along with NAT Gateways for outbound internet access from private subnets.
+ * Creates a VPC with public and private subnets across multiple availability zones.
+ * Includes NAT Gateways for private subnet internet access.
  * 
  * @module vpc
- * @requires terraform >= 1.0.0
- * @requires aws >= 5.0
+ * @requires terraform-aws-modules/vpc/aws >= 5.0
  */
 
 terraform {
-  required_version = ">= 1.0.0"
+  required_version = ">= 1.5.0"
   
   required_providers {
     aws = {
@@ -20,529 +19,214 @@ terraform {
   }
 }
 
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, staging, prod"
+  }
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "availability_zones" {
+  description = "List of availability zones"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets"
+  type        = list(string)
+  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets"
+  type        = list(string)
+  default     = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+}
+
+variable "database_subnet_cidrs" {
+  description = "CIDR blocks for database subnets"
+  type        = list(string)
+  default     = ["10.0.21.0/24", "10.0.22.0/24", "10.0.23.0/24"]
+}
+
+variable "single_nat_gateway" {
+  description = "Use a single NAT Gateway for all private subnets (cost optimization)"
+  type        = bool
+  default     = false
+}
+
+variable "enable_dns_hostnames" {
+  description = "Enable DNS hostnames in VPC"
+  type        = bool
+  default     = true
+}
+
+variable "enable_dns_support" {
+  description = "Enable DNS support in VPC"
+  type        = bool
+  default     = true
+}
+
+variable "tags" {
+  description = "Additional tags to apply to resources"
+  type        = map(string)
+  default     = {}
+}
+
 locals {
-  # Extract availability zones from the region
-  availability_zones = length(var.availability_zones) > 0 ? var.availability_zones : [
-    for az in slice(data.aws_availability_zones.available.names, 0, var.az_count) : az
-  ]
-}
-
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-################################################################################
-# VPC
-################################################################################
-
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  
-  tags = merge(
-    var.tags,
+  common_tags = merge(
     {
-      Name = "${var.environment}-vpc"
-    }
+      Environment = var.environment
+      Project     = "infrastructure"
+      ManagedBy   = "terraform"
+    },
+    var.tags
   )
 }
 
-################################################################################
-# Internet Gateway
-################################################################################
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.0.0"
 
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-igw"
-    }
-  )
-}
+  name = "${var.environment}-vpc"
 
-################################################################################
-# Public Subnets
-################################################################################
+  cidr            = var.vpc_cidr
+  azs             = var.availability_zones
+  public_subnets  = var.public_subnet_cidrs
+  private_subnets = var.private_subnet_cidrs
 
-resource "aws_subnet" "public" {
-  count             = var.az_count
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index)
-  availability_zone = local.availability_zones[count.index]
-  
-  map_public_ip_on_launch = true
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-public-subnet-${count.index + 1}"
-      Type = "public"
-    }
-  )
-}
+  # Database subnets - separate for RDS and ElastiCache
+  database_subnets                   = var.database_subnet_cidrs
+  create_database_subnet_group       = true
+  create_database_subnet_route_table = true
 
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-  
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+  # NAT Gateway configuration
+  single_nat_gateway     = var.single_nat_gateway
+  one_nat_gateway_per_az = !var.single_nat_gateway
+
+  # DNS Configuration
+  enable_dns_hostnames = var.enable_dns_hostnames
+  enable_dns_support   = var.enable_dns_support
+
+  # Tags
+  tags = local.common_tags
+
+  # Additional tag for public subnets
+  public_subnet_tags = {
+    Type = "public"
   }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-public-rt"
-    }
-  )
-}
 
-resource "aws_route_table_association" "public" {
-  count          = var.az_count
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-################################################################################
-# Private Subnets
-################################################################################
-
-resource "aws_subnet" "private" {
-  count             = var.az_count
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + var.az_count)
-  availability_zone = local.availability_zones[count.index]
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-private-subnet-${count.index + 1}"
-      Type = "private"
-    }
-  )
-}
-
-################################################################################
-# NAT Gateways
-################################################################################
-
-resource "aws_eip" "nat" {
-  count  = var.az_count
-  domain = "vpc"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-nat-eip-${count.index + 1}"
-    }
-  )
-  
-  depends_on = [aws_internet_gateway.main]
-}
-
-resource "aws_nat_gateway" "main" {
-  count         = var.az_count
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-nat-${count.index + 1}"
-    }
-  )
-  
-  depends_on = [aws_internet_gateway.main]
-}
-
-# Private route tables - one per AZ for high availability
-resource "aws_route_table" "private" {
-  count  = var.az_count
-  vpc_id = aws_vpc.main.id
-  
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+  # Additional tag for private subnets
+  private_subnet_tags = {
+    Type = "private"
   }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-private-rt-${count.index + 1}"
-    }
-  )
+
+  # Additional tag for database subnets
+  database_subnet_tags = {
+    Type = "database"
+  }
 }
 
-resource "aws_route_table_association" "private" {
-  count          = var.az_count
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
-}
+# Security Group for NAT Gateway (if needed)
+resource "aws_security_group" "nat_gateway" {
+  name        = "${var.environment}-nat-sg"
+  description = "Security group for NAT Gateway"
+  vpc_id      = module.vpc.vpc_id
 
-################################################################################
-# Database Subnets (for RDS Aurora)
-################################################################################
-
-resource "aws_subnet" "database" {
-  count             = var.az_count
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + (var.az_count * 2))
-  availability_zone = local.availability_zones[count.index]
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-database-subnet-${count.index + 1}"
-      Type = "database"
-    }
-  )
-}
-
-resource "aws_db_subnet_group" "main" {
-  name       = "${var.environment}-db-subnet-group"
-  subnet_ids = aws_subnet.database[*].id
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-db-subnet-group"
-    }
-  )
-}
-
-################################################################################
-# ElastiCache Subnets (for Redis)
-################################################################################
-
-resource "aws_subnet" "cache" {
-  count             = var.az_count
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 4, count.index + (var.az_count * 3))
-  availability_zone = local.availability_zones[count.index]
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-cache-subnet-${count.index + 1}"
-      Type = "cache"
-    }
-  )
-}
-
-resource "aws_elasticache_subnet_group" "main" {
-  name       = "${var.environment}-cache-subnet-group"
-  subnet_ids = aws_subnet.cache[*].id
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-cache-subnet-group"
-    }
-  )
-}
-
-################################################################################
-# Security Groups
-################################################################################
-
-# ALB Security Group
-resource "aws_security_group" "alb" {
-  name        = "${var.environment}-alb-sg"
-  description = "Security group for Application Load Balancer"
-  vpc_id      = aws_vpc.main.id
-  
   ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  ingress {
-    description = "HTTPS"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+    description = "HTTPS from VPC"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound"
   }
-  
-  egress {
-    description     = "To VPC"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = [var.vpc_cidr]
-    prefix_list_ids = []
+
+  tags = local.common_tags
+
+  lifecycle {
+    create_before_destroy = true
   }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-alb-sg"
-    }
-  )
 }
-
-# ECS Tasks Security Group
-resource "aws_security_group" "ecs_tasks" {
-  name        = "${var.environment}-ecs-tasks-sg"
-  description = "Security group for ECS tasks"
-  vpc_id      = aws_vpc.main.id
-  
-  ingress {
-    description     = "From ALB"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-  
-  ingress {
-    description     = "From ALB HTTPS"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-  
-  egress {
-    description     = "Outbound to anywhere"
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
-    prefix_list_ids = []
-  }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-ecs-tasks-sg"
-    }
-  )
-}
-
-# RDS Security Group
-resource "aws_security_group" "rds" {
-  name        = "${var.environment}-rds-sg"
-  description = "Security group for RDS Aurora"
-  vpc_id      = aws_vpc.main.id
-  
-  ingress {
-    description     = "PostgreSQL from ECS"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks.id]
-  }
-  
-  egress {
-    description     = "PostgreSQL outbound"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    cidr_blocks     = [var.vpc_cidr]
-  }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-rds-sg"
-    }
-  )
-}
-
-# ElastiCache Security Group
-resource "aws_security_group" "redis" {
-  name        = "${var.environment}-redis-sg"
-  description = "Security group for ElastiCache Redis"
-  vpc_id      = aws_vpc.main.id
-  
-  ingress {
-    description     = "Redis from ECS"
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks.id]
-  }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-redis-sg"
-    }
-  )
-}
-
-################################################################################
-# VPC Endpoints (for private access to AWS services)
-################################################################################
-
-# S3 Gateway Endpoint
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = aws_vpc.main.id
-  service_name = "com.amazonaws.${var.region}.s3"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-s3-endpoint"
-    }
-  )
-}
-
-# S3 Endpoint Route
-resource "aws_route" "s3_endpoint" {
-  route_table_id = aws_route_table.private[0].id
-  vpc_endpoint_id = aws_vpc_endpoint.s3.id
-  destination_cidr_block = "pl-${aws_vpc_endpoint.s3.id}"
-}
-
-# Secrets Manager Endpoint
-resource "aws_vpc_endpoint" "secretsmanager" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.region}.secretsmanager"
-  vpc_endpoint_type = "Interface"
-  
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.ecs_tasks.id]
-  
-  private_dns_enabled = true
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-secretsmanager-endpoint"
-    }
-  )
-}
-
-# CloudWatch Logs Endpoint
-resource "aws_vpc_endpoint" "logs" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.region}.logs"
-  vpc_endpoint_type = "Interface"
-  
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.ecs_tasks.id]
-  
-  private_dns_enabled = true
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-logs-endpoint"
-    }
-  )
-}
-
-# ECR API Endpoint
-resource "aws_vpc_endpoint" "ecr_api" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.region}.ecr.api"
-  vpc_endpoint_type = "Interface"
-  
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.ecs_tasks.id]
-  
-  private_dns_enabled = true
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-ecr-api-endpoint"
-    }
-  )
-}
-
-# ECR DKR Endpoint
-resource "aws_vpc_endpoint" "ecr_dkr" {
-  vpc_id            = aws_vpc.main.id
-  service_name      = "com.amazonaws.${var.region}.ecr.dkr"
-  vpc_endpoint_type = "Interface"
-  
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.ecs_tasks.id]
-  
-  private_dns_enabled = true
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-ecr-dkr-endpoint"
-    }
-  )
-}
-
-################################################################################
-# Outputs
-################################################################################
 
 output "vpc_id" {
   description = "ID of the VPC"
-  value       = aws_vpc.main.id
+  value       = module.vpc.vpc_id
 }
 
-output "vpc_cidr" {
+output "vpc_cidr_block" {
   description = "CIDR block of the VPC"
-  value       = aws_vpc.main.cidr_block
+  value       = module.vpc.vpc_cidr_block
 }
 
 output "public_subnet_ids" {
-  description = "IDs of public subnets"
-  value       = aws_subnet.public[*].id
+  description = "IDs of the public subnets"
+  value       = module.vpc.public_subnet_ids
 }
 
 output "private_subnet_ids" {
-  description = "IDs of private subnets"
-  value       = aws_subnet.private[*].id
+  description = "IDs of the private subnets"
+  value       = module.vpc.private_subnet_ids
 }
 
 output "database_subnet_ids" {
-  description = "IDs of database subnets"
-  value       = aws_subnet.database[*].id
+  description = "IDs of the database subnets"
+  value       = module.vpc.database_subnet_ids
 }
 
-output "cache_subnet_ids" {
-  description = "IDs of cache subnets"
-  value       = aws_subnet.cache[*].id
+output "public_route_table_id" {
+  description = "ID of the public route table"
+  value       = module.vpc.public_route_table_id
 }
 
-output "db_subnet_group_name" {
-  description = "Name of the RDS subnet group"
-  value       = aws_db_subnet_group.main.name
+output "private_route_table_ids" {
+  description = "IDs of the private route tables"
+  value       = module.vpc.private_route_table_ids
 }
 
-output "cache_subnet_group_name" {
-  description = "Name of the ElastiCache subnet group"
-  value       = aws_elasticache_subnet_group.main.name
-}
-
-output "alb_security_group_id" {
-  description = "ID of the ALB security group"
-  value       = aws_security_group.alb.id
-}
-
-output "ecs_tasks_security_group_id" {
-  description = "ID of the ECS tasks security group"
-  value       = aws_security_group.ecs_tasks.id
-}
-
-output "rds_security_group_id" {
-  description = "ID of the RDS security group"
-  value       = aws_security_group.rds.id
-}
-
-output "redis_security_group_id" {
-  description = "ID of the Redis security group"
-  value       = aws_security_group.redis.id
+output "nat_gateway_ids" {
+  description = "IDs of the NAT Gateways"
+  value       = module.vpc.nat_gateway_ids
 }
 
 output "nat_gateway_ips" {
-  description = "Elastic IP addresses for NAT Gateways"
-  value       = aws_eip.nat[*].id
+  description = "Elastic IPs of the NAT Gateways"
+  value       = module.vpc.nat_gateway_public_ips
+}
+
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  value       = module.vpc.igw_id
+}
+
+output "database_subnet_group_id" {
+  description = "ID of the database subnet group"
+  value       = module.vpc.database_subnet_group_id
+}
+
+output "security_group_nat_id" {
+  description = "ID of the NAT Gateway security group"
+  value       = aws_security_group.nat_gateway.id
 }

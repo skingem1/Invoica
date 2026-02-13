@@ -1,16 +1,18 @@
 /**
- * S3 Module with CloudFront CDN
+ * S3 Bucket Module
  * 
- * Creates S3 buckets with Intelligent-Tiering configuration,
- * including CloudFront distribution for CDN delivery.
+ * Creates S3 buckets with:
+ * - Intelligent-Tiering configuration for cost optimization
+ * - Versioning enabled
+ * - Encryption at rest
+ * - CloudFront OAC integration for secure static asset delivery
  * 
  * @module s3
- * @requires terraform >= 1.0.0
- * @requires aws >= 5.0
+ * @requires hashicorp/aws >= 5.0
  */
 
 terraform {
-  required_version = ">= 1.0.0"
+  required_version = ">= 1.5.0"
   
   required_providers {
     aws = {
@@ -20,121 +22,298 @@ terraform {
   }
 }
 
-################################################################################
-# S3 Bucket: Invoices (with Intelligent-Tiering)
-################################################################################
-
-resource "aws_s3_bucket" "invoices" {
-  bucket = "${var.bucket_prefix}-invoices-${var.environment}"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name        = "${var.environment}-invoices"
-      Environment = var.environment
-      Purpose     = "invoice-storage"
-    }
-  )
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, staging, prod"
+  }
 }
 
-resource "aws_s3_bucket_versioning" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
+variable "bucket_name" {
+  description = "Name of the S3 bucket (must be globally unique)"
+  type        = string
+}
+
+variable "enable_intelligent_tiering" {
+  description = "Enable S3 Intelligent-Tiering for cost optimization"
+  type        = bool
+  default     = true
+}
+
+variable "enable_versioning" {
+  description = "Enable versioning for the bucket"
+  type        = bool
+  default     = true
+}
+
+variable "enable_server_side_encryption" {
+  description = "Enable server-side encryption"
+  type        = bool
+  default     = true
+}
+
+variable "sse_algorithm" {
+  description = "Server-side encryption algorithm"
+  type        = string
+  default     = "AES256"
+  validation {
+    condition     = contains(["AES256", "aws:kms"], var.sse_algorithm)
+    error_message = "SSE algorithm must be AES256 or aws:kms"
+  }
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for encryption (use default AWS key if null)"
+  type        = string
+  default     = null
+}
+
+variable "lifecycle_rules" {
+  description = "Lifecycle rules for the bucket"
+  type = list(object({
+    id     = string
+    status = string
+    filter = optional(object({
+      prefix = string
+      tags   = map(string)
+    }), {})
+    transition = optional(list(object({
+      days          = number
+      storage_class = string
+    })), [])
+    expiration = optional(number, null)
+    noncurrent_version_expiration = optional(number, null)
+  }))
+  default = []
+}
+
+variable "enable_public_access_block" {
+  description = "Block public access to the bucket"
+  type        = bool
+  default     = true
+}
+
+variable "allowed_bucket_actions" {
+  description = "IAM actions allowed on the bucket (for bucket policies)"
+  type        = list(string)
+  default     = ["s3:GetObject"]
+}
+
+variable "cors_configuration" {
+  description = "CORS configuration for the bucket"
+  type = list(object({
+    allowed_headers = list(string)
+    allowed_methods = list(string)
+    allowed_origins = list(string)
+    expose_headers  = optional(list(string))
+    max_age_seconds = optional(number)
+  }))
+  default = []
+}
+
+variable "logging_configuration" {
+  description = "S3 access logging configuration"
+  type = object({
+    target_bucket = string
+    target_prefix = optional(string, "logs/")
+  })
+  default = null
+}
+
+variable "tags" {
+  description = "Additional tags to apply to resources"
+  type        = map(string)
+  default     = {}
+}
+
+locals {
+  common_tags = merge(
+    {
+      Environment = var.environment
+      Project     = "infrastructure"
+      ManagedBy   = "terraform"
+    },
+    var.tags
+  )
   
+  # Default Intelligent-Tiering rule if enabled and no lifecycle rules provided
+  default_intelligent_tiering = var.enable_intelligent_tiering && length(var.lifecycle_rules) == 0 ? [
+    {
+      name                       = "intelligent-tiering-archive"
+      status                     = "Enabled"
+      filter = {
+        prefix = ""
+      }
+      tiering = {
+        "ARCHIVE_ACCESS" = 180
+        "DEEP_ARCHIVE_ACCESS" = 365
+      }
+    }
+  ] : []
+}
+
+# S3 Bucket
+resource "aws_s3_bucket" "main" {
+  bucket = var.bucket_name
+
+  tags = local.common_tags
+}
+
+# Bucket Versioning
+resource "aws_s3_bucket_versioning" "main" {
+  count = var.enable_versioning ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
-  
+# Server-Side Encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
+  count = var.enable_server_side_encryption ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm     = "AES256"
+      sse_algorithm     = var.sse_algorithm
+      kms_master_key_id = var.kms_key_id
     }
   }
 }
 
-resource "aws_s3_bucket_intelligent_tiering_configuration" "invoices" {
-  name   = "invoice-archive"
-  bucket = aws_s3_bucket.invoices.id
-  
-  tiering {
-    name          = "archive-access"
-    access_tier  = "ARCHIVE_ACCESS"
-    days_after_initiation = 90
+# Intelligent-Tiering Configuration
+resource "aws_s3_bucket_intelligent_tiering_configuration" "main" {
+  count = var.enable_intelligent_tiering ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+  name   = "intelligent-tiering-config"
+
+  # Use default configuration or provided lifecycle rules
+  dynamic "tiering" {
+    for_each = local.default_intelligent_tiering
+    content {
+      name                 = tiering.value.name
+      status                = tiering.value.status
+      access_tier_transition = lookup(tiering.value, "tiering", {})
+    }
   }
-  
-  tiering {
-    name          = "deep-archive"
-    access_tier  = "DEEP_ARCHIVE_ACCESS"
-    days_after_initiation = 180
+
+  # Simplified tiering configuration
+  dynamic "tiering" {
+    for_each = var.enable_intelligent_tiering ? ["enabled"] : []
+    content {
+      name        = "Standard"
+      status      = "Enabled"
+      access_tier = ["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
+    }
   }
-  
+
   filter {
-    prefix = "invoices/"
+    prefix = ""
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
-  
-  rule {
-    id     = "expire-old-versions"
-    status = "Enabled"
-    
-    noncurrent_version_expiration {
-      noncurrent_days = 365
-    }
-  }
-  
-  rule {
-    id     = "archive-invoices"
-    status = "Enabled"
-    
-    filter {
-      prefix = "archive/"
-    }
-    
-    transition {
-      storage_class = "GLACIER"
-      days          = 90
-    }
-    
-    transition {
-      storage_class = "DEEP_ARCHIVE"
-      days          = 365
+# Lifecycle Rules
+resource "aws_s3_bucket_lifecycle_configuration" "main" {
+  count = length(var.lifecycle_rules) > 0 ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
+  dynamic "rule" {
+    for_each = var.lifecycle_rules
+    content {
+      id     = rule.value.id
+      status = rule.value.status
+
+      filter {
+        prefix = lookup(rule.value.filter, "prefix", "")
+        tags   = lookup(rule.value.filter, "tags", {})
+      }
+
+      dynamic "transition" {
+        for_each = rule.value.transition
+        content {
+          days          = transition.value.days
+          storage_class = transition.value.storage_class
+        }
+      }
+
+      expiration {
+        days = rule.value.expiration
+      }
+
+      noncurrent_version_expiration {
+        noncurrent_days = rule.value.noncurrent_version_expiration
+      }
     }
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
-  
+# Public Access Block
+resource "aws_s3_bucket_public_access_block" "main" {
+  count = var.enable_public_access_block ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
   block_public_acls       = true
   block_public_policy     = true
-  ignore_public_acls      = true
+  ignore_public_acls     = true
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_policy" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
-  
+# CORS Configuration
+resource "aws_s3_bucket_cors_configuration" "main" {
+  count = length(var.cors_configuration) > 0 ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
+  dynamic "cors_rule" {
+    for_each = var.cors_configuration
+    content {
+      allowed_headers = cors_rule.value.allowed_headers
+      allowed_methods = cors_rule.value.allowed_methods
+      allowed_origins = cors_rule.value.allowed_origins
+      expose_headers  = cors_rule.value.expose_headers
+      max_age_seconds = cors_rule.value.max_age_seconds
+    }
+  }
+}
+
+# Logging Configuration
+resource "aws_s3_bucket_logging" "main" {
+  count = var.logging_configuration != null ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
+  target_bucket = var.logging_configuration.target_bucket
+  target_prefix = var.logging_configuration.target_prefix
+}
+
+# Bucket Policy (optional - for CloudFront OAC)
+resource "aws_s3_bucket_policy" "main" {
+  count = var.allowed_bucket_actions != null && length(var.allowed_bucket_actions) > 0 ? 1 : 0
+
+  bucket = aws_s3_bucket.main.id
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid = "DenyUnsecureTransport"
-        Effect = "Deny"
-        Principal = "*"
-        Action = "s3:*"
-        Resource = [
-          aws_s3_bucket.invoices.arn,
-          "${aws_s3_bucket.invoices.arn}/*"
-        ]
+        Sid       = "AllowCloudFrontServicePrincipalReadOnly"
+        Effect    = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.main.arn}/*"
         Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
+          StringEquals = {
+            "AWS:SourceArn" = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.cloudfront_distribution_id != null ? var.cloudfront_distribution_id : ""}"
           }
         }
       }
@@ -142,346 +321,36 @@ resource "aws_s3_bucket_policy" "invoices" {
   })
 }
 
-################################################################################
-# S3 Bucket: Assets (for CloudFront distribution)
-################################################################################
-
-resource "aws_s3_bucket" "assets" {
-  bucket = "${var.bucket_prefix}-assets-${var.environment}"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name        = "${var.environment}-assets"
-      Environment = var.environment
-      Purpose     = "static-assets"
-    }
-  )
+variable "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for OAC (optional)"
+  type        = string
+  default     = null
 }
 
-resource "aws_s3_bucket_versioning" "assets" {
-  bucket = aws_s3_bucket.assets.id
-  
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+data "aws_caller_identity" "current" {}
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
-  bucket = aws_s3_bucket.assets.id
-  
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "assets" {
-  bucket = aws_s3_bucket.assets.id
-  
-  block_public_acls       = true
-  block_block_public_policy = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-################################################################################
-# S3 Bucket: Uploads (temporary upload bucket)
-################################################################################
-
-resource "aws_s3_bucket" "uploads" {
-  bucket = "${var.bucket_prefix}-uploads-${var.environment}"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name        = "${var.environment}-uploads"
-      Environment = var.environment
-      Purpose     = "temp-uploads"
-    }
-  )
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
-  bucket = aws_s3_bucket.uploads.id
-  
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "uploads" {
-  bucket = aws_s3_bucket.uploads.id
-  
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
-  bucket = aws_s3_bucket.uploads.id
-  
-  rule {
-    id     = "expire-old-uploads"
-    status = "Enabled"
-    
-    expiration {
-      days = 7
-    }
-  }
-}
-
-################################################################################
-# S3 Bucket: Logs
-################################################################################
-
-resource "aws_s3_bucket" "logs" {
-  bucket = "${var.bucket_prefix}-logs-${var.environment}"
-  
-  tags = merge(
-    var.tags,
-    {
-      Name        = "${var.environment}-logs"
-      Environment = var.environment
-      Purpose     = "logging"
-    }
-  )
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
-  
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = "AES256"
-    }
-  }
-}
-
-# Enable access logging for other buckets
-resource "aws_s3_bucket_logging" "invoices" {
-  bucket = aws_s3_bucket.invoices.id
-  
-  target_bucket = aws_s3_bucket.logs.id
-  target_prefix = "invoices/"
-}
-
-resource "aws_s3_bucket_logging" "assets" {
-  bucket = aws_s3_bucket.assets.id
-  
-  target_bucket = aws_s3_bucket.logs.id
-  target_prefix = "assets/"
-}
-
-################################################################################
-# CloudFront Origin Access Control
-################################################################################
-
-resource "aws_cloudfront_origin_access_control" "assets" {
-  name                              = "${var.environment}-assets-oac"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                   = "sigv4"
-}
-
-################################################################################
-# CloudFront Distribution
-################################################################################
-
-resource "aws_cloudfront_distribution" "assets" {
-  count = var.enable_cloudfront ? 1 : 0
-  
-  enabled         = true
-  is_ipv6_enabled = true
-  comment        = "CloudFront distribution for ${var.environment} assets"
-  
-  aliases = var.cloudfront_aliases
-  
-  origin {
-    domain_name = aws_s3_bucket.assets.bucket_regional_domain_name
-    origin_id   = "S3-${aws_s3_bucket.assets.id}"
-    
-    origin_access_control_id = aws_cloudfront_origin_access_control.assets.id
-    
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "match-viewer"
-      origin_ssl_protocols   = ["TLSv1.2", "TLSv1.3"]
-    }
-  }
-  
-  default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-${aws_s3_bucket.assets.id}"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-    
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-    
-    min_ttl     = var.cloudfront_min_ttl
-    default_ttl = var.cloudfront_default_ttl
-    max_ttl     = var.cloudfront_max_ttl
-    
-    # Use origin shield for better caching
-    origin_shield {
-      enabled              = true
-      origin_shield_region = var.cloudfront_origin_shield_region
-    }
-  }
-  
-  # Custom error responses
-  dynamic "custom_error_response" {
-    for_each = var.custom_error_responses
-    content {
-      error_code            = custom_error_response.value.error_code
-      error_caching_min_ttl = custom_error_response.value.error_caching_min_ttl
-      response_code         = custom_error_response.value.response_code
-      response_page_path    = custom_error_response.value.response_page_path
-    }
-  }
-  
-  price_class = var.cloudfront_price_class
-  
-  restrictions {
-    geo_restriction {
-      restriction_type = var.geo_restriction_type
-      locations        = var.geo_restriction_locations
-    }
-  }
-  
-  viewer_certificate {
-    acm_certificate_arn            = var.acm_certificate_arn
-    ssl_support_method             = var.ssl_support_method
-    minimum_protocol_version       = var.minimum_tls_version
-  }
-  
-  logging_config {
-    bucket          = aws_s3_bucket.logs.bucket_domain_name
-    prefix          = "cloudfront/"
-    include_cookies = false
-  }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.environment}-cloudfront"
-    }
-  )
-  
-  depends_on = [aws_s3_bucket.assets]
-}
-
-################################################################################
-# CloudFront Functions (for request/response manipulation)
-################################################################################
-
-resource "aws_cloudfront_function" "viewer_request" {
-  count = var.enable_cloudfront ? 1 : 0
-  
-  name    = "${var.environment}-viewer-request"
-  runtime = "cloudfront-js-1.0"
-  comment = "Viewer request function for ${var.environment}"
-  
-  code = <<EOF
-function handler(event) {
-  var request = event.request;
-  
-  // Add security headers
-  request.headers['x-forwarded-for'] = { value: event.viewerIp };
-  
-  return request;
-}
-EOF
-}
-
-resource "aws_cloudfront_function" "viewer_response" {
-  count = var.enable_cloudfront ? 1 : 0
-  
-  name    = "${var.environment}-viewer-response"
-  runtime = "cloudfront-js-1.0"
-  comment = "Viewer response function for ${var.environment}"
-  
-  code = <<EOF
-function handler(event) {
-  var response = event.response;
-  
-  // Add security headers
-  response.headers['strict-transport-security'] = { value: 'max-age=31536000; includeSubDomains' };
-  response.headers['x-content-type-options'] = { value: 'nosniff' };
-  response.headers['x-frame-options'] = { value: 'DENY' };
-  response.headers['x-xss-protection'] = { value: '1; mode=block' };
-  
-  return response;
-}
-EOF
-}
-
-################################################################################
 # Outputs
-################################################################################
-
-output "invoices_bucket_name" {
-  description = "Name of the invoices S3 bucket"
-  value       = aws_s3_bucket.invoices.id
+output "bucket_id" {
+  description = "ID of the S3 bucket"
+  value       = aws_s3_bucket.main.id
 }
 
-output "invoices_bucket_arn" {
-  description = "ARN of the invoices S3 bucket"
-  value       = aws_s3_bucket.invoices.arn
+output "bucket_arn" {
+  description = "ARN of the S3 bucket"
+  value       = aws_s3_bucket.main.arn
 }
 
-output "assets_bucket_name" {
-  description = "Name of the assets S3 bucket"
-  value       = aws_s3_bucket.assets.id
+output "bucket_name" {
+  description = "Name of the S3 bucket"
+  value       = aws_s3_bucket.main.bucket
 }
 
-output "assets_bucket_arn" {
-  description = "ARN of the assets S3 bucket"
-  value       = aws_s3_bucket.assets.arn
+output "bucket_domain_name" {
+  description = "Domain name of the S3 bucket"
+  value       = aws_s3_bucket.main.bucket_domain_name
 }
 
-output "uploads_bucket_name" {
-  description = "Name of the uploads S3 bucket"
-  value       = aws_s3_bucket.uploads.id
-}
-
-output "uploads_bucket_arn" {
-  description = "ARN of the uploads S3 bucket"
-  value       = aws_s3_bucket.uploads.arn
-}
-
-output "logs_bucket_name" {
-  description = "Name of the logs S3 bucket"
-  value       = aws_s3_bucket.logs.id
-}
-
-output "logs_bucket_arn" {
-  description = "ARN of the logs S3 bucket"
-  value       = aws_s3_bucket.logs.arn
-}
-
-output "cloudfront_distribution_id" {
-  description = "ID of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].id : ""
-}
-
-output "cloudfront_distribution_domain_name" {
-  description = "Domain name of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].domain_name : ""
-}
-
-output "cloudfront_distribution_arn" {
-  description = "ARN of the CloudFront distribution"
-  value       = var.enable_cloudfront ? aws_cloudfront_distribution.assets[0].arn : ""
+output "bucket_regional_domain_name" {
+  description = "Regional domain name of the S3 bucket"
+  value       = aws_s3_bucket.main.bucket_regional_domain_name
 }
