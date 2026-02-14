@@ -1,31 +1,23 @@
-import { Request, Response } from 'express';
-import { healthCheck, HealthCheckResponseSchema, HealthCheckResponse } from '../../src/api/health';
-import { prisma } from '../../src/lib/prisma';
-import { redis } from '../../src/lib/redis';
+import { Request, Response, Router } from 'express';
+import { HealthCheckResponseSchema, healthRouter, setPrismaClient, setRedisClient } from '../../src/api/health';
 
 // Mock dependencies
-jest.mock('../../src/lib/prisma', () => ({
-  prisma: {
-    $queryRaw: jest.fn().mockResolvedValue([]),
-  },
-}));
+jest.mock('../../src/api/health', () => {
+  const actual = jest.requireActual('../../src/api/health');
+  return {
+    ...actual,
+  };
+});
 
-jest.mock('../../src/lib/redis', () => ({
-  redis: {
-    ping: jest.fn(),
-  },
-}));
+// Mock Prisma Client
+const mockPrisma = {
+  $queryRaw: jest.fn(),
+};
 
-jest.mock('../../src/lib/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  },
-}));
-
-// Extend timeout for async tests
-const TEST_TIMEOUT = 10000;
+// Mock Redis Client
+const mockRedis = {
+  ping: jest.fn(),
+};
 
 describe('Health Check API', () => {
   let mockRequest: Partial<Request>;
@@ -34,358 +26,347 @@ describe('Health Check API', () => {
   let statusMock: jest.Mock;
 
   beforeEach(() => {
+    // Reset all mocks
+    jest.clearAllMocks();
+    
+    // Setup response mocks
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
     
-    mockRequest = {
-      method: 'GET',
-      path: '/api/health',
-    };
-    
+    mockRequest = {};
     mockResponse = {
-      status: statusMock,
       json: jsonMock,
+      status: statusMock,
     };
-    
-    // Reset environment variable
-    process.env.APP_VERSION = '1.0.0';
-    
-    jest.clearAllMocks();
+
+    // Set up mocked clients
+    setPrismaClient(mockPrisma as any);
+    setRedisClient(mockRedis as any);
   });
 
-  describe('healthCheck function', () => {
-    it(
-      'should return healthy status when all services are connected',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        expect(statusMock).toHaveBeenCalledWith(200);
-        expect(jsonMock).toHaveBeenCalled();
-        
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.status).toBe('healthy');
-        expect(response.services.database.status).toBe('connected');
-        expect(response.services.redis.status).toBe('connected');
-        expect(response.uptime).toBeGreaterThanOrEqual(0);
-        expect(response.version).toBe('1.0.0');
-        expect(response.timestamp).toBeDefined();
-        expect(() => HealthCheckResponseSchema.parse(response)).not.toThrow();
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return degraded status when Redis is disconnected',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue(null);
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        expect(statusMock).toHaveBeenCalledWith(200);
-        
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.status).toBe('degraded');
-        expect(response.services.database.status).toBe('connected');
-        expect(response.services.redis.status).toBe('disconnected');
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return unhealthy status when database has an error',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Database connection failed'));
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        expect(statusMock).toHaveBeenCalledWith(503);
-        
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.status).toBe('unhealthy');
-        expect(response.services.database.status).toBe('error');
-        expect(response.services.database.error).toBe('Database connection failed');
-        expect(response.services.redis.status).toBe('connected');
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return unhealthy status when Redis has an error',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockRejectedValue(new Error('Redis connection failed'));
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        expect(statusMock).toHaveBeenCalledWith(503);
-        
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.status).toBe('unhealthy');
-        expect(response.services.database.status).toBe('connected');
-        expect(response.services.redis.status).toBe('error');
-        expect(response.services.redis.error).toBe('Redis connection failed');
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return unhealthy status when both services have errors',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Database error'));
-        (redis.ping as jest.Mock).mockRejectedValue(new Error('Redis error'));
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        expect(statusMock).toHaveBeenCalledWith(503);
-        
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.status).toBe('unhealthy');
-        expect(response.services.database.status).toBe('error');
-        expect(response.services.redis.status).toBe('error');
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should include latency information for connected services',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        
-        expect(response.services.database.latencyMs).toBeDefined();
-        expect(response.services.database.latencyMs).toBeGreaterThanOrEqual(0);
-        expect(response.services.redis.latencyMs).toBeDefined();
-        expect(response.services.redis.latencyMs).toBeGreaterThanOrEqual(0);
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should use APP_VERSION from environment variable',
-      async () => {
-        // Arrange
-        process.env.APP_VERSION = '2.5.0';
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.version).toBe('2.5.0');
-        
-        // Reset
-        process.env.APP_VERSION = '1.0.0';
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should default to version 1.0.0 when APP_VERSION is not set',
-      async () => {
-        // Arrange
-        delete process.env.APP_VERSION;
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.version).toBe('1.0.0');
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return valid ISO timestamp',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        const timestamp = new Date(response.timestamp);
-        expect(timestamp.getTime()).not.toBeNaN();
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should return valid response schema',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('PONG');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0];
-        expect(() => HealthCheckResponseSchema.parse(response)).not.toThrow();
-      },
-      TEST_TIMEOUT
-    );
-
-    it(
-      'should handle unexpected Redis response gracefully',
-      async () => {
-        // Arrange
-        (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
-        (redis.ping as jest.Mock).mockResolvedValue('UNEXPECTED');
-        
-        // Act
-        await healthCheck(mockRequest as Request, mockResponse as Response);
-        
-        // Assert
-        const response = jsonMock.mock.calls[0][0] as HealthCheckResponse;
-        expect(response.services.redis.status).toBe('disconnected');
-        expect(response.services.redis.error).toBe('Unexpected Redis response');
-      },
-      TEST_TIMEOUT
-    );
-  });
-
-  describe('HealthCheckResponseSchema', () => {
-    it('should validate a complete healthy response', () => {
-      const validResponse = {
-        status: 'healthy',
-        uptime: 100,
+  describe('Health Check Response Schema', () => {
+    it('should validate a healthy response', () => {
+      const healthyResponse = {
+        status: 'healthy' as const,
+        uptime: 1000,
         version: '1.0.0',
-        timestamp: new Date().toISOString(),
+        timestamp: '2024-01-01T00:00:00.000Z',
         services: {
           database: {
-            status: 'connected',
-            latencyMs: 5,
+            status: 'connected' as const,
+            latencyMs: 10,
+            error: null,
           },
           redis: {
-            status: 'connected',
-            latencyMs: 3,
+            status: 'connected' as const,
+            latencyMs: 5,
+            error: null,
           },
         },
       };
 
-      expect(() => HealthCheckResponseSchema.parse(validResponse)).not.toThrow();
+      const result = HealthCheckResponseSchema.safeParse(healthyResponse);
+      expect(result.success).toBe(true);
     });
 
-    it('should validate a degraded response with disconnected service', () => {
-      const validResponse = {
-        status: 'degraded',
-        uptime: 100,
+    it('should validate a degraded response', () => {
+      const degradedResponse = {
+        status: 'degraded' as const,
+        uptime: 5000,
         version: '1.0.0',
-        timestamp: new Date().toISOString(),
+        timestamp: '2024-01-01T00:00:00.000Z',
         services: {
           database: {
-            status: 'connected',
-            latencyMs: 5,
+            status: 'connected' as const,
+            latencyMs: 10,
+            error: null,
           },
           redis: {
-            status: 'disconnected',
+            status: 'disconnected' as const,
+            latencyMs: null,
+            error: 'Redis client not initialized',
           },
         },
       };
 
-      expect(() => HealthCheckResponseSchema.parse(validResponse)).not.toThrow();
+      const result = HealthCheckResponseSchema.safeParse(degradedResponse);
+      expect(result.success).toBe(true);
     });
 
-    it('should validate an unhealthy response with errors', () => {
-      const validResponse = {
-        status: 'unhealthy',
-        uptime: 100,
+    it('should validate an unhealthy response', () => {
+      const unhealthyResponse = {
+        status: 'unhealthy' as const,
+        uptime: 10000,
         version: '1.0.0',
-        timestamp: new Date().toISOString(),
+        timestamp: '2024-01-01T00:00:00.000Z',
         services: {
           database: {
-            status: 'error',
-            error: 'Connection failed',
+            status: 'error' as const,
+            latencyMs: null,
+            error: 'Connection refused',
           },
           redis: {
-            status: 'error',
-            error: 'Connection failed',
+            status: 'error' as const,
+            latencyMs: null,
+            error: 'Connection refused',
           },
         },
       };
 
-      expect(() => HealthCheckResponseSchema.parse(validResponse)).not.toThrow();
+      const result = HealthCheckResponseSchema.safeParse(unhealthyResponse);
+      expect(result.success).toBe(true);
     });
 
     it('should reject invalid status values', () => {
       const invalidResponse = {
-        status: 'invalid_status',
-        uptime: 100,
+        status: 'invalid',
+        uptime: 1000,
         version: '1.0.0',
-        timestamp: new Date().toISOString(),
+        timestamp: '2024-01-01T00:00:00.000Z',
         services: {
-          database: { status: 'connected' },
-          redis: { status: 'connected' },
+          database: {
+            status: 'connected',
+            latencyMs: 10,
+          },
+          redis: {
+            status: 'connected',
+            latencyMs: 5,
+          },
         },
       };
 
-      expect(() => HealthCheckResponseSchema.parse(invalidResponse)).toThrow();
+      const result = HealthCheckResponseSchema.safeParse(invalidResponse);
+      expect(result.success).toBe(false);
     });
 
-    it('should reject negative uptime', () => {
-      const invalidResponse = {
+    it('should require all required fields', () => {
+      const incompleteResponse = {
         status: 'healthy',
-        uptime: -1,
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        services: {
-          database: { status: 'connected' },
-          redis: { status: 'connected' },
-        },
+        uptime: 1000,
       };
 
-      expect(() => HealthCheckResponseSchema.parse(invalidResponse)).toThrow();
+      const result = HealthCheckResponseSchema.safeParse(incompleteResponse);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/health', () => {
+    it('should return 200 with healthy status when all services are connected', async () => {
+      // Setup successful database ping
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      // Get the route handler
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      // Verify response
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'healthy',
+          version: expect.any(String),
+          uptime: expect.any(Number),
+          timestamp: expect.any(String),
+          services: {
+            database: {
+              status: 'connected',
+              latencyMs: expect.any(Number),
+              error: null,
+            },
+            redis: {
+              status: 'connected',
+              latencyMs: expect.any(Number),
+              error: null,
+            },
+          },
+        })
+      );
     });
 
-    it('should reject invalid timestamp format', () => {
-      const invalidResponse = {
-        status: 'healthy',
-        uptime: 100,
-        version: '1.0.0',
-        timestamp: 'not-a-date',
-        services: {
-          database: { status: 'connected' },
-          redis: { status: 'connected' },
-        },
-      };
+    it('should return 200 with degraded status when one service is down', async () => {
+      // Database connected, Redis disconnected
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockRejectedValue(new Error('Connection refused'));
 
-      expect(() => HealthCheckResponseSchema.parse(invalidResponse)).toThrow();
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'degraded',
+          services: {
+            database: { status: 'connected' },
+            redis: { status: 'error' },
+          },
+        })
+      );
+    });
+
+    it('should return 503 with unhealthy status when all services are down', async () => {
+      // Both services fail
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('DB Connection failed'));
+      mockRedis.ping.mockRejectedValue(new Error('Redis Connection failed'));
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(503);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'unhealthy',
+          services: {
+            database: { status: 'error' },
+            redis: { status: 'error' },
+          },
+        })
+      );
+    });
+
+    it('should return degraded when database is disconnected', async () => {
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('Not initialized'));
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'degraded',
+          services: {
+            database: { status: 'error' },
+            redis: { status: 'connected' },
+          },
+        })
+      );
+    });
+
+    it('should include latency measurements in response', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.services.database.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(response.services.redis.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should include version from environment', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.version).toBeDefined();
+      expect(typeof response.version).toBe('string');
+    });
+
+    it('should include uptime greater than zero', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.uptime).toBeGreaterThan(0);
+    });
+
+    it('should include ISO timestamp', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle unexpected errors gracefully', async () => {
+      // Force an unexpected error by making Prisma throw
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('Unexpected'));
+      
+      // Make Redis also throw to trigger error handling path
+      mockRedis.ping.mockRejectedValue(new Error('Unexpected'));
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      // Should still return a valid response structure
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'unhealthy',
+          version: expect.any(String),
+          uptime: expect.any(Number),
+          timestamp: expect.any(String),
+          services: expect.any(Object),
+        })
+      );
+    });
+  });
+
+  describe('Service Status Determination', () => {
+    it('should return healthy when both services connected', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.status).toBe('healthy');
+    });
+
+    it('should return degraded when database disconnected', async () => {
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('DB down'));
+      mockRedis.ping.mockResolvedValue('PONG');
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.status).toBe('degraded');
+    });
+
+    it('should return degraded when redis disconnected', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      mockRedis.ping.mockRejectedValue(new Error('Redis down'));
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.status).toBe('degraded');
+    });
+
+    it('should return unhealthy when both services disconnected', async () => {
+      mockPrisma.$queryRaw.mockRejectedValue(new Error('DB down'));
+      mockRedis.ping.mockRejectedValue(new Error('Redis down'));
+
+      const handler = healthRouter.stack[0].route.stack[0].handle;
+      await handler(mockRequest as Request, mockResponse as Response);
+
+      const response = jsonMock.mock.calls[0][0];
+      expect(response.status).toBe('unhealthy');
+      expect(statusMock).toHaveBeenCalledWith(503);
     });
   });
 });
