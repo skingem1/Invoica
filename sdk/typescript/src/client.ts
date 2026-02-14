@@ -1,14 +1,12 @@
-import { CountableError } from './types';
-
-export { CountableError };
+import { CreateInvoiceParams, Invoice, InvoiceFilter } from './types';
 
 export class CountableClient {
-  private apiKey: string;
   private baseUrl: string;
+  private apiKey: string;
 
-  constructor(apiKey: string, baseUrl = 'https://api.countable.dev') {
-    this.apiKey = apiKey;
+  constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -20,11 +18,22 @@ export class CountableClient {
       },
       body: body ? JSON.stringify(body) : undefined,
     });
-
     if (!response.ok) {
-      throw new CountableError(response.status, await response.text());
+      throw new Error(`Request failed with status ${response.status}`);
     }
-
     return response.json();
+  }
+
+  createInvoice(params: CreateInvoiceParams): Promise<Invoice> {
+    return this.request<Invoice>('POST', '/invoices', params);
+  }
+
+  getInvoice(id: string): Promise<Invoice> {
+    return this.request<Invoice>('GET', `/invoices/${id}`);
+  }
+
+  listInvoices(filter?: InvoiceFilter): Promise<Invoice[]> {
+    const query = filter ? `?${new URLSearchParams(filter as Record<string, string>).toString()}` : '';
+    return this.request<Invoice[]>('GET', `/invoices${query}`);
   }
 }

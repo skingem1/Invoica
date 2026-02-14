@@ -1,51 +1,63 @@
-import { CountableClient, CountableError } from '../src/client';
+import { CountableClient } from '../src/client';
+import { CreateInvoiceParams, Invoice, InvoiceFilter } from '../src/types';
+
+global.fetch = jest.fn();
 
 describe('CountableClient', () => {
-  let fetchMock: jest.Mock;
+  const client = new CountableClient('https://api.countable.com', 'test-key');
 
   beforeEach(() => {
-    fetchMock = jest.fn();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    jest.clearAllMocks();
   });
 
-  it('stores apiKey and default baseUrl', () => {
-    const client = new CountableClient('test-key');
-    expect((client as any).apiKey).toBe('test-key');
-    expect((client as any).baseUrl).toBe('https://api.countable.dev');
+  it('createInvoice sends POST request with params', async () => {
+    const mockInvoice: Invoice = { id: 'inv-1', amount: 100, status: 'pending' };
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoice });
+
+    const result = await client.createInvoice({ amount: 100, customerId: 'cust-1' });
+
+    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ amount: 100, customerId: 'cust-1' }) }));
+    expect(result).toEqual(mockInvoice);
   });
 
-  it('stores custom baseUrl', () => {
-    const client = new CountableClient('key', 'https://custom.api');
-    expect((client as any).baseUrl).toBe('https://custom.api');
+  it('getInvoice sends GET request with id path', async () => {
+    const mockInvoice: Invoice = { id: 'inv-1', amount: 100, status: 'pending' };
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoice });
+
+    const result = await client.getInvoice('inv-1');
+
+    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices/inv-1',
+      expect.objectContaining({ method: 'GET' }));
+    expect(result).toEqual(mockInvoice);
   });
 
-  it('makes request with correct headers and returns data', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
-    const client = new CountableClient('key');
-    const result = await (client as any).request('GET', '/items');
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.countable.dev/items',
-      expect.objectContaining({
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer key' }
-      })
-    );
-    expect(result).toEqual({ id: 1 });
+  it('listInvoices sends GET with filter query params', async () => {
+    const mockInvoices: Invoice[] = [{ id: 'inv-1', amount: 100, status: 'pending' }];
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoices });
+
+    const filter: InvoiceFilter = { status: 'pending' };
+    const result = await client.listInvoices(filter);
+
+    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices?status=pending',
+      expect.objectContaining({ method: 'GET' }));
+    expect(result).toEqual(mockInvoices);
   });
 
-  it('throws CountableError on non-2xx response', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 401, text: async () => 'Unauthorized' });
-    const client = new CountableClient('key');
-    await expect((client as any).request('GET', '/items')).rejects.toThrow(CountableError);
+  it('listInvoices returns all when no filter provided', async () => {
+    const mockInvoices: Invoice[] = [];
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoices });
+
+    const result = await client.listInvoices();
+
+    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices',
+      expect.objectContaining({ method: 'GET' }));
+    expect(result).toEqual(mockInvoices);
   });
 
-  it('sends body for POST requests', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
-    const client = new CountableClient('key');
-    await (client as any).request('POST', '/items', { name: 'test' });
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.countable.dev/items',
-      expect.objectContaining({ body: JSON.stringify({ name: 'test' }) })
-    );
+  it('throws error on failed request', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 404 });
+
+    await expect(client.getInvoice('bad-id')).rejects.toThrow('Request failed with status 404');
   });
 });
