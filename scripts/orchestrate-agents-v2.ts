@@ -320,7 +320,9 @@ If nothing actionable, report no action needed.`;
       const startTime = Date.now();
       const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      const content = response.choices?.[0]?.message?.content || 'No response';
+      let content = response.choices?.[0]?.message?.content || 'No response';
+      // Strip MiniMax <think>...</think> tags that leak into responses
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       log(c.cyan, `  CTO scan completed in ${elapsed}s`);
       log(c.gray, `  Report preview: ${content.substring(0, 400)}`);
       return content;
@@ -378,7 +380,9 @@ Write ONLY the content for "${filepath}". Rules:
         const startTime = Date.now();
         const response = await callLLM('minimax', model, this.systemPrompt, userPrompt, 180000);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        const content = response.choices?.[0]?.message?.content || '';
+        let content = response.choices?.[0]?.message?.content || '';
+        // Strip MiniMax <think>...</think> tags that leak into responses
+        content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         const tokens = response.usage?.total_tokens || 0;
 
         // Check for MiniMax errors

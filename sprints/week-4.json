@@ -1,0 +1,57 @@
+{
+  "sprint": "week-4",
+  "created": "2026-02-14",
+  "tasks": [
+    {
+      "id": "BC-020",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create an environment config validator utility. File: backend/src/utils/env-validator.ts. Export these: (1) interface EnvConfig with fields: PORT (number), NODE_ENV ('development'|'production'|'test'), DATABASE_URL (string), ANTHROPIC_API_KEY (string), MINIMAX_API_KEY (string), optional SUPERVISOR_URL (string), optional LOG_LEVEL ('debug'|'info'|'warn'|'error' default 'info'). (2) function validateEnv(): EnvConfig that reads process.env, validates all required fields exist and are non-empty, coerces PORT to number (default 3000), throws descriptive Error listing ALL missing vars (not just first). (3) function maskSecret(value: string): string that shows first 4 and last 4 chars with *** in between (or '****' if value is under 10 chars). TypeScript strict mode. No external dependencies.",
+      "deliverables": {
+        "code": ["backend/src/utils/env-validator.ts"],
+        "tests": ["backend/tests/utils/env-validator.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BC-021",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a global Express error handler middleware. File: backend/src/middleware/error-handler.ts. Export: (1) interface AppError extends Error with optional statusCode (number, default 500), optional code (string like 'VALIDATION_ERROR', 'NOT_FOUND', 'UNAUTHORIZED'), optional isOperational (boolean, default true). (2) function createAppError(message: string, statusCode: number, code: string): AppError. (3) function errorHandler(err: Error, req: Request, res: Response, next: NextFunction): void — Express error middleware. In production, hide error details (just message + code). In development, include stack trace. Always log error to console.error as JSON with timestamp, method, path, statusCode, message. Always return JSON { error: { message, code, statusCode } }. TypeScript strict mode. Import only express types.",
+      "deliverables": {
+        "code": ["backend/src/middleware/error-handler.ts"],
+        "tests": ["backend/tests/middleware/error-handler.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BC-022",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a simple request ID middleware. File: backend/src/middleware/request-id.ts. Export: (1) function requestId(): Express middleware that checks for an existing X-Request-Id header on the incoming request. If present, use it. If not, generate a new one using crypto.randomUUID(). Attach it to req.headers['x-request-id'] and also set it on the response header X-Request-Id. (2) function getRequestId(req: Request): string that reads the X-Request-Id from req.headers and returns it (or 'unknown' if missing). TypeScript strict mode. Only import express types and node:crypto.",
+      "deliverables": {
+        "code": ["backend/src/middleware/request-id.ts"],
+        "tests": ["backend/tests/middleware/request-id.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FE-020",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a LoadingSpinner React component. File: frontend/components/ui/loading-spinner.tsx. Export a LoadingSpinner component that accepts props: size ('sm'|'md'|'lg', default 'md') and optional className (string). Render a div with an animated spinning circle using TailwindCSS. Sizes: sm=h-4 w-4 border-2, md=h-8 w-8 border-2, lg=h-12 w-12 border-4. Use border-gray-200 for the circle background and border-t-blue-600 for the spinning arc. Apply animate-spin class. TypeScript with proper prop types. No external dependencies.",
+      "deliverables": {
+        "code": ["frontend/components/ui/loading-spinner.tsx"]
+      },
+      "status": "pending"
+    }
+  ]
+}
