@@ -462,11 +462,6 @@ class Orchestrator {
   private loadTasks() {
     if (!existsSync(this.sprintFile)) throw new Error(`Sprint file not found: ${this.sprintFile}`);
     this.tasks = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
-    // Reset stale in_progress tasks from previous crashed runs
-    for (const t of this.tasks) {
-      if (t.status === 'in_progress') { t.status = 'pending'; }
-    }
-    this.saveTasks();
     log(c.blue, `\nLoaded ${this.tasks.length} tasks from ${this.sprintFile}`);
     const byStatus = this.tasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {} as Record<string, number>);
     log(c.gray, `Status: ${JSON.stringify(byStatus)}`);
