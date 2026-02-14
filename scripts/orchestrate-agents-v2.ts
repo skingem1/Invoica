@@ -360,6 +360,18 @@ class CodingAgent {
         : '';
       const fileList = deliverables.map((f, idx) => `${idx + 1}. ${f}${f === filepath ? ' ← THIS ONE' : ''}`).join('\n');
 
+      const isTestFile = filepath.includes('test') || filepath.includes('spec');
+      const testConstraint = isTestFile
+        ? `\n\n## CRITICAL: TEST FILE SIZE LIMIT
+This is a test file. You MUST keep it SHORT to avoid truncation:
+- Maximum 5-6 test cases (describe + it blocks)
+- Maximum 80 lines total
+- NO verbose setup — use inline mocks
+- NO redundant tests — one test per behavior
+- Cover: happy path, error case, edge case, defaults — that's it
+- If you write more than 80 lines, the file WILL be truncated and REJECTED\n`
+        : '';
+
       const userPrompt = `You are ${this.name}, a coding agent at Countable.
 ${rejectionContext}
 ## Task
@@ -369,7 +381,7 @@ ${task.context}
 ${fileList}
 
 ## Generate ONLY: ${filepath}
-${priorCtx}
+${priorCtx}${testConstraint}
 Write ONLY the content for "${filepath}". Rules:
 - Output a single fenced code block with the COMPLETE file content
 - Production quality, no TODOs or placeholders
