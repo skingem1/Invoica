@@ -323,7 +323,7 @@ class CodingAgent {
     this.systemPrompt = systemPrompt;
   }
 
-  async execute(task: AgentTask): Promise<{ files: string[]; model: string }> {
+  async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
     const model = 'MiniMax-M2.5';
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
     log(c.gray, `  -> Using MiniMax-M2.5`);
@@ -334,10 +334,19 @@ class CodingAgent {
       ...(task.deliverables.docs || []),
     ];
 
+    let rejectionContext = '';
+    if (previousReview && previousReview.verdict !== 'APPROVED') {
+      rejectionContext = `\n## PREVIOUS ATTEMPT WAS REJECTED — FIX THESE ISSUES:
+Score: ${previousReview.score}/100
+${previousReview.issues.map(i => `- [${i.severity}] ${i.file}: ${i.description}`).join('\n')}
+
+YOU MUST fix all the above issues in this attempt.\n`;
+    }
+
     const userPrompt = `## Current Task: ${task.id}
 
 ${task.context}
-
+${rejectionContext}
 ## Required Deliverables
 
 Generate COMPLETE, PRODUCTION-READY code for each of these files:
@@ -353,13 +362,19 @@ For EACH file, output it exactly like this:
 <complete file content here>
 \`\`\`
 
-IMPORTANT:
+CRITICAL — COMPLETENESS RULES:
+- You MUST output EVERY file completely from start to finish
+- NEVER truncate or cut off a file mid-function
+- NEVER use "// ... rest of implementation" or similar shortcuts
+- Every function MUST have a complete body with closing braces
+- Every file MUST end properly (no dangling code)
 - Include ALL imports at the top of each file
 - Include complete error handling
 - Include JSDoc comments for public APIs
 - For test files, include comprehensive test cases
 - Each code block MUST start with "// filepath: <path>"
-- Generate ALL listed files, do not skip any`;
+- Generate ALL listed files, do not skip any
+- If a file would be very long, keep it concise but COMPLETE`;
 
     log(c.gray, `  -> Sending to MiniMax (model: ${model})...`);
     const startTime = Date.now();
@@ -489,6 +504,7 @@ class Orchestrator {
     if (!agent) { log(c.red, `x Agent not found: ${task.agent}`); return 'paused'; }
 
     const MAX_RETRIES = 3;
+    let lastReview: ReviewResult | undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 1) log(c.yellow, `\n--- Retry #${attempt} for ${task.id} ---`);
@@ -497,11 +513,11 @@ class Orchestrator {
       this.saveTasks();
 
       try {
-        // Step 1: MiniMax generates code
-        const result = await agent.execute(task);
+        // Step 1: MiniMax generates code (pass previous rejection feedback on retries)
+        const result = await agent.execute(task, lastReview);
         task.output = { files: result.files, commit: this.getLatestCommit(), model: result.model };
 
-        // Step 2: Supervisor reviews (Claude via ClawRouter)
+        // Step 2: Supervisor reviews (Claude via Anthropic API)
         const review = await this.supervisor.reviewTask(task, result.files);
         task.output.review = review;
 
@@ -512,9 +528,10 @@ class Orchestrator {
           log(c.green, `\n✓ Task ${task.id} -> DONE (${result.files.length} files, score: ${review.score}/100)`);
           return 'done';
         } else {
-          // Rejected — revert and retry
+          // Rejected — revert and retry with feedback
           log(c.red, `\n✗ Task ${task.id} REJECTED by supervisor`);
           this.stats.rejected++;
+          lastReview = review;
 
           if (attempt < MAX_RETRIES) {
             try {
