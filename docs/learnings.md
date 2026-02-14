@@ -320,5 +320,46 @@ Task 4: Create WebhookDispatcher class that combines them → ~400 chars → PAS
 
 ---
 
+## 13. Week 5b — Task Decomposition Validation
+
+### Results: 5/5 Tasks Approved (100% completion)
+| Task | Attempts | Final Score | Size | Key Pattern |
+|------|----------|-------------|------|-------------|
+| SDK-010a (client base) | 4 | 92/100 | 766 chars | Private method + class skeleton |
+| SDK-010b (add methods) | 5 | 92/100 | 1220 chars | 3 methods added to existing class |
+| BC-030a (webhook types) | 1 | 92/100 | 1002 chars | Pure types + register function |
+| BC-030b (signature) | 1 | 95/100 | 596 chars | Two crypto functions |
+| BC-030c (dispatch) | 1 | 92/100 | 1316 chars | Single async function |
+
+### Decomposition Strategy: VALIDATED
+The one-function-per-file approach from Section 12 works exactly as predicted:
+- **BC-030 series** (webhook): All 3 sub-tasks passed on **first attempt** (was 10/10 FAILED as monolithic BC-030)
+- **SDK-010 series**: Needed 4+5 attempts (MiniMax struggles with class patterns), but both passed (was 10/10 FAILED as monolithic SDK-010)
+- **Cost comparison**: Week-5b ~$1.73 for 5/5 approved vs Week-5 ~$2.60 wasted on 0/2 for same features
+
+### What Still Causes Retries (Even After Decomposition)
+1. **Import/export ambiguity**: SDK-010a rejected 3x because "import from ./types" + "export CountableError" confused MiniMax about source of CountableError
+2. **Overengineering**: SDK-010b rejected 4x because MiniMax adds error handling, helper methods, try-catch when spec says "3-5 lines, no validation"
+3. **Private method testing**: Supervisor correctly rejects tests that access private methods directly
+
+### Fix for Future Sprints
+- **Be explicit about imports**: "Import CountableError from ./types (already exists). Do NOT define CountableError in this file."
+- **Say what NOT to do**: "NO try-catch, NO helper functions, NO error handling beyond what this.request() already does"
+- **Simpler = fewer retries**: Pure functions (BC-030b: 596 chars) pass on attempt 1. Classes with methods need 4-5 attempts.
+- **Optimal file size**: 500-1300 chars is the sweet spot. Under 500 too simple, over 1500 starts triggering overengineering.
+
+### Sprint Efficiency Comparison
+| Sprint | Approved | Rejected | Cost | Time | Efficiency |
+|--------|----------|----------|------|------|------------|
+| Week 3 | 3/3 | 9 | ~$1.73 | ~5 min | $0.58/task |
+| Week 4 | 4/4 | 0 | ~$0.36 | ~4 min | $0.09/task |
+| Week 5 | 3/5 | 22 | ~$3.42 | ~10 min | $1.14/task (2 failed) |
+| Week 5b | 5/5 | 7 | ~$1.73 | ~11 min | $0.35/task |
+
+### Key Takeaway
+**Task decomposition is the single most important optimization.** Properly decomposed tasks (one concern, <80 lines, explicit constraints) consistently achieve 100% completion. The cost per approved task dropped from $1.14 to $0.35 just by splitting the same features into smaller pieces.
+
+---
+
 *Last updated: 2026-02-14*
-*Updated by: Claude — Week 5 sprint analysis (source file truncation)*
+*Updated by: Claude — Week 5b sprint analysis (decomposition validation)*
