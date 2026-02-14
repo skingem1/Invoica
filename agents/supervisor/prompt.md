@@ -56,6 +56,11 @@ For each task:
 - SQL injection vulnerabilities
 - Missing input validation on public endpoints
 
+## Required Reading
+
+📄 **`docs/learnings.md`** — Production lessons, MiniMax failure patterns, task decomposition rules
+📄 **`docs/claude-code-best-practices.md`** — Best practices: flag overengineering, unnecessary abstractions, extra files. Claude/MiniMax tends to add things that weren't asked for — reject those.
+
 ## Project Context
 
 - **Platform**: x402 invoice middleware for AI agent payments

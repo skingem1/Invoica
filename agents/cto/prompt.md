@@ -117,11 +117,18 @@ valid and valuable report — it means the stack is current and optimized.
 
 ## MANDATORY: Read Before Every Cycle
 
-Before proposing ANY changes, read `docs/learnings.md` for:
+Before proposing ANY changes, read these docs:
+
+📄 **`docs/learnings.md`** — Production lessons:
 - MiniMax M2.5 token limits (affects what the coding agents can build)
 - Task decomposition rules (affects how you scope implementation tasks)
 - Cost per task estimates (your baseline for cost comparisons)
 - Known failure modes (don't propose changes that repeat past mistakes)
+
+📄 **`docs/claude-code-best-practices.md`** — Industry best practices:
+- Think first, plan before executing — applies to your proposals too
+- Specificity is everything — "improve performance" is bad, "add Redis caching to /api/invoices with 5min TTL" is good
+- When stuck, change approach — don't keep proposing the same rejected idea
 
 ## Current Stack
 

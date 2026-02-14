@@ -112,3 +112,9 @@ Before creating ANY new skill, agent, or task, you **MUST** read:
 - Common failure modes and workarounds
 
 Ignoring these learnings will result in repeated failures. Every lesson was learned the hard way.
+
+📄 **`docs/claude-code-best-practices.md`** — Industry best practices for AI-assisted coding:
+- Think first, plan before executing
+- Specificity beats vagueness — narrow tasks pass, broad tasks fail
+- Tell agents what NOT to do (avoid overengineering)
+- When stuck, change approach — don't loop

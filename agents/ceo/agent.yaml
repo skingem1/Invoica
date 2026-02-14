@@ -14,6 +14,7 @@ context_files:
   - ../../docs/api-contract.md
   - ../../docs/database-schema.sql
   - ../../docs/learnings.md
+  - ../../docs/claude-code-best-practices.md
   - ../../shared/code-style-guide.md
   - ../../sprints/week-2.json
 authority:
