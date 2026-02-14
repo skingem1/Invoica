@@ -323,10 +323,10 @@ class CodingAgent {
     this.systemPrompt = systemPrompt;
   }
 
-  async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
+  async execute(task: AgentTask): Promise<{ files: string[]; model: string }> {
     const model = 'MiniMax-M2.5';
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
-    log(c.gray, `  -> Using MiniMax-M2.5 (one file per call)`);
+    log(c.gray, `  -> Using MiniMax-M2.5`);
 
     const deliverables = [
       ...(task.deliverables.code || []),
@@ -334,46 +334,62 @@ class CodingAgent {
       ...(task.deliverables.docs || []),
     ];
 
-    let rejectionCtx = '';
-    if (previousReview && previousReview.verdict !== 'APPROVED') {
-      rejectionCtx = `\n## PREVIOUS ATTEMPT REJECTED (${previousReview.score}/100) — FIX:\n${previousReview.issues.map(i => `- [${i.severity}] ${i.file}: ${i.description}`).join('\n')}\n`;
+    const userPrompt = `## Current Task: ${task.id}
+
+${task.context}
+
+## Required Deliverables
+
+Generate COMPLETE, PRODUCTION-READY code for each of these files:
+
+${deliverables.map(f => `- ${f}`).join('\n')}
+
+## Output Format
+
+For EACH file, output it exactly like this:
+
+\`\`\`typescript
+// filepath: <relative-path-to-file>
+<complete file content here>
+\`\`\`
+
+IMPORTANT:
+- Include ALL imports at the top of each file
+- Include complete error handling
+- Include JSDoc comments for public APIs
+- For test files, include comprehensive test cases
+- Each code block MUST start with "// filepath: <path>"
+- Generate ALL listed files, do not skip any`;
+
+    log(c.gray, `  -> Sending to MiniMax (model: ${model})...`);
+    const startTime = Date.now();
+    const response = await callLLM('minimax', model, this.systemPrompt, userPrompt);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const tokens = response.usage?.total_tokens || 'unknown';
+    log(c.gray, `  -> Response received in ${elapsed}s (${tokens} tokens)`);
+
+    const output = response.choices?.[0]?.message?.content;
+    if (!output) throw new Error('Empty response from MiniMax');
+
+    const files = this.extractCodeBlocks(output);
+    if (files.length === 0) {
+      log(c.yellow, `  ! No file blocks extracted, saving raw output`);
+      const fallbackPath = `output/${task.id}-raw.md`;
+      mkdirSync('output', { recursive: true });
+      writeFileSync(fallbackPath, output);
+      return { files: [fallbackPath], model };
     }
 
-    const allFiles: string[] = [];
-
-    for (const filePath of deliverables) {
-      log(c.gray, `  -> Generating: ${filePath}`);
-      const userPrompt = `## Task: ${task.id}\n\n${task.context}\n${rejectionCtx}\nGenerate ONLY this file: ${filePath}\n${deliverables.length > 1 ? `(Part of: ${deliverables.join(', ')})` : ''}\n\n\`\`\`typescript\n// filepath: ${filePath}\n<complete file>\n\`\`\`\n\nRULES: Output ONE complete file. Never truncate. Every function must close. Include imports, error handling, JSDoc.`;
-
-      const t0 = Date.now();
-      const resp = await callLLM('minimax', model, this.systemPrompt, userPrompt);
-      const el = ((Date.now() - t0) / 1000).toFixed(1);
-      log(c.gray, `    ${el}s (${resp.usage?.total_tokens || '?'} tokens)`);
-
-      const out = resp.choices?.[0]?.message?.content;
-      if (!out) { log(c.yellow, `    ! Empty response for ${filePath}`); continue; }
-
-      const extracted = this.extractCodeBlocks(out);
-      if (extracted.length > 0) {
-        for (const f of extracted) {
-          const dir = f.path.split('/').slice(0, -1).join('/');
-          if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
-          writeFileSync(f.path, f.content);
-          log(c.green, `  + ${f.path}`);
-          allFiles.push(f.path);
-        }
-      } else {
-        const dir = filePath.split('/').slice(0, -1).join('/');
-        if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
-        writeFileSync(filePath, out);
-        log(c.yellow, `  + ${filePath} (raw)`);
-        allFiles.push(filePath);
-      }
+    for (const file of files) {
+      const dir = file.path.split('/').slice(0, -1).join('/');
+      if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(file.path, file.content);
+      log(c.green, `  + Created: ${file.path}`);
     }
 
-    if (allFiles.length === 0) throw new Error('No files generated');
     this.commitChanges(task.id, model);
-    return { files: allFiles, model };
+    return { files: files.map(f => f.path), model };
   }
 
   private extractCodeBlocks(markdown: string): Array<{ path: string; content: string }> {
