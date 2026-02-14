@@ -1,0 +1,69 @@
+{
+  "tasks": [
+    {
+      "id": "SDK-010a",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a minimal CountableClient class (NO interfaces — import from ./types). Constructor takes apiKey: string and optional baseUrl (default 'https://api.countable.dev'). Store both as private fields. Add one private method: async request<T>(method: string, path: string, body?: unknown): Promise<T> that calls fetch with JSON headers and Authorization Bearer token, throws CountableError on non-2xx. Export the class and CountableError. Keep under 60 lines total. NO validation, NO extra error classes, NO JSDoc comments.",
+      "deliverables": {
+        "code": ["sdk/typescript/src/client.ts"],
+        "tests": ["sdk/typescript/tests/client.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SDK-010b",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["SDK-010a"],
+      "context": "Add 3 public methods to the existing CountableClient class in sdk/typescript/src/client.ts. Import types from ./types. Add: createInvoice(params: CreateInvoiceParams): Promise<Invoice> — POST /invoices with params as body. getInvoice(id: string): Promise<Invoice> — GET /invoices/{id}. listInvoices(filter?: InvoiceFilter): Promise<Invoice[]> — GET /invoices with filter as query params. Each method is 3-5 lines calling this.request(). Keep the file under 80 lines total. No validation needed.",
+      "deliverables": {
+        "code": ["sdk/typescript/src/client.ts"],
+        "tests": ["sdk/typescript/tests/client.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BC-030a",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create webhook types and a register function. Export interface WebhookRegistration { id: string; url: string; events: string[]; secret: string; createdAt: string; }. Export interface WebhookEvent { id: string; type: string; data: unknown; createdAt: string; }. Export interface DispatchResult { success: boolean; statusCode: number; retryable: boolean; }. Export const registrations = new Map<string, WebhookRegistration>(). Export function register(url: string, events: string[], secret: string): WebhookRegistration that validates inputs and stores in Map. Keep under 40 lines.",
+      "deliverables": {
+        "code": ["backend/src/services/webhook/types.ts"],
+        "tests": ["backend/tests/services/webhook-types.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BC-030b",
+      "agent": "security",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a webhook signature module with two functions. Export function signPayload(payload: string, secret: string): string — create HMAC-SHA256 hex digest using Node.js crypto.createHmac('sha256', secret).update(payload).digest('hex'). Export function verifySignature(payload: string, signature: string, secret: string): boolean — compute expected signature, compare using crypto.timingSafeEqual with Buffer.from on both. Use only Node.js built-in crypto. Keep under 25 lines.",
+      "deliverables": {
+        "code": ["backend/src/services/webhook/signature.ts"],
+        "tests": ["backend/tests/services/webhook-signature.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BC-030c",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["BC-030a", "BC-030b"],
+      "context": "Create the webhook dispatch function. Import types from ./types and signPayload from ./signature. Export async function dispatch(event: WebhookEvent, registrationMap: Map<string, WebhookRegistration>): Promise<DispatchResult[]>. For each registration matching the event type: create signature with signPayload(JSON.stringify(event), registration.secret), POST to registration.url with fetch, headers: X-Countable-Signature, X-Countable-Event (event.type), X-Countable-Timestamp (Date.now()), Content-Type application/json. Return array of DispatchResult. Keep under 50 lines.",
+      "deliverables": {
+        "code": ["backend/src/services/webhook/dispatch.ts"],
+        "tests": ["backend/tests/services/webhook-dispatch.test.ts"]
+      },
+      "status": "pending"
+    }
+  ]
+}

@@ -269,5 +269,56 @@ Cover: happy path, error case, edge case, defaults — that's it.
 
 ---
 
+## 12. Week 5 Sprint — Source File Truncation is the New Blocker
+
+### Results: 3/5 Tasks Approved (60% completion, 88% rejection rate)
+| Task | Attempts | Final Score | Result | Root Cause |
+|------|----------|-------------|--------|------------|
+| SDK-010 (SDK client class) | 10 | 25 | FAILED | Source file truncated every attempt — class with 3 methods too big |
+| SDK-011 (SDK types) | 2 | 92 | APPROVED | Pure interfaces — simple, short |
+| BC-030 (webhook dispatcher) | 10 | 35 | FAILED | Source file truncated — class + crypto + HTTP too complex |
+| FE-030 (ApiKeyDisplay) | 1 | 92 | APPROVED | React component, 32 lines |
+| SEC-020 (webhook-verify) | 1 | 92 | APPROVED | Middleware + utility function — well-scoped |
+
+### The Pattern: Source Files Hit the Same ~4500 Token Truncation
+We fixed test truncation in Section 11, but **source files have the exact same problem**:
+- SDK-010 `client.ts`: MiniMax writes interfaces + error classes → runs out of tokens before the actual `CountableClient` class
+- BC-030 `webhook-dispatcher.ts`: MiniMax writes types + register() → runs out before dispatch() and verifySignature()
+- Both tasks consistently produce 6000-16000 char responses that get truncated to 2000-8000 chars of written code
+
+### What Passes vs What Fails
+- **PASSES**: Pure types (811 chars), single functions (webhook-verify), single React components (32 lines)
+- **FAILS**: Classes with 3+ methods + private helpers + interfaces bundled together
+
+### Fix for Future Sprints (CRITICAL)
+**Split complex classes into separate files, one method per file:**
+
+Instead of:
+```
+Task: Create WebhookDispatcher class with register(), dispatch(), verifySignature()
+→ 10/10 FAILED (truncation)
+```
+
+Do:
+```
+Task 1: Create webhook types + register function → ~800 chars → PASSES
+Task 2: Create dispatch function (import types) → ~1200 chars → PASSES
+Task 3: Create verifySignature function (import types) → ~600 chars → PASSES
+Task 4: Create WebhookDispatcher class that combines them → ~400 chars → PASSES
+```
+
+### Cost of Ignoring Complexity Limits
+- SDK-010: 10 attempts × (~$0.09 MiniMax + ~$0.04 review) = **~$1.30 wasted**
+- BC-030: 10 attempts × (~$0.09 MiniMax + ~$0.04 review) = **~$1.30 wasted**
+- Total waste: **~$2.60** (76% of sprint cost) on 0 deliverables
+
+### CTO Upgrade Working Well
+- CTO collected 6131 chars of real project data
+- Made evidence-based proposals (test-runner agent, complexity monitoring)
+- CEO approved with quantified reasoning
+- Dynamic agent loading discovered test-runner automatically (11 agents)
+
+---
+
 *Last updated: 2026-02-14*
-*Updated by: Claude — Week 4 sprint analysis (test truncation fix)*
+*Updated by: Claude — Week 5 sprint analysis (source file truncation)*
