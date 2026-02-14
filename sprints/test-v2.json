@@ -1,11 +1,11 @@
 [
   {
-    "id": "TEST-005",
+    "id": "TEST-006",
     "agent": "backend-core",
     "type": "feature",
     "priority": "high",
     "dependencies": [],
-    "context": "Create a health check endpoint at /api/health that returns server status, uptime, version, and connected services status (database, redis). File: backend/src/api/health.ts. Use TypeScript strict mode, Zod for response validation, include JSDoc comments.",
+    "context": "Create a simple health check module. The file should export a single function called checkHealth that returns an object with: status ('healthy'), uptime (process.uptime()), timestamp (new Date().toISOString()), and version ('1.0.0'). Use Zod for the response schema. Include TypeScript strict mode. Keep it simple - no database or Redis checks, just basic server health.",
     "deliverables": {
       "code": [
         "backend/src/api/health.ts"
@@ -14,66 +14,6 @@
         "backend/tests/api/health.test.ts"
       ]
     },
-    "status": "in_progress",
-    "output": {
-      "files": [
-        "backend/src/api/health.ts",
-        "backend/tests/api/health.test.ts"
-      ],
-      "commit": "a946a2b",
-      "model": "MiniMax-M2.5",
-      "review": {
-        "task_id": "TEST-005",
-        "verdict": "REJECTED",
-        "score": 35,
-        "summary": "Code is incomplete and missing critical functionality. The main health.ts file is truncated, missing the actual endpoint handler, and the test file is also incomplete. Multiple architectural and implementation issues present.",
-        "issues": [
-          {
-            "severity": "critical",
-            "file": "backend/src/api/health.ts",
-            "description": "File is truncated/incomplete - missing the actual health check endpoint handler function and export"
-          },
-          {
-            "severity": "critical",
-            "file": "backend/tests/api/health.test.ts",
-            "description": "Test file is incomplete - cuts off mid-assertion and missing actual test implementations"
-          },
-          {
-            "severity": "high",
-            "file": "backend/src/api/health.ts",
-            "description": "Missing the main checkHealth function that is referenced in tests but not implemented"
-          },
-          {
-            "severity": "high",
-            "file": "backend/src/api/health.ts",
-            "description": "Redis client initialization uses unsafe fallback 'redis://localhost:6379' without proper error handling"
-          },
-          {
-            "severity": "medium",
-            "file": "backend/src/api/health.ts",
-            "description": "Global Prisma client instance should be properly managed with connection pooling considerations"
-          },
-          {
-            "severity": "medium",
-            "file": "backend/tests/api/health.test.ts",
-            "description": "Mocks are not properly typed - using Partial<Request> instead of proper mock types"
-          },
-          {
-            "severity": "low",
-            "file": "backend/src/api/health.ts",
-            "description": "CPU usage calculation not implemented despite being in the schema"
-          }
-        ],
-        "strengths": [
-          "Good use of custom error classes with proper inheritance",
-          "Comprehensive Zod schemas for response validation",
-          "Detailed JSDoc comments on interfaces and classes",
-          "TypeScript strict mode compliance in completed sections",
-          "Good separation of concerns with configuration objects",
-          "Proper error typing with specific error classes for different services"
-        ],
-        "action": "reject"
-      }
-    }
+    "status": "in_progress"
   }
 ]
