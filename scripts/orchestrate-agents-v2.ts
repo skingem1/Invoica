@@ -544,10 +544,10 @@ class Orchestrator {
       log(c.yellow, `\n↻ Task ${task.id} REJECTED on attempt ${attempt} (${review.score}/100)`);
 
       try {
-        execSync('git revert HEAD --no-edit', { timeout: 10000 });
-        log(c.gray, '  Reverted last commit');
+        execSync('git reset --hard HEAD~1', { timeout: 10000 });
+        log(c.gray, '  Reset to previous commit (dropped rejected code)');
       } catch {
-        log(c.gray, '  Revert skipped (no commit to revert)');
+        log(c.gray, '  Reset skipped (nothing to reset)');
       }
 
       if (attempt < MAX_RETRIES) {

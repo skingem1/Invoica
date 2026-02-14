@@ -182,7 +182,20 @@ When creating tasks for MiniMax coding agents:
 - CEO daily report: ~$0.03/run (one Claude call)
 - Total CTO pipeline overhead: ~$0.11/run
 
+## 9. Git Revert vs Reset in Retry Loop
+
+### Problem
+Using `git revert HEAD --no-edit` in the rejection retry loop creates a revert commit. On the next rejection, `git revert HEAD` tries to revert the revert, causing merge conflicts and crashing the orchestrator.
+
+### Fix
+Use `git reset --hard HEAD~1` instead. This cleanly drops the last commit without creating a new one. No conflict risk on subsequent retries.
+
+### Retry Limits
+- Original: MAX_RETRIES = 3 — too few, tasks get abandoned
+- Updated: MAX_RETRIES = 10 — keep retrying with feedback until approved
+- Each retry passes the Supervisor's rejection feedback to MiniMax so it can fix the specific issues
+
 ---
 
 *Last updated: 2026-02-14*
-*Updated by: Claude Supervisor after CTO agent integration*
+*Updated by: Claude Supervisor after git revert crash fix*
