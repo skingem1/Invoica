@@ -235,5 +235,39 @@ Use `git reset --hard HEAD~1` instead. This cleanly drops the last commit withou
 
 ---
 
+## 11. Test Truncation Fix — The #1 Blocker (Week 4)
+
+### The Problem
+MiniMax M2.5 systematically truncates test files. Every task with tests in week-4 sprint v1 failed 10/10 attempts (BC-020, BC-021) solely because test files exceeded MiniMax's ~4500 token output limit. The Supervisor correctly rejected truncated files (score: 25-75 every time).
+
+### The Numbers (Before vs After)
+| Metric | Before Fix | After Fix |
+|--------|-----------|-----------|
+| Test file size | 8,000-16,600 chars | 1,700-2,400 chars |
+| Test gen time | 40-80 seconds | 13-16 seconds |
+| BC-020 result | FAILED 10/10 | APPROVED attempt 1 (92/100) |
+| BC-021 result | FAILED 8/10+ | APPROVED attempt 1 (92/100) |
+| Sprint cost | ~$5+ (all wasted) | ~$0.36 |
+| Sprint time | 30+ min (stopped early) | 232.6 seconds |
+
+### The Fix
+Added explicit test size constraints to the CodingAgent prompt when generating test files:
+```
+CRITICAL: TEST FILE SIZE LIMIT
+Maximum 5-6 test cases. Maximum 80 lines total.
+Cover: happy path, error case, edge case, defaults — that's it.
+```
+
+### Why It Works
+- MiniMax reliably produces complete output under ~2500 tokens
+- 5-6 focused test cases cover core behaviors without verbosity  
+- Forcing brevity eliminates redundant tests and verbose setup
+- 80-line limit keeps files well under the 4500-token truncation threshold
+
+### Key Takeaway
+**When MiniMax truncation is the bottleneck, constrain the output size in the prompt.** Don't try to make MiniMax produce more — make it produce less, better.
+
+---
+
 *Last updated: 2026-02-14*
-*Updated by: Claude — Week 3 sprint analysis*
+*Updated by: Claude — Week 4 sprint analysis (test truncation fix)*
