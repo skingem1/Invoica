@@ -1,572 +1,306 @@
-import { Router, Request, Response } from 'express';
-import { createHealthRouter, HealthCheckConfig } from '../../src/api/health';
-import { PrismaClient } from '@prisma/client';
-import { RedisClientType } from 'redis';
+import express, { Express } from "express";
+import request from "supertest";
+import { PrismaClient } from "@prisma/client";
+import Redis from "ioredis";
+import {
+  createHealthRouter,
+  checkDatabase,
+  checkRedis,
+  deriveOverallStatus,
+  HealthResponseSchema,
+  ServiceStatusSchema,
+} from "../../src/api/health";
+import type { ServiceStatus } from "../../src/api/health";
 
-// Mock Prisma client
-const mockPrisma = {
-  $connect: jest.fn().mockResolvedValue(undefined),
-  $disconnect: jest.fn().mockResolvedValue(undefined),
-  $queryRaw: jest.fn().mockResolvedValue([]),
-} as unknown as PrismaClient;
+// ─── Mocks ───────────────────────────────────────────────────────────────────
 
-// Mock Redis client
-const createMockRedisClient = (isOpen: boolean = true): Partial<RedisClientType> => ({
-  isOpen,
-  connect: jest.fn().mockResolvedValue(undefined),
-  ping: jest.fn().mockResolvedValue('PONG'),
-  quit: jest.fn().mockResolvedValue('OK'),
+jest.mock("@prisma/client", () => {
+  const mockPrisma = {
+    $queryRaw: jest.fn(),
+  };
+  return { PrismaClient: jest.fn(() => mockPrisma) };
 });
 
-describe('Health Check API', () => {
-  let mockRedisClient: Partial<RedisClientType>;
-  let config: HealthCheckConfig;
+jest.mock("ioredis", () => {
+  const mockRedis = {
+    ping: jest.fn(),
+  };
+  return jest.fn(() => mockRedis);
+});
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function buildApp(
+  prisma: PrismaClient,
+  redis: Redis,
+  version: string = "1.2.3"
+): Express {
+  const app = express();
+  app.use(createHealthRouter({ prisma, redis, version }));
+  return app;
+}
+
+// ─── Test Suite ──────────────────────────────────────────────────────────────
+
+describe("Health Check Endpoint", () => {
+  let prisma: PrismaClient;
+  let redis: Redis;
+  let app: Express;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRedisClient = createMockRedisClient();
+    prisma = new PrismaClient();
+    redis = new (Redis as unknown as new () => Redis)();
+    app = buildApp(prisma, redis);
   });
 
-  const createTestConfig = (overrides?: Partial<HealthCheckConfig>): HealthCheckConfig => ({
-    prisma: mockPrisma,
-    redisUrl: 'redis://localhost:6379',
-    appVersion: '1.0.0',
-    ...overrides,
-  });
+  // ── GET /api/health ──────────────────────────────────────────────────────
 
-  describe('createHealthRouter', () => {
-    it('should create a router with health check endpoint', () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      expect(router).toBeInstanceOf(Router);
-      expect(router.stack).toHaveLength(1);
+  describe("GET /api/health", () => {
+    it("returns 200 with healthy status when all services are connected", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
+
+      const res = await request(app).get("/api/health").expect(200);
+
+      expect(res.body.status).toBe("healthy");
+      expect(res.body.version).toBe("1.2.3");
+      expect(typeof res.body.uptime).toBe("number");
+      expect(res.body.uptime).toBeGreaterThanOrEqual(0);
+      expect(res.body.timestamp).toBeDefined();
+      expect(res.body.services.database.status).toBe("connected");
+      expect(res.body.services.redis.status).toBe("connected");
+      expect(res.body.services.database.error).toBeUndefined();
+      expect(res.body.services.redis.error).toBeUndefined();
+
+      // Validate against Zod schema
+      const parsed = HealthResponseSchema.safeParse(res.body);
+      expect(parsed.success).toBe(true);
     });
 
-    it('should register GET / endpoint', () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const route = router.stack.find((layer) => layer.route?.path === '/' && layer.route?.methods.get);
-      expect(route).toBeDefined();
-    });
-  });
+    it("returns 200 with degraded status when database is down but redis is up", async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(
+        new Error("Connection refused")
+      );
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
 
-  describe('GET /api/health', () => {
-    it('should return healthy status when all services are up', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      // Find the health route handler
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      // Create mock request and response
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      // Execute handler
-      await handler(mockReq, mockRes);
-      
-      // Verify response
-      expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.json).toHaveBeenCalled();
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response).toHaveProperty('status');
-      expect(response).toHaveProperty('timestamp');
-      expect(response).toHaveProperty('uptime');
-      expect(response).toHaveProperty('version');
-      expect(response).toHaveProperty('services');
-      expect(response.services).toHaveProperty('database');
-      expect(response.services).toHaveProperty('redis');
+      const res = await request(app).get("/api/health").expect(200);
+
+      expect(res.body.status).toBe("degraded");
+      expect(res.body.services.database.status).toBe("disconnected");
+      expect(res.body.services.database.error).toBe("Connection refused");
+      expect(res.body.services.redis.status).toBe("connected");
     });
 
-    it('should return correct version from config', async () => {
-      const testVersion = '2.5.1';
-      config = createTestConfig({ appVersion: testVersion });
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.version).toBe(testVersion);
+    it("returns 200 with degraded status when redis is down but database is up", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockRejectedValue(
+        new Error("ECONNREFUSED")
+      );
+
+      const res = await request(app).get("/api/health").expect(200);
+
+      expect(res.body.status).toBe("degraded");
+      expect(res.body.services.database.status).toBe("connected");
+      expect(res.body.services.redis.status).toBe("disconnected");
+      expect(res.body.services.redis.error).toBe("ECONNREFUSED");
     });
 
-    it('should return positive uptime', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(typeof response.uptime).toBe('number');
-      expect(response.uptime).toBeGreaterThanOrEqual(0);
+    it("returns 503 with unhealthy status when all services are down", async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(
+        new Error("DB unreachable")
+      );
+      (redis.ping as jest.Mock).mockRejectedValue(
+        new Error("Redis unreachable")
+      );
+
+      const res = await request(app).get("/api/health").expect(503);
+
+      expect(res.body.status).toBe("unhealthy");
+      expect(res.body.services.database.status).toBe("disconnected");
+      expect(res.body.services.redis.status).toBe("disconnected");
     });
 
-    it('should return valid ISO timestamp', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(new Date(response.timestamp).toISOString()).toBe(response.timestamp);
-    });
-  });
+    it("includes latency measurements for each service", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
 
-  describe('Service Status Validation', () => {
-    it('should include database status in response', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.services.database).toHaveProperty('status');
-      expect(['healthy', 'unhealthy', 'degraded']).toContain(response.services.database.status);
+      const res = await request(app).get("/api/health").expect(200);
+
+      expect(typeof res.body.services.database.latencyMs).toBe("number");
+      expect(res.body.services.database.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(typeof res.body.services.redis.latencyMs).toBe("number");
+      expect(res.body.services.redis.latencyMs).toBeGreaterThanOrEqual(0);
     });
 
-    it('should include redis status in response', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.services.redis).toHaveProperty('status');
-      expect(['healthy', 'unhealthy', 'degraded']).toContain(response.services.redis.status);
+    it("returns valid ISO 8601 timestamp", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
+
+      const res = await request(app).get("/api/health").expect(200);
+
+      const parsed = Date.parse(res.body.timestamp);
+      expect(isNaN(parsed)).toBe(false);
     });
 
-    it('should include latency for database when healthy', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      if (response.services.database.status === 'healthy') {
-        expect(response.services.database).toHaveProperty('latencyMs');
-        expect(typeof response.services.database.latencyMs).toBe('number');
-      }
+    it("handles unexpected redis PING response", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("UNEXPECTED");
+
+      const res = await request(app).get("/api/health").expect(200);
+
+      expect(res.body.status).toBe("degraded");
+      expect(res.body.services.redis.status).toBe("disconnected");
+      expect(res.body.services.redis.error).toContain("Unexpected PING response");
     });
 
-    it('should include latency for redis when healthy', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      if (response.services.redis.status === 'healthy') {
-        expect(response.services.redis).toHaveProperty('latencyMs');
-        expect(typeof response.services.redis.latencyMs).toBe('number');
-      }
+    it("uses the version string passed via dependencies", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
+
+      const customApp = buildApp(prisma, redis, "5.0.0-rc.1");
+      const res = await request(customApp).get("/api/health").expect(200);
+
+      expect(res.body.version).toBe("5.0.0-rc.1");
+    });
+
+    it("conforms to HealthResponseSchema for all status variants", async () => {
+      // healthy
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
+      let res = await request(app).get("/api/health");
+      expect(HealthResponseSchema.safeParse(res.body).success).toBe(true);
+
+      // degraded
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error("fail"));
+      res = await request(app).get("/api/health");
+      expect(HealthResponseSchema.safeParse(res.body).success).toBe(true);
+
+      // unhealthy
+      (redis.ping as jest.Mock).mockRejectedValue(new Error("fail"));
+      res = await request(app).get("/api/health");
+      expect(HealthResponseSchema.safeParse(res.body).success).toBe(true);
     });
   });
 
-  describe('Database Connection Handling', () => {
-    it('should handle database connection failure gracefully', async () => {
-      const failingPrisma = {
-        ...mockPrisma,
-        $queryRaw: jest.fn().mockRejectedValue(new Error('Database connection failed')),
-      } as unknown as PrismaClient;
-      
-      config = createTestConfig({ prisma: failingPrisma });
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.services.database.status).toBe('unhealthy');
-      expect(response.services.database).toHaveProperty('error');
+  // ── Unit: checkDatabase ──────────────────────────────────────────────────
+
+  describe("checkDatabase", () => {
+    it("returns connected status on successful query", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ "?column?": 1 }]);
+
+      const result = await checkDatabase(prisma);
+
+      expect(result.status).toBe("connected");
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(result.error).toBeUndefined();
+      expect(ServiceStatusSchema.safeParse(result).success).toBe(true);
     });
 
-    it('should return degraded status when database is slow', async () => {
-      const slowPrisma = {
-        ...mockPrisma,
-        $queryRaw: jest.fn().mockImplementation(() => 
-          new Promise((resolve) => setTimeout(() => resolve([]), 2000))
-        ),
-      } as unknown as PrismaClient;
-      
-      config = createTestConfig({ prisma: slowPrisma });
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      // Either unhealthy or degraded depending on threshold
-      expect(['unhealthy', 'degraded']).toContain(response.services.database.status);
-    }, 10000);
+    it("returns disconnected status on query failure", async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(
+        new Error("timeout")
+      );
+
+      const result = await checkDatabase(prisma);
+
+      expect(result.status).toBe("disconnected");
+      expect(result.error).toBe("timeout");
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("handles non-Error thrown values gracefully", async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue("string error");
+
+      const result = await checkDatabase(prisma);
+
+      expect(result.status).toBe("disconnected");
+      expect(result.error).toBe("Unknown database error");
+    });
   });
 
-  describe('Redis Connection Handling', () => {
-    it('should handle Redis connection failure gracefully', async () => {
-      config = createTestConfig();
-      
-      // Create a mock that simulates connection failure
-      const mockRedis = {
-        connect: jest.fn().mockRejectedValue(new Error('Connection refused')),
+  // ── Unit: checkRedis ─────────────────────────────────────────────────────
+
+  describe("checkRedis", () => {
+    it("returns connected status on PONG response", async () => {
+      (redis.ping as jest.Mock).mockResolvedValue("PONG");
+
+      const result = await checkRedis(redis);
+
+      expect(result.status).toBe("connected");
+      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(result.error).toBeUndefined();
+    });
+
+    it("returns disconnected status on non-PONG response", async () => {
+      (redis.ping as jest.Mock).mockResolvedValue("LOADING");
+
+      const result = await checkRedis(redis);
+
+      expect(result.status).toBe("disconnected");
+      expect(result.error).toContain("Unexpected PING response");
+    });
+
+    it("returns disconnected status on ping failure", async () => {
+      (redis.ping as jest.Mock).mockRejectedValue(
+        new Error("ECONNREFUSED")
+      );
+
+      const result = await checkRedis(redis);
+
+      expect(result.status).toBe("disconnected");
+      expect(result.error).toBe("ECONNREFUSED");
+    });
+
+    it("handles non-Error thrown values gracefully", async () => {
+      (redis.ping as jest.Mock).mockRejectedValue(42);
+
+      const result = await checkRedis(redis);
+
+      expect(result.status).toBe("disconnected");
+      expect(result.error).toBe("Unknown Redis error");
+    });
+  });
+
+  // ── Unit: deriveOverallStatus ────────────────────────────────────────────
+
+  describe("deriveOverallStatus", () => {
+    it("returns healthy when all services are connected", () => {
+      const services: Record<string, ServiceStatus> = {
+        database: { status: "connected", latencyMs: 1 },
+        redis: { status: "connected", latencyMs: 2 },
       };
-      
-      // We need to test the getRedisClient behavior indirectly
-      // by checking the health response when Redis is unavailable
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      // The response should have a redis status
-      expect(response.services.redis).toHaveProperty('status');
+      expect(deriveOverallStatus(services)).toBe("healthy");
     });
 
-    it('should handle Redis ping failure gracefully', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      // Even if Redis ping fails, the endpoint should respond
-      await handler(mockReq, mockRes);
-      
-      expect(mockRes.status).toHaveBeenCalled();
-      expect(mockRes.json).toHaveBeenCalled();
-    });
-  });
-
-  describe('Overall Status Determination', () => {
-    it('should return overall healthy when all services are healthy', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      // When both services are healthy, overall should be healthy
-      if (response.services.database.status === 'healthy' && 
-          response.services.redis.status === 'healthy') {
-        expect(response.status).toBe('healthy');
-      }
-    });
-
-    it('should return unhealthy when database is down', async () => {
-      const failingPrisma = {
-        ...mockPrisma,
-        $queryRaw: jest.fn().mockRejectedValue(new Error('Connection failed')),
-      } as unknown as PrismaClient;
-      
-      config = createTestConfig({ prisma: failingPrisma });
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.status).toBe('unhealthy');
-    });
-
-    it('should return correct HTTP status code based on health', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      
-      if (response.status === 'healthy') {
-        expect(mockRes.status).toHaveBeenCalledWith(200);
-      } else if (response.status === 'degraded') {
-        expect(mockRes.status).toHaveBeenCalledWith(200);
-      } else {
-        expect(mockRes.status).toHaveBeenCalledWith(503);
-      }
-    });
-  });
-
-  describe('Response Schema Validation', () => {
-    it('should return response matching HealthCheckResponseSchema', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      
-      // Validate response structure
-      expect(response).toHaveProperty('status');
-      expect(response).toHaveProperty('timestamp');
-      expect(response).toHaveProperty('uptime');
-      expect(response).toHaveProperty('version');
-      expect(response).toHaveProperty('services');
-      
-      // Validate status values
-      expect(['healthy', 'unhealthy', 'degraded']).toContain(response.status);
-      
-      // Validate services structure
-      expect(response.services).toHaveProperty('database');
-      expect(response.services).toHaveProperty('redis');
-      
-      // Validate service status values
-      expect(['healthy', 'unhealthy', 'degraded']).toContain(response.services.database.status);
-      expect(['healthy', 'unhealthy', 'degraded']).toContain(response.services.redis.status);
-    });
-
-    it('should have string timestamp in ISO 8601 format', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      
-      // ISO 8601 datetime format validation
-      const iso8601Regex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
-      expect(response.timestamp).toMatch(iso8601Regex);
-    });
-
-    it('should have string version', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      
-      expect(typeof response.version).toBe('string');
-      expect(response.version).toBe('1.0.0');
-    });
-  });
-
-  describe('Edge Cases', () => {
-    it('should handle missing appVersion gracefully', async () => {
-      config = {
-        prisma: mockPrisma,
-        redisUrl: 'redis://localhost:6379',
-        appVersion: '',
+    it("returns degraded when some services are disconnected", () => {
+      const services: Record<string, ServiceStatus> = {
+        database: { status: "disconnected", latencyMs: 0, error: "down" },
+        redis: { status: "connected", latencyMs: 2 },
       };
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      await handler(mockReq, mockRes);
-      
-      const response = mockRes.json.mock.calls[0][0];
-      expect(response.version).toBeDefined();
+      expect(deriveOverallStatus(services)).toBe("degraded");
     });
 
-    it('should handle concurrent health check requests', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const mockReq = {} as Request;
-      const mockRes1 = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      const mockRes2 = {
-        status: jest.fn().mockReturnThis(),
-        json: jest.fn().mockReturnThis(),
-      } as unknown as Response;
-      
-      // Execute concurrent requests
-      await Promise.all([
-        handler(mockReq, mockRes1),
-        handler(mockReq, mockRes2),
-      ]);
-      
-      expect(mockRes1.status).toHaveBeenCalled();
-      expect(mockRes2.status).toHaveBeenCalled();
+    it("returns unhealthy when all services are disconnected", () => {
+      const services: Record<string, ServiceStatus> = {
+        database: { status: "disconnected", latencyMs: 0, error: "down" },
+        redis: { status: "disconnected", latencyMs: 0, error: "down" },
+      };
+      expect(deriveOverallStatus(services)).toBe("unhealthy");
     });
 
-    it('should return consistent timestamp format', async () => {
-      config = createTestConfig();
-      const router = createHealthRouter(config);
-      
-      const healthRoute = router.stack.find((layer) => layer.route?.path === '/');
-      const handler = healthRoute?.route?.stack[0].handle;
-      
-      const results: string[] = [];
-      
-      for (let i = 0; i < 3; i++) {
-        const mockReq = {} as Request;
-        const mockRes = {
-          status: jest.fn().mockReturnThis(),
-          json: jest.fn().mockReturnThis(),
-        } as unknown as Response;
-        
-        await handler(mockReq, mockRes);
-        const response = mockRes.json.mock.calls[0][0];
-        results.push(response.timestamp);
-      }
-      
-      // All timestamps should be valid ISO 8601
-      results.forEach((timestamp) => {
-        expect(() => new Date(timestamp)).not.toThrow();
-      });
+    it("returns healthy for a single connected service", () => {
+      const services: Record<string, ServiceStatus> = {
+        database: { status: "connected", latencyMs: 5 },
+      };
+      expect(deriveOverallStatus(services)).toBe("healthy");
+    });
+
+    it("returns unhealthy for a single disconnected service", () => {
+      const services: Record<string, ServiceStatus> = {
+        database: { status: "disconnected", latencyMs: 0, error: "err" },
+      };
+      expect(deriveOverallStatus(services)).toBe("unhealthy");
     });
   });
 });

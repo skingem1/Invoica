@@ -86,6 +86,7 @@ async function callLLM(
   }
 
   // MiniMax — OpenAI-compatible API
+  const baseUrl = 'https://api.minimax.io/v1/chat/completions';
   const apiKey = process.env.MINIMAX_API_KEY || '';
   if (!apiKey) throw new Error('MINIMAX_API_KEY not set');
 
@@ -187,7 +188,7 @@ function httpPost(url: string, headers: Record<string, string>, body: string, ti
   });
 }
 
-// ===== Supervisor Agent (Claude via Anthropic API) =====
+// ===== Supervisor Agent (Claude via ClawRouter) =====
 
 class SupervisorAgent {
   private systemPrompt: string;
@@ -201,6 +202,7 @@ class SupervisorAgent {
   async reviewTask(task: AgentTask, files: string[]): Promise<ReviewResult> {
     log(c.magenta, `\n[supervisor] Reviewing: ${task.id}`);
 
+    // Build file contents for review
     const fileContents = files.map((filepath) => {
       const content = existsSync(filepath) ? readFileSync(filepath, 'utf-8') : '';
       return `### ${filepath}\n\`\`\`typescript\n${content.substring(0, 4000)}\n\`\`\``;
@@ -234,6 +236,8 @@ Respond with a JSON object:
       log(c.gray, `  -> Review received in ${elapsed}s (${tokens} tokens)`);
 
       const content = response.choices?.[0]?.message?.content || '';
+
+      // Extract JSON from response (may be wrapped in markdown)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const review = JSON.parse(jsonMatch[0]) as ReviewResult;
@@ -249,6 +253,7 @@ Respond with a JSON object:
         return review;
       }
 
+      // If no JSON found, treat as approved with warning
       log(c.yellow, '  ! Could not parse review JSON, auto-approving');
       return { verdict: 'APPROVED', score: 70, summary: 'Auto-approved (parse failure)', issues: [], strengths: [] };
 
@@ -260,7 +265,7 @@ Respond with a JSON object:
   }
 }
 
-// ===== CEO Agent (Claude via Anthropic API) =====
+// ===== CEO Agent (Claude via ClawRouter) =====
 
 class CEOAgent {
   private systemPrompt: string;
@@ -307,7 +312,7 @@ Keep response under 200 words.`;
   }
 }
 
-// ===== MiniMax Coding Agent (ONE FILE PER API CALL — anti-truncation) =====
+// ===== MiniMax Coding Agent =====
 
 class CodingAgent {
   private name: string;
@@ -318,10 +323,10 @@ class CodingAgent {
     this.systemPrompt = systemPrompt;
   }
 
-  async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
+  async execute(task: AgentTask): Promise<{ files: string[]; model: string }> {
     const model = 'MiniMax-M2.5';
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
-    log(c.gray, `  -> Using MiniMax-M2.5 (one-file-per-call mode)`);
+    log(c.gray, `  -> Using MiniMax-M2.5`);
 
     const deliverables = [
       ...(task.deliverables.code || []),
@@ -329,114 +334,62 @@ class CodingAgent {
       ...(task.deliverables.docs || []),
     ];
 
-    // Build rejection feedback context if this is a retry
-    let rejectionContext = '';
-    if (previousReview && previousReview.verdict !== 'APPROVED') {
-      const issueList = (previousReview.issues || []).map(i => `- [${i.severity}] ${i.file}: ${i.description}`).join('\n');
-      rejectionContext = `\n## IMPORTANT: Previous Attempt Was REJECTED
-The supervisor rejected your previous code (score: ${previousReview.score}/100).
-Reason: ${previousReview.summary}
-
-Specific issues to fix:
-${issueList}
-
-You MUST address ALL of these issues in this attempt.\n`;
-    }
-
-    const createdFiles: Array<{ path: string; content: string }> = [];
-
-    // Generate ONE file per API call to avoid MiniMax truncation (~4500 token limit)
-    for (let i = 0; i < deliverables.length; i++) {
-      const filepath = deliverables[i];
-      log(c.gray, `  -> Generating file ${i + 1}/${deliverables.length}: ${filepath}`);
-
-      // Build context of already-generated files for cross-references
-      const priorFilesContext = createdFiles.length > 0
-        ? `\n## Already Generated Files (for cross-reference)\n` + createdFiles.map(f => `### ${f.path}\n\`\`\`typescript\n${f.content.substring(0, 2000)}\n\`\`\``).join('\n\n') + '\n'
-        : '';
-
-      const fileList = deliverables.map((f, idx) => `${idx + 1}. ${f}${f === filepath ? ' ← GENERATE THIS ONE' : ''}`).join('\n');
-
-      const userPrompt = `## Task: ${task.id}
+    const userPrompt = `## Current Task: ${task.id}
 
 ${task.context}
-${rejectionContext}
-${priorFilesContext}
-## Your Assignment
 
-Generate ONLY the file: ${filepath}
+## Required Deliverables
 
-This is file ${i + 1} of ${deliverables.length} total deliverables:
-${fileList}
+Generate COMPLETE, PRODUCTION-READY code for each of these files:
+
+${deliverables.map(f => `- ${f}`).join('\n')}
 
 ## Output Format
 
-Output EXACTLY ONE file in this format:
+For EACH file, output it exactly like this:
 
 \`\`\`typescript
-// filepath: ${filepath}
-<complete file content>
+// filepath: <relative-path-to-file>
+<complete file content here>
 \`\`\`
 
-## CRITICAL REQUIREMENTS
-- Output the COMPLETE file — every import, every function, every line
-- Do NOT truncate, abbreviate, or use "// ... rest of implementation"
-- Include ALL imports at the top
-- Include complete error handling and type safety
+IMPORTANT:
+- Include ALL imports at the top of each file
+- Include complete error handling
 - Include JSDoc comments for public APIs
-- If this is a test file, include comprehensive test cases
-- The file must compile without errors
-- Make sure to export all public interfaces and functions`;
+- For test files, include comprehensive test cases
+- Each code block MUST start with "// filepath: <path>"
+- Generate ALL listed files, do not skip any`;
 
-      const startTime = Date.now();
-      const response = await callLLM('minimax', model, this.systemPrompt, userPrompt);
+    log(c.gray, `  -> Sending to MiniMax (model: ${model})...`);
+    const startTime = Date.now();
+    const response = await callLLM('minimax', model, this.systemPrompt, userPrompt);
 
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      const tokens = response.usage?.total_tokens || 'unknown';
-      log(c.gray, `  -> File ${i + 1} received in ${elapsed}s (${tokens} tokens)`);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const tokens = response.usage?.total_tokens || 'unknown';
+    log(c.gray, `  -> Response received in ${elapsed}s (${tokens} tokens)`);
 
-      const output = response.choices?.[0]?.message?.content;
-      if (!output) {
-        log(c.yellow, `  ! Empty response for ${filepath}, skipping`);
-        continue;
-      }
+    const output = response.choices?.[0]?.message?.content;
+    if (!output) throw new Error('Empty response from MiniMax');
 
-      // Extract the single file from the response
-      const extracted = this.extractCodeBlocks(output);
-      if (extracted.length > 0) {
-        createdFiles.push({ path: filepath, content: extracted[0].content });
-        log(c.green, `  + Generated: ${filepath} (${extracted[0].content.split('\n').length} lines)`);
-      } else {
-        // Fallback: treat the whole response as the file content
-        log(c.yellow, `  ! No code block found for ${filepath}, using raw output`);
-        const rawContent = output.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
-        createdFiles.push({ path: filepath, content: rawContent });
-      }
-
-      // Brief pause between API calls to avoid rate limiting
-      if (i < deliverables.length - 1) {
-        await new Promise(r => setTimeout(r, 1000));
-      }
-    }
-
-    if (createdFiles.length === 0) {
-      log(c.yellow, `  ! No files generated, saving task info`);
+    const files = this.extractCodeBlocks(output);
+    if (files.length === 0) {
+      log(c.yellow, `  ! No file blocks extracted, saving raw output`);
       const fallbackPath = `output/${task.id}-raw.md`;
       mkdirSync('output', { recursive: true });
-      writeFileSync(fallbackPath, `Task ${task.id} failed to generate files`);
+      writeFileSync(fallbackPath, output);
       return { files: [fallbackPath], model };
     }
 
-    // Write all files to disk
-    for (const file of createdFiles) {
+    for (const file of files) {
       const dir = file.path.split('/').slice(0, -1).join('/');
       if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
       writeFileSync(file.path, file.content);
-      log(c.green, `  + Written: ${file.path}`);
+      log(c.green, `  + Created: ${file.path}`);
     }
 
     this.commitChanges(task.id, model);
-    return { files: createdFiles.map(f => f.path), model };
+    return { files: files.map(f => f.path), model };
   }
 
   private extractCodeBlocks(markdown: string): Array<{ path: string; content: string }> {
@@ -446,17 +399,16 @@ Output EXACTLY ONE file in this format:
     while ((match = regex.exec(markdown)) !== null) {
       const filepath = match[1]?.trim();
       const content = match[2]?.trimEnd() + '\n';
-      if (filepath && content) {
+      if (filepath && content && filepath.includes('/')) {
         files.push({ path: filepath, content });
       }
     }
     if (files.length === 0) {
-      const altRegex = /```(?:\w+)?\s*\n([\s\S]*?)```/g;
+      const altRegex = /```(?:\w+)?\s*\n\/[/*]\s*(.+?\.(?:ts|tsx|js|jsx|sql|tf|prisma|css|html|md))\s*\n([\s\S]*?)```/g;
       while ((match = altRegex.exec(markdown)) !== null) {
-        const content = match[1]?.trimEnd() + '\n';
-        if (content && content.trim().length > 50) {
-          files.push({ path: 'unknown', content });
-        }
+        const filepath = match[1]?.trim();
+        const content = match[2]?.trimEnd() + '\n';
+        if (filepath && content) files.push({ path: filepath, content });
       }
     }
     return files;
@@ -510,19 +462,9 @@ class Orchestrator {
   private loadTasks() {
     if (!existsSync(this.sprintFile)) throw new Error(`Sprint file not found: ${this.sprintFile}`);
     this.tasks = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
-
-    // Reset stale in_progress tasks from previous crashed runs
-    for (const t of this.tasks) {
-      if (t.status === 'in_progress') {
-        log(c.yellow, `  ! Resetting stale in_progress task: ${t.id} -> pending`);
-        t.status = 'pending';
-      }
-    }
-
     log(c.blue, `\nLoaded ${this.tasks.length} tasks from ${this.sprintFile}`);
     const byStatus = this.tasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {} as Record<string, number>);
     log(c.gray, `Status: ${JSON.stringify(byStatus)}`);
-    this.saveTasks();
   }
 
   private saveTasks() {
@@ -547,20 +489,19 @@ class Orchestrator {
     if (!agent) { log(c.red, `x Agent not found: ${task.agent}`); return 'paused'; }
 
     const MAX_RETRIES = 3;
-    let lastReview: ReviewResult | undefined;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 1) log(c.yellow, `\n--- Retry #${attempt} for ${task.id} (with rejection feedback) ---`);
+      if (attempt > 1) log(c.yellow, `\n--- Retry #${attempt} for ${task.id} ---`);
 
       task.status = 'in_progress';
       this.saveTasks();
 
       try {
-        // Step 1: MiniMax generates code (pass lastReview for retry context)
-        const result = await agent.execute(task, lastReview);
+        // Step 1: MiniMax generates code
+        const result = await agent.execute(task);
         task.output = { files: result.files, commit: this.getLatestCommit(), model: result.model };
 
-        // Step 2: Supervisor reviews (Claude via Anthropic API)
+        // Step 2: Supervisor reviews (Claude via ClawRouter)
         const review = await this.supervisor.reviewTask(task, result.files);
         task.output.review = review;
 
@@ -571,14 +512,14 @@ class Orchestrator {
           log(c.green, `\n✓ Task ${task.id} -> DONE (${result.files.length} files, score: ${review.score}/100)`);
           return 'done';
         } else {
-          log(c.red, `\n✗ Task ${task.id} REJECTED by supervisor (attempt ${attempt}/${MAX_RETRIES})`);
+          // Rejected — revert and retry
+          log(c.red, `\n✗ Task ${task.id} REJECTED by supervisor`);
           this.stats.rejected++;
-          lastReview = review;
 
           if (attempt < MAX_RETRIES) {
             try {
               execSync('git revert HEAD --no-edit', { stdio: 'pipe' });
-              log(c.yellow, `  Reverted commit, retrying with feedback...`);
+              log(c.yellow, `  Reverted commit, retrying...`);
             } catch { log(c.yellow, `  Could not revert, retrying anyway...`); }
             task.status = 'pending';
             this.saveTasks();
@@ -611,7 +552,7 @@ class Orchestrator {
 
   async run() {
     log(`${c.bold}${c.blue}`, '\nStarting Orchestration v2');
-    log(c.gray, 'Flow: MiniMax codes (1 file/call) → Supervisor reviews → CEO tracks\n');
+    log(c.gray, 'Flow: MiniMax codes → Supervisor reviews → CEO tracks\n');
 
     // CEO initial assessment
     await this.ceo.reviewSprintProgress(this.tasks);
@@ -649,6 +590,7 @@ class Orchestrator {
 
       if (result === 'paused') { paused = true; break; }
 
+      // Brief pause between tasks
       log(c.gray, `\n--- Waiting 3s before next task ---`);
       await new Promise(r => setTimeout(r, 3000));
     }
@@ -674,7 +616,7 @@ class Orchestrator {
     log(c.green,   `  Approved:   ${this.stats.approved}`);
     log(c.red,     `  Rejected:   ${this.stats.rejected}`);
     console.log('=======================================');
-    log(c.gray,    '  Models: MiniMax M2.5 (code, 1-file/call) + Claude Sonnet (review)');
+    log(c.gray,    '  Models: MiniMax M2.5 (code) + Claude Sonnet (review)');
     console.log('=======================================\n');
   }
 }
