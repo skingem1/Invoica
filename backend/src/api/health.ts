@@ -1,262 +1,366 @@
-import { Router, Request, Response } from 'express';
+<think>
+The user wants me to create a health check endpoint at `/api/health` that returns:
+- Server status
+- Uptime
+- Version
+- Connected services status (database, redis)
+
+Requirements:
+- TypeScript strict mode
+- Zod for response validation
+- JSDoc comments
+- File: backend/src/api/health.ts
+
+I need to create a complete file with:
+1. Imports (Express, Zod, Prisma, Redis client)
+2. Zod schema for response validation
+3. Health check logic for database and Redis
+4. Express route handler
+5. Proper error handling
+6. JSDoc comments
+
+Let me structure this properly:
+
+```typescript
+import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { Redis } from 'ioredis';
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
 
-/**
- * Structured logger interface for health check operations
- */
-interface Logger {
-  info(message: string, meta?: Record<string, unknown>): void;
-  error(message: string, meta?: Record<string, unknown>): void;
-  warn(message: string, meta?: Record<string, unknown>): void;
-}
+// Need to get version from package.json somehow - might need to import from config
+import { config } from '../config/index.js';
 
-/**
- * Default console logger implementation
- */
-const defaultLogger: Logger = {
-  info: (message: string, meta?: Record<string, unknown>) => {
-    console.log(JSON.stringify({ level: 'info', message, ...meta }));
-  },
-  error: (message: string, meta?: Record<string, unknown>) => {
-    console.error(JSON.stringify({ level: 'error', message, ...meta }));
-  },
-  warn: (message: string, meta?: Record<string, unknown>) => {
-    console.warn(JSON.stringify({ level: 'warn', message, ...meta }));
-  },
-};
+const router = Router();
 
-/**
- * Application version retrieved from package.json
- */
-const APP_VERSION = process.env.APP_VERSION || '1.0.0';
+// Prisma client instance - would typically be injected or imported
+const prisma = new PrismaClient();
 
-/**
- * Dependencies required for health check
- */
-export interface HealthCheckDependencies {
-  prisma: PrismaClient;
-  redis: Redis;
-  logger?: Logger;
-  version?: string;
-}
+// Redis client instance - would typically be injected or imported
+const redis = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+});
 
-/**
- * Health check response schema for validation
- */
+// Track server start time
+const serverStartTime = Date.now();
+
+// Zod schema for health check response
 const HealthCheckResponseSchema = z.object({
-  status: z.enum(['healthy', 'unhealthy']),
-  version: z.string(),
+  status: z.enum(['healthy', 'degraded', 'unhealthy']),
   uptime: z.number(),
+  version: z.string(),
   timestamp: z.string(),
   services: z.object({
     database: z.object({
       status: z.enum(['connected', 'disconnected', 'error']),
-      latencyMs: z.number().nullable(),
-      error: z.string().nullable(),
+      latency: z.number().nullable(),
+      error: z.string().nullable().optional(),
     }),
     redis: z.object({
       status: z.enum(['connected', 'disconnected', 'error']),
-      latencyMs: z.number().nullable(),
-      error: z.string().nullable(),
+      latency: z.number().nullable(),
+      error: z.string().nullable().optional(),
     }),
   }),
 });
 
-export type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
+type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
+```
 
+I'll create helper functions to check database and Redis connectivity, then implement the main endpoint handler with proper validation and error handling.
+
+```typescript
 /**
- * Database health check result
+ * Checks the health of the database connection
  */
-interface ServiceHealth {
+async function checkDatabaseHealth(): Promise<{
   status: 'connected' | 'disconnected' | 'error';
-  latencyMs: number | null;
+  latency: number | null;
   error: string | null;
-}
-
-/**
- * Checks the health of the PostgreSQL database connection
- * 
- * @param prisma - PrismaClient instance for database queries
- * @param logger - Optional logger for error reporting
- * @returns Promise resolving to database health status
- */
-async function checkDatabaseHealth(
-  prisma: PrismaClient,
-  logger: Logger
-): Promise<ServiceHealth> {
-  const startTime = Date.now();
-  
+}> {
+  const start = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const latencyMs = Date.now() - startTime;
-    
-    return {
-      status: 'connected',
-      latencyMs,
-      error: null,
-    };
+    const latency = Date.now() - start;
+    return { status: 'connected', latency, error: null };
   } catch (error) {
-    const latencyMs = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
-    
-    logger.error('Database health check failed', { error: errorMessage, latencyMs });
-    
     return {
       status: 'error',
-      latencyMs,
-      error: errorMessage,
+      latency: null,
+      error: error instanceof Error ? error.message : 'Unknown database error',
     };
   }
 }
 
 /**
  * Checks the health of the Redis connection
- * 
- * @param redis - Redis client instance
- * @param logger - Optional logger for error reporting
- * @returns Promise resolving to Redis health status
  */
-async function checkRedisHealth(
-  redis: Redis,
-  logger: Logger
-): Promise<ServiceHealth> {
-  const startTime = Date.now();
-  
+async function checkRedisHealth(): Promise<{
+  status: 'connected' | 'disconnected' | 'error';
+  latency: number | null;
+  error: string | null;
+}> {
+  const start = Date.now();
   try {
-    const result = await redis.ping();
-    const latencyMs = Date.now() - startTime;
-    
-    if (result === 'PONG') {
-      return {
-        status: 'connected',
-        latencyMs,
-        error: null,
-      };
-    }
-    
-    return {
-      status: 'disconnected',
-      latencyMs,
-      error: 'Unexpected ping response',
-    };
+    await redis.ping();
+    const latency = Date.now() - start;
+    return { status: 'connected', latency, error: null };
   } catch (error) {
-    const latencyMs = Date.now() - startTime;
-    const errorMessage = error instanceof Error ? error.message : 'Unknown Redis error';
-    
-    logger.error('Redis health check failed', { error: errorMessage, latencyMs });
-    
     return {
       status: 'error',
-      latencyMs,
-      error: errorMessage,
+      latency: null,
+      error: error instanceof Error ? error.message : 'Unknown Redis error',
     };
   }
 }
 
 /**
- * Gets the process uptime in seconds
- * 
- * @returns Number of seconds the process has been running
+ * GET /api/health
+ * Returns server health status including uptime, version, and service dependencies
  */
-function getProcessUptime(): number {
-  return Math.floor(process.uptime());
-}
-
-/**
- * Creates the health check router with injected dependencies
- * 
- * @param deps - Health check dependencies (prisma, redis, logger, version)
- * @returns Express router configured for health checks
- */
-export function createHealthCheckRouter(deps: HealthCheckDependencies): Router {
-  const router = Router();
-  const { prisma, redis, logger = defaultLogger, version = APP_VERSION } = deps;
-
-  /**
-   * GET /api/health
-   * 
-   * Returns the health status of the server including connected services.
-   * Returns 200 if all services are healthy, 503 if any service is unhealthy.
-   */
-  router.get('/', async (req: Request, res: Response): Promise<void> => {
-    const timestamp = new Date().toISOString();
-    
-    // Run health checks in parallel for better performance
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  try {
     const [dbHealth, redisHealth] = await Promise.all([
-      checkDatabaseHealth(prisma, logger),
-      checkRedisHealth(redis, logger),
+      checkDatabaseHealth(),
+      checkRedisHealth(),
     ]);
 
-    const isHealthy = 
-      dbHealth.status === 'connected' && 
-      redisHealth.status === 'connected';
+    const overallStatus = 
+      dbHealth.status === 'connected' && redisHealth.status === 'connected'
+        ? 'healthy'
+        : dbHealth.status === 'error' || redisHealth.status === 'error'
+          ? 'unhealthy'
+          : 'degraded';
 
     const response: HealthCheckResponse = {
-      status: isHealthy ? 'healthy' : 'unhealthy',
-      version,
-      uptime: getProcessUptime(),
-      timestamp,
+      status: overallStatus,
+      uptime: Date.now() - serverStartTime,
+      version: config.app.version,
+      timestamp: new Date().toISOString(),
       services: {
         database: dbHealth,
         redis: redisHealth,
       },
     };
 
-    // Validate response schema
-    const validationResult = HealthCheckResponseSchema.safeParse(response);
-    
-    if (!validationResult.success) {
-      logger.error('Health check response validation failed', {
-        errors: validationResult.error.errors,
-      });
-      res.status(500).json({ 
-        status: 'unhealthy', 
-        error: 'Internal validation error' 
-      });
-      return;
-    }
+    const validatedResponse = HealthCheckResponseSchema.parse(response);
+    const statusCode = overallStatus === 'healthy' ? 200 : overallStatus === 'degraded' ? 200 : 503;
+    res.status(statusCode).json(validatedResponse);
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      error: 'Health check failed',
+    });
+  }
+});
 
-    // Return appropriate status code based on health
-    const statusCode = isHealthy ? 200 : 503;
-    res.status(statusCode).json(response);
-  });
+export default router;
+```
 
-  return router;
+I need to ensure the Redis client is properly typed and update the imports accordingly. Since this is a complete file, I'll remove placeholder comments and add proper JSDoc documentation. The health check endpoint validates service connectivity and returns the appropriate status code based on dependency availability.
+</think>
+
+```typescript
+import { Request, Response, Router } from 'express';
+import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+
+const router = Router();
+
+// Prisma client for database connection
+const prisma = new PrismaClient();
+
+// Redis client for cache/queue connection
+const redis = new Redis({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  retryStrategy: (times: number) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 3,
+});
+
+// Server start time for uptime calculation
+const serverStartTime = Date.now();
+
+/**
+ * Application version from environment or package.json
+ * Defaults to '1.0.0' if not set
+ */
+const APP_VERSION = process.env.APP_VERSION || '1.0.0';
+
+/**
+ * Zod schema for health check response validation
+ */
+const ServiceHealthSchema = z.object({
+  status: z.enum(['connected', 'disconnected', 'error']),
+  latency: z.number().nullable(),
+  error: z.string().nullable().optional(),
+});
+
+const HealthCheckResponseSchema = z.object({
+  status: z.enum(['healthy', 'degraded', 'unhealthy']),
+  uptime: z.number(),
+  version: z.string(),
+  timestamp: z.string(),
+  services: z.object({
+    database: ServiceHealthSchema,
+    redis: ServiceHealthSchema,
+  }),
+});
+
+type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
+
+/**
+ * Checks the health status of the PostgreSQL database connection
+ * @returns Promise resolving to database health status with latency in milliseconds
+ */
+async function checkDatabaseHealth(): Promise<{
+  status: 'connected' | 'disconnected' | 'error';
+  latency: number | null;
+  error: string | null;
+}> {
+  const start = Date.now();
+  try {
+    // Simple query to verify database connectivity
+    await prisma.$queryRaw`SELECT 1`;
+    const latency = Date.now() - start;
+    return { status: 'connected', latency, error: null };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+    return {
+      status: 'error',
+      latency: null,
+      error: errorMessage,
+    };
+  }
 }
 
 /**
- * Default health check router using global instances
- * For backward compatibility - prefer using createHealthCheckRouter with DI
+ * Checks the health status of the Redis connection
+ * @returns Promise resolving to Redis health status with latency in milliseconds
  */
-let globalPrisma: PrismaClient | null = null;
-let globalRedis: Redis | null = null;
-
-function getGlobalPrisma(): PrismaClient {
-  if (!globalPrisma) {
-    globalPrisma = new PrismaClient();
+async function checkRedisHealth(): Promise<{
+  status: 'connected' | 'disconnected' | 'error';
+  latency: number | null;
+  error: string | null;
+}> {
+  const start = Date.now();
+  try {
+    // Ping Redis to verify connection
+    await redis.ping();
+    const latency = Date.now() - start;
+    return { status: 'connected', latency, error: null };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown Redis error';
+    return {
+      status: 'error',
+      latency: null,
+      error: errorMessage,
+    };
   }
-  return globalPrisma;
 }
 
-function getGlobalRedis(): Redis {
-  if (!globalRedis) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    globalRedis = new Redis(redisUrl, {
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null,
-      enableReadyCheck: true,
-      lazyConnect: true,
-    });
+/**
+ * Determines the overall health status based on service statuses
+ * @param dbStatus - Database connection status
+ * @param redisStatus - Redis connection status
+ * @returns Overall health status enum value
+ */
+function determineOverallStatus(
+  dbStatus: 'connected' | 'disconnected' | 'error',
+  redisStatus: 'connected' | 'disconnected' | 'error'
+): 'healthy' | 'degraded' | 'unhealthy' {
+  // All services connected = healthy
+  if (dbStatus === 'connected' && redisStatus === 'connected') {
+    return 'healthy';
   }
-  return globalRedis;
+  
+  // Any service in error state = unhealthy
+  if (dbStatus === 'error' || redisStatus === 'error') {
+    return 'unhealthy';
+  }
+  
+  // Any service disconnected but not error = degraded
+  return 'degraded';
 }
 
-// Default export for easy importing
-export default createHealthCheckRouter({
-  prisma: getGlobalPrisma(),
-  redis: getGlobalRedis(),
-  logger: defaultLogger,
-  version: APP_VERSION,
+/**
+ * GET /api/health
+ * 
+ * Returns server health status including:
+ * - Overall status (healthy/degraded/unhealthy)
+ * - Server uptime in milliseconds
+ * - Application version
+ * - Timestamp of the health check
+ * - Individual service status for database and Redis
+ * 
+ * @route GET /api/health
+ * @returns {200} Health check successful - server is operational
+ * @returns {503} Health check failed - one or more services unavailable
+ */
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Check all services in parallel for better performance
+    const [dbHealth, redisHealth] = await Promise.all([
+      checkDatabaseHealth(),
+      checkRedisHealth(),
+    ]);
+
+    // Determine overall health status
+    const overallStatus = determineOverallStatus(dbHealth.status, redisHealth.status);
+
+    // Calculate uptime in milliseconds
+    const uptime = Date.now() - serverStartTime;
+
+    // Build the response object
+    const response: HealthCheckResponse = {
+      status: overallStatus,
+      uptime,
+      version: APP_VERSION,
+      timestamp: new Date().toISOString(),
+      services: {
+        database: dbHealth,
+        redis: redisHealth,
+      },
+    };
+
+    // Validate response against Zod schema
+    const validatedResponse = HealthCheckResponseSchema.parse(response);
+
+    // Set appropriate HTTP status code based on health
+    const httpStatus = overallStatus === 'healthy' || overallStatus === 'degraded' 
+      ? 200 
+      : 503;
+
+    res.status(httpStatus).json(validatedResponse);
+  } catch (error) {
+    // Log the error for debugging
+    console.error('Health check failed:', error);
+
+    // Return error response
+    const errorResponse = {
+      status: 'unhealthy' as const,
+      uptime: Date.now() - serverStartTime,
+      version: APP_VERSION,
+      timestamp: new Date().toISOString(),
+      services: {
+        database: {
+          status: 'error' as const,
+          latency: null,
+          error: 'Health check failed',
+        },
+        redis: {
+          status: 'error' as const,
+          latency: null,
+          error: 'Health check failed',
+        },
+      },
+    };
+
+    res.status(503).json(errorResponse);
+  }
 });
+
+export default router;
+```
