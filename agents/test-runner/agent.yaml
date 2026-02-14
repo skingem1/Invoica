@@ -1,9 +1,9 @@
 name: test-runner
-role: "Executes test suites and reports pass/fail status before supervisor review"
+role: "Runs generated test files and reports failures before Claude supervisor review"
 llm: minimax/MiniMax-M2.5
 reports_to: ceo
 trigger: every_sprint
 created_by: cto_proposal
-created_at: "2026-02-14T17:27:50.316Z"
+created_at: "2026-02-14T18:11:16.310Z"
 context_files:
   - docs/learnings.md
