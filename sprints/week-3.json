@@ -1,0 +1,42 @@
+{
+  "tasks": [
+    {
+      "id": "BC-010",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a simple currency formatter utility. File: src/utils/currency.ts. Export these functions: (1) formatCurrency(amount: number, currency: string): string — formats a number to 2 decimal places with the currency symbol (support USD=$, EUR=€, GBP=£, default prefix with currency code). (2) parseCurrency(formatted: string): number — strips non-numeric chars except decimal, returns number. (3) SUPPORTED_CURRENCIES: a readonly array of supported currency codes. Use TypeScript strict mode. No external dependencies. Include JSDoc comments.",
+      "deliverables": {
+        "code": ["backend/src/utils/currency.ts"],
+        "tests": ["backend/tests/utils/currency.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SEC-010",
+      "agent": "security",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a request audit logger middleware for Express. File: src/middleware/audit-logger.ts. Export a function auditLogger() that returns Express middleware. It should log each request as a JSON line to stdout with: timestamp (ISO string), method, path, statusCode, responseTimeMs (Date.now difference), ip (req.ip). Use res.on('finish') to capture status code after response. Also export a redactHeaders(headers: Record<string,string>): Record<string,string> function that replaces values of Authorization and X-Api-Key headers with '[REDACTED]'. TypeScript strict mode. No external dependencies beyond Express types.",
+      "deliverables": {
+        "code": ["backend/src/middleware/audit-logger.ts"],
+        "tests": ["backend/tests/middleware/audit-logger.test.ts"]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FE-010",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a StatusBadge React component. File: components/ui/status-badge.tsx. Export a StatusBadge component that accepts props: status ('completed' | 'pending' | 'failed' | 'processing') and optional className. Render a span with rounded-full padding, text-sm font. Colors: completed=green bg + dark green text, pending=yellow bg + dark yellow text, failed=red bg + dark red text, processing=blue bg + dark blue text. Use TailwindCSS classes only. Capitalize the status text. TypeScript with proper prop types. No external dependencies.",
+      "deliverables": {
+        "code": ["frontend/components/ui/status-badge.tsx"]
+      },
+      "status": "pending"
+    }
+  ]
+}

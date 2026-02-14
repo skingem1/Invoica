@@ -507,7 +507,7 @@ class Orchestrator {
       return;
     }
 
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 10;
     let lastReview: ReviewResult | undefined;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       log(c.blue, `\n${'='.repeat(60)}`);
