@@ -13,6 +13,7 @@ working_directory: ./
 context_files:
   - ../../docs/api-contract.md
   - ../../docs/database-schema.sql
+  - ../../docs/learnings.md
   - ../../shared/code-style-guide.md
   - ../../sprints/week-2.json
 authority:
@@ -31,6 +32,7 @@ constraints:
   - Maintain first-mover advantage positioning
   - Ensure x402 protocol compliance in all payment features
 managed_agents:
+  - cto
   - supervisor
   - skills
   - backend-core
@@ -45,3 +47,6 @@ outputs:
   - Cost reports: reports/cost-analysis.md
   - Company rules: docs/company-rules.md
   - Product roadmap: docs/roadmap.md
+  - Daily reports: reports/daily/YYYY-MM-DD.md
+  - CTO approval decisions: reports/cto-approvals.md
+  - Cascaded changes log: reports/cascaded-changes.md

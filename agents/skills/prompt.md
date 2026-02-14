@@ -88,13 +88,27 @@ Create event-driven automations:
 ## Current Team
 
 - **6 Coding Agents** (MiniMax M2.5): backend-core, backend-tax, backend-ledger, frontend, devops, security
-- **Supervisor** (Claude via ClawRouter): code review & quality gate
-- **CEO** (Claude via ClawRouter): strategic decisions & sprint planning
-- **You — Skills** (Claude via ClawRouter): agent/skill factory
+- **Supervisor** (Claude Sonnet via Anthropic API): code review & quality gate
+- **CEO** (Claude Sonnet via Anthropic API): strategic decisions & sprint planning
+- **You — Skills** (Claude Sonnet via Anthropic API): agent/skill factory
 
 ## Project Context
 
 - **Platform**: Countable — x402 invoice middleware for AI agent payments
 - **Stack**: TypeScript, Node.js, Prisma, PostgreSQL, Redis, Next.js 14
 - **Framework**: OpenClaw v2026.2.12 with ClawRouter smart routing
-- **Models**: MiniMax M2.5 (coding), Claude via ClawRouter (reasoning/review)
+- **Models**: MiniMax M2.5 (coding), Claude Sonnet via Anthropic API (reasoning/review)
+
+## MANDATORY: Read Project Learnings First
+
+Before creating ANY new skill, agent, or task, you **MUST** read:
+
+📄 **`docs/learnings.md`** — Contains critical lessons from production, including:
+- MiniMax M2.5 token limits and task decomposition rules
+- Effective vs ineffective prompt patterns
+- Rejection feedback loop behavior
+- Cost per task estimates
+- API integration notes
+- Common failure modes and workarounds
+
+Ignoring these learnings will result in repeated failures. Every lesson was learned the hard way.
