@@ -4,7 +4,7 @@
  * Countable Agent Orchestrator v2
  *
  * 9-Agent Architecture:
- *   Leadership (Claude via ClawRouter):
+ *   Leadership (Claude via Anthropic API):
  *     - CEO: Sprint planning, strategy, decisions
  *     - Supervisor: Code review & quality gate
  *     - Skills: Agent/skill factory
@@ -71,27 +71,24 @@ function log(color: string, msg: string) {
 }
 
 // ===== Generic LLM Client =====
-// Routes to either MiniMax (direct) or ClawRouter (local proxy for Claude)
+// Routes to either MiniMax (direct) or Anthropic API (Claude)
 
 async function callLLM(
-  provider: 'minimax' | 'clawrouter',
+  provider: 'minimax' | 'anthropic',
   model: string,
   systemPrompt: string,
   userPrompt: string,
   timeoutMs: number = 300000
 ): Promise<LLMResponse> {
-  let baseUrl: string;
-  let apiKey: string;
 
-  if (provider === 'minimax') {
-    baseUrl = 'https://api.minimax.io/v1/chat/completions';
-    apiKey = process.env.MINIMAX_API_KEY || '';
-    if (!apiKey) throw new Error('MINIMAX_API_KEY not set');
-  } else {
-    // ClawRouter local proxy — routes to cheapest capable model
-    baseUrl = 'http://127.0.0.1:8402/v1/chat/completions';
-    apiKey = 'x402-proxy-handles-auth';
+  if (provider === 'anthropic') {
+    return callAnthropic(model, systemPrompt, userPrompt, timeoutMs);
   }
+
+  // MiniMax — OpenAI-compatible API
+  const baseUrl = 'https://api.minimax.io/v1/chat/completions';
+  const apiKey = process.env.MINIMAX_API_KEY || '';
+  if (!apiKey) throw new Error('MINIMAX_API_KEY not set');
 
   const body = JSON.stringify({
     model,
@@ -103,39 +100,89 @@ async function callLLM(
     max_tokens: 16000,
   });
 
-  const url = new URL(baseUrl);
-  const isHttps = url.protocol === 'https:';
+  return httpPost('https://api.minimax.io/v1/chat/completions', {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  }, body, timeoutMs);
+}
+
+// Anthropic Messages API (Claude)
+async function callAnthropic(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  timeoutMs: number
+): Promise<LLMResponse> {
+  const apiKey = process.env.ANTHROPIC_API_KEY || '';
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set in .env');
+
+  const body = JSON.stringify({
+    model,
+    max_tokens: 16000,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+  });
+
+  const rawResponse = await httpPost('https://api.anthropic.com/v1/messages', {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+  }, body, timeoutMs);
+
+  // Convert Anthropic response format to our standard LLMResponse
+  const anthropicData = rawResponse as any;
+  if (anthropicData.content && Array.isArray(anthropicData.content)) {
+    const textContent = anthropicData.content
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('');
+    return {
+      choices: [{ message: { content: textContent } }],
+      usage: {
+        total_tokens: (anthropicData.usage?.input_tokens || 0) + (anthropicData.usage?.output_tokens || 0),
+      },
+    };
+  }
+  return rawResponse;
+}
+
+// Generic HTTPS POST helper
+function httpPost(url: string, headers: Record<string, string>, body: string, timeoutMs: number): Promise<any> {
+  const parsed = new URL(url);
+  const isHttps = parsed.protocol === 'https:';
   const lib = isHttps ? https : http;
 
   return new Promise((resolve, reject) => {
     const req = lib.request({
-      hostname: url.hostname,
-      port: url.port || (isHttps ? 443 : undefined),
-      path: url.pathname,
+      hostname: parsed.hostname,
+      port: parsed.port || (isHttps ? 443 : undefined),
+      path: parsed.pathname,
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Length': Buffer.byteLength(body),
+        ...headers,
+        'Content-Length': Buffer.byteLength(body).toString(),
       },
     }, (res) => {
       let data = '';
       res.on('data', (chunk: string) => (data += chunk));
       res.on('end', () => {
         try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) {
-            reject(new Error(`LLM error: ${parsed.error.message || JSON.stringify(parsed.error)}`));
+          const result = JSON.parse(data);
+          if (result.error) {
+            reject(new Error(`API error: ${result.error.message || JSON.stringify(result.error)}`));
             return;
           }
-          resolve(parsed);
+          resolve(result);
         } catch {
           reject(new Error(`Failed to parse response: ${data.substring(0, 500)}`));
         }
       });
     });
     req.on('error', reject);
-    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error(`LLM timeout (${timeoutMs/1000}s)`)); });
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error(`API timeout (${timeoutMs/1000}s)`)); });
     req.write(body);
     req.end();
   });
@@ -149,7 +196,7 @@ class SupervisorAgent {
   constructor() {
     const promptPath = './agents/supervisor/prompt.md';
     this.systemPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are a code review supervisor.';
-    log(c.magenta, '+ Loaded supervisor agent (Claude via ClawRouter)');
+    log(c.magenta, '+ Loaded supervisor agent (Claude via Anthropic API)');
   }
 
   async reviewTask(task: AgentTask, files: string[]): Promise<ReviewResult> {
@@ -180,10 +227,10 @@ Respond with a JSON object:
 }`;
 
     const startTime = Date.now();
-    log(c.gray, '  -> Sending to ClawRouter (auto-routes to best model)...');
+    log(c.gray, '  -> Sending to Claude (Anthropic API)...');
 
     try {
-      const response = await callLLM('clawrouter', 'auto', this.systemPrompt, userPrompt, 120000);
+      const response = await callLLM('anthropic', 'claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 120000);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const tokens = response.usage?.total_tokens || 'unknown';
       log(c.gray, `  -> Review received in ${elapsed}s (${tokens} tokens)`);
@@ -226,7 +273,7 @@ class CEOAgent {
   constructor() {
     const promptPath = './agents/ceo/prompt.md';
     this.systemPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are the CEO of Countable.';
-    log(c.magenta, '+ Loaded CEO agent (Claude via ClawRouter)');
+    log(c.magenta, '+ Loaded CEO agent (Claude via Anthropic API)');
   }
 
   async reviewSprintProgress(tasks: AgentTask[]): Promise<string> {
@@ -254,7 +301,7 @@ As CEO, briefly assess:
 Keep response under 200 words.`;
 
     try {
-      const response = await callLLM('clawrouter', 'auto', this.systemPrompt, userPrompt, 60000);
+      const response = await callLLM('anthropic', 'claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 60000);
       const content = response.choices?.[0]?.message?.content || 'No response';
       log(c.magenta, `  CEO assessment: ${content.substring(0, 500)}`);
       return content;
@@ -390,7 +437,7 @@ class Orchestrator {
     this.sprintFile = process.argv[2] || './sprints/week-2.json';
 
     log(`${c.bold}${c.blue}`, '\n🦞 Countable Agent Orchestrator v2');
-    log(c.gray, '9 agents: 3 Claude (ClawRouter) + 6 MiniMax\n');
+    log(c.gray, '9 agents: 3 Claude (Anthropic) + 6 MiniMax\n');
 
     this.loadCodingAgents();
     this.supervisor = new SupervisorAgent();
@@ -569,7 +616,7 @@ class Orchestrator {
     log(c.green,   `  Approved:   ${this.stats.approved}`);
     log(c.red,     `  Rejected:   ${this.stats.rejected}`);
     console.log('=======================================');
-    log(c.gray,    '  Models: MiniMax M2.5 (code) + ClawRouter (review)');
+    log(c.gray,    '  Models: MiniMax M2.5 (code) + Claude Sonnet (review)');
     console.log('=======================================\n');
   }
 }

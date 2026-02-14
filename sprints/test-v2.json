@@ -1,0 +1,19 @@
+[
+  {
+    "id": "TEST-001",
+    "agent": "backend-core",
+    "type": "feature",
+    "priority": "high",
+    "dependencies": [],
+    "context": "Create a health check endpoint at /api/health that returns server status, uptime, version, and connected services status (database, redis). File: backend/src/api/health.ts. Use TypeScript strict mode, Zod for response validation, include JSDoc comments.",
+    "deliverables": {
+      "code": [
+        "backend/src/api/health.ts"
+      ],
+      "tests": [
+        "backend/tests/api/health.test.ts"
+      ]
+    },
+    "status": "in_progress"
+  }
+]
