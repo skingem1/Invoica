@@ -197,5 +197,43 @@ Use `git reset --hard HEAD~1` instead. This cleanly drops the last commit withou
 
 ---
 
+## 10. Week 3 Sprint Insights — Retry Effectiveness Data
+
+### Results: 3/3 Tasks Approved (100% completion with retries)
+| Task | Attempts | Final Score | Key Pattern |
+|------|----------|-------------|-------------|
+| BC-010 (currency formatter) | 1 | 92/100 | Simple utility → first-try pass |
+| SEC-010 (audit logger) | 4 | 92/100 | Express middleware → needed feedback iterations |
+| FE-010 (StatusBadge React) | 7 | 92/100 | React/TSX → MiniMax struggles with JSX output |
+
+### MiniMax + React/JSX = Problematic
+- MiniMax M2.5 scored **15/100** on first 4+ attempts for the React component
+- It output comments/descriptions of what code should look like instead of actual JSX
+- The retry feedback loop eventually forced correct output on attempt 7
+- **Takeaway**: Expect 5-7 attempts for React/TSX tasks. Consider even simpler React tasks or adding explicit "output valid JSX, not comments" to prompts
+
+### Retry ROI Analysis
+- 12 total MiniMax calls × ~$0.09 = ~$1.08 coding cost
+- 12 Claude reviews × ~$0.04 = ~$0.48 review cost
+- Total: ~$1.73 for 3 deliverables = **~$0.58/approved task**
+- Without retries (MAX_RETRIES=3): 0/4 tasks completed in first run = $0.00 ROI
+- With retries (MAX_RETRIES=10): 3/3 tasks completed = positive ROI
+- **Conclusion**: Higher retry limit is always better. Cost of retries << cost of abandoned work
+
+### CTO Scan Output Issue
+- MiniMax `<think>` tags leak into CTO response body
+- CEO can't parse incomplete/malformed proposals
+- **Fix needed**: Strip `<think>...</think>` tags from MiniMax responses before processing
+- Or add response cleaning in CTOAgent.checkForImprovements()
+
+### Task Complexity Sweet Spot for MiniMax
+- **Pure utility functions** (no framework): 1 attempt (BC-010)
+- **Express middleware** (familiar pattern): 2-4 attempts (SEC-010)
+- **React components** (JSX output): 5-7 attempts (FE-010)
+- **Multi-concern endpoints** (DB + validation + routing): 3+ failures, often abandoned
+- **Rule**: If a task touches a framework MiniMax is weak at, budget for 5+ retries
+
+---
+
 *Last updated: 2026-02-14*
-*Updated by: Claude Supervisor after git revert crash fix*
+*Updated by: Claude — Week 3 sprint analysis*
