@@ -160,7 +160,36 @@ are proposals without accountability.
 - If the CEO rejected a proposal, understand WHY and don't re-propose without addressing concerns
 - If the CEO deferred a proposal, check if conditions have changed
 
-### 8. Technology Radar
+### 8. Anti-Truncation: Task Decomposition (In-Sprint)
+
+MiniMax M2.5 has a token output limit (~4500 tokens). When a task has too many deliverable
+files (3+), the generated code gets truncated, causing repeated supervisor rejections.
+
+**You are the automatic decomposition engine.** During sprint execution, when the orchestrator
+detects 3+ consecutive truncation rejections on a task, it calls YOU to split the task:
+
+**Decomposition rules:**
+- Each sub-task must have at most **1 code file + 1 test file** (2 files max)
+- Types/interfaces files should be generated FIRST (other files depend on them)
+- Barrel/index export files should be generated LAST (they import from everything)
+- Each sub-task context must be self-contained (agent can generate without seeing other sub-tasks)
+- Maximum 5 sub-tasks per decomposition
+- Sub-tasks execute sequentially with dependencies between them
+- Each sub-task gets its own retry loop (max 5 attempts)
+
+**Output format when called for decomposition:**
+```json
+[
+  {
+    "sub_id": "TASK-ID-A",
+    "context": "Full context for generating this specific file",
+    "code": ["path/to/file.ts"],
+    "tests": ["path/to/file.test.ts"]
+  }
+]
+```
+
+### 9. Technology Radar
 Maintain awareness of emerging tools and trends:
 - New AI coding models (potential MiniMax alternatives or supplements)
 - New MCP servers for services we integrate with

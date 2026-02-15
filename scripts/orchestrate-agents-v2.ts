@@ -922,6 +922,213 @@ class Orchestrator {
     log(c.blue, `Loaded ${this.tasks.length} tasks from ${sprintFile}`);
   }
 
+  // ===== Truncation Detection =====
+
+  private isTruncationRejection(review: ReviewResult): boolean {
+    const truncationKeywords = [
+      'truncat', 'incomplete', 'cut off', 'cuts off', 'ends abruptly',
+      'missing implementation', 'missing the actual', 'file is incomplete',
+      'cuts off mid', 'missing core functionality', 'missing the entire',
+    ];
+    const text = (
+      review.summary + ' ' +
+      (review.issues || []).map(i => i.description).join(' ')
+    ).toLowerCase();
+    return truncationKeywords.some(kw => text.includes(kw));
+  }
+
+  // ===== CTO Task Decomposition (for truncation-prone tasks) =====
+
+  private async ctoDecomposeTask(task: AgentTask): Promise<AgentTask[]> {
+    log(c.cyan, `\n[cto-decompose] 🔧 CTO splitting ${task.id} into smaller sub-tasks...`);
+    const allDeliverables = [
+      ...(task.deliverables.code || []),
+      ...(task.deliverables.tests || []),
+    ];
+
+    const userPrompt = `A task keeps failing because MiniMax M2.5 truncates output when generating multiple files.
+
+## Failed Task
+- ID: ${task.id}
+- Agent: ${task.agent}
+- Context: ${task.context.substring(0, 1500)}
+- Deliverable files: ${allDeliverables.join(', ')}
+
+## Problem
+MiniMax M2.5 has a ~4500 token output limit per call. When a task has ${allDeliverables.length} files, each file gets less space and code gets truncated.
+
+## Your Job
+Split this task into smaller sub-tasks. Each sub-task must have at most 1 code file + 1 test file (2 files max).
+
+## Rules
+1. Types/interfaces files FIRST (other files depend on them)
+2. Barrel/index export files LAST (they import from everything else)
+3. Each sub-task must be self-contained (agent can generate it without seeing other sub-task results)
+4. Include enough context in each sub-task for the agent to know what to generate
+5. Maximum 5 sub-tasks
+
+## Output Format
+Return a JSON array of sub-task specs:
+[
+  {
+    "sub_id": "${task.id}-A",
+    "context": "Full task context for this sub-task including what types/interfaces to define",
+    "code": ["path/to/file.ts"],
+    "tests": ["path/to/file.test.ts"]
+  }
+]
+
+ONLY output the JSON array. No markdown, no explanation.`;
+
+    try {
+      const response = await callLLM('minimax', 'MiniMax-M2.5', this.cto['systemPrompt'] || '', userPrompt, 120000);
+      let content = response.choices?.[0]?.message?.content || '';
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        log(c.yellow, '  CTO decomposition returned no JSON, falling back to mechanical split');
+        return this.fallbackDecompose(task);
+      }
+
+      const specs = JSON.parse(jsonMatch[0]) as Array<{
+        sub_id: string; context: string; code: string[]; tests: string[];
+      }>;
+
+      if (!Array.isArray(specs) || specs.length < 2) {
+        log(c.yellow, '  CTO returned <2 sub-tasks, falling back to mechanical split');
+        return this.fallbackDecompose(task);
+      }
+
+      // Convert specs to AgentTask objects
+      const subtasks: AgentTask[] = specs.slice(0, 5).map((spec, i) => ({
+        id: spec.sub_id || `${task.id}-${String.fromCharCode(65 + i)}`,
+        agent: task.agent,
+        type: task.type,
+        priority: task.priority,
+        dependencies: i > 0 ? [specs[i - 1].sub_id || `${task.id}-${String.fromCharCode(64 + i)}`] : [],
+        context: spec.context,
+        deliverables: {
+          code: spec.code || [],
+          tests: spec.tests || [],
+        },
+        status: 'pending' as const,
+      }));
+
+      log(c.green, `  ✓ CTO decomposed ${task.id} into ${subtasks.length} sub-tasks:`);
+      for (const st of subtasks) {
+        const files = [...(st.deliverables.code || []), ...(st.deliverables.tests || [])];
+        log(c.cyan, `    ${st.id}: ${files.join(', ')}`);
+      }
+      return subtasks;
+    } catch (error: any) {
+      log(c.yellow, `  CTO decomposition failed: ${error.message}, using fallback`);
+      return this.fallbackDecompose(task);
+    }
+  }
+
+  // ===== Fallback: Mechanical file-based split =====
+
+  private fallbackDecompose(task: AgentTask): AgentTask[] {
+    const codeFiles = task.deliverables.code || [];
+    const testFiles = task.deliverables.tests || [];
+
+    log(c.yellow, `  [fallback] Mechanically splitting ${task.id} by file...`);
+
+    const subtasks: AgentTask[] = [];
+    for (let i = 0; i < codeFiles.length; i++) {
+      const code = codeFiles[i];
+      // Find matching test file
+      const baseName = code.replace(/\.ts$/, '').split('/').pop() || '';
+      const matchingTest = testFiles.find(t =>
+        t.includes(baseName) && (t.includes('.test.') || t.includes('.spec.'))
+      );
+
+      subtasks.push({
+        id: `${task.id}-${String.fromCharCode(65 + i)}`,
+        agent: task.agent,
+        type: task.type,
+        priority: task.priority,
+        dependencies: i > 0 ? [`${task.id}-${String.fromCharCode(64 + i)}`] : [],
+        context: `${task.context}\n\n## SUB-TASK: Generate ONLY the file "${code}"${matchingTest ? ` and its test "${matchingTest}"` : ''}.\nThis is part of a larger task that was split to avoid truncation. Focus on this file only. Make it complete and self-contained.`,
+        deliverables: {
+          code: [code],
+          tests: matchingTest ? [matchingTest] : [],
+        },
+        status: 'pending' as const,
+      });
+    }
+
+    // Handle orphan test files (tests without matching code file)
+    const usedTests = subtasks.flatMap(st => st.deliverables.tests || []);
+    const orphanTests = testFiles.filter(t => !usedTests.includes(t));
+    if (orphanTests.length > 0) {
+      subtasks.push({
+        id: `${task.id}-${String.fromCharCode(65 + codeFiles.length)}`,
+        agent: task.agent,
+        type: task.type,
+        priority: task.priority,
+        dependencies: subtasks.length > 0 ? [subtasks[subtasks.length - 1].id] : [],
+        context: `${task.context}\n\n## SUB-TASK: Generate ONLY the test file(s): ${orphanTests.join(', ')}.\nAll source code files have already been generated. Write tests that import from the existing source files.`,
+        deliverables: {
+          code: [],
+          tests: orphanTests,
+        },
+        status: 'pending' as const,
+      });
+    }
+
+    log(c.green, `  ✓ Fallback split ${task.id} into ${subtasks.length} sub-tasks`);
+    return subtasks;
+  }
+
+  // ===== Sub-task executor (limited retries, no recursive decomposition) =====
+
+  private async executeSubTask(subtask: AgentTask, maxRetries: number): Promise<boolean> {
+    const agent = this.agents.get(subtask.agent);
+    if (!agent) {
+      log(c.red, `  Agent not found for sub-task: ${subtask.agent}`);
+      return false;
+    }
+
+    let lastReview: ReviewResult | undefined;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      log(c.blue, `\n  [sub-task] ${subtask.id} | Attempt: ${attempt}/${maxRetries}`);
+
+      this.stats.tasksExecuted++;
+      const result = await agent.execute(subtask, lastReview);
+
+      if (result.files.length === 0) {
+        log(c.red, `  No files produced for sub-task ${subtask.id}`);
+        return false;
+      }
+
+      const review = await this.supervisor.reviewTask(subtask, result.files);
+      lastReview = review;
+
+      if (review.verdict === 'APPROVED') {
+        this.stats.approved++;
+        log(c.green, `  ✓ Sub-task ${subtask.id} APPROVED on attempt ${attempt} (${review.score}/100)`);
+        return true;
+      }
+
+      this.stats.rejected++;
+      log(c.yellow, `  ↻ Sub-task ${subtask.id} REJECTED on attempt ${attempt} (${review.score}/100)`);
+
+      try {
+        execSync('git reset --hard HEAD~1', { timeout: 10000 });
+        log(c.gray, '    Reset to previous commit');
+      } catch {
+        log(c.gray, '    Reset skipped');
+      }
+    }
+
+    log(c.red, `  ✗ Sub-task ${subtask.id} FAILED after ${maxRetries} attempts`);
+    return false;
+  }
+
+  // ===== Main task executor with CTO auto-decomposition =====
+
   private async executeTask(task: AgentTask): Promise<void> {
     const agent = this.agents.get(task.agent);
     if (!agent) {
@@ -931,6 +1138,8 @@ class Orchestrator {
     }
 
     const MAX_RETRIES = 10;
+    const TRUNCATION_THRESHOLD = 3;
+    let truncationCount = 0;
     let lastReview: ReviewResult | undefined;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       log(c.blue, `\n${'='.repeat(60)}`);
@@ -962,15 +1171,68 @@ class Orchestrator {
         log(c.green, `\n✓ Task ${task.id} APPROVED on attempt ${attempt} (${review.score}/100)`);
         return;
       }
-      // Rejected — revert and retry
+
+      // Rejected — check for truncation pattern
       this.stats.rejected++;
-      log(c.yellow, `\n↻ Task ${task.id} REJECTED on attempt ${attempt} (${review.score}/100)`);
+      if (this.isTruncationRejection(review)) {
+        truncationCount++;
+        log(c.yellow, `\n↻ Task ${task.id} REJECTED on attempt ${attempt} (${review.score}/100) [TRUNCATION ${truncationCount}/${TRUNCATION_THRESHOLD}]`);
+      } else {
+        log(c.yellow, `\n↻ Task ${task.id} REJECTED on attempt ${attempt} (${review.score}/100)`);
+      }
 
       try {
         execSync('git reset --hard HEAD~1', { timeout: 10000 });
         log(c.gray, '  Reset to previous commit (dropped rejected code)');
       } catch {
         log(c.gray, '  Reset skipped (nothing to reset)');
+      }
+
+      // CTO AUTO-DECOMPOSE: After N consecutive truncation rejections, split the task
+      if (truncationCount >= TRUNCATION_THRESHOLD) {
+        log(c.cyan, `\n🔧 TRUNCATION THRESHOLD REACHED — CTO decomposing ${task.id}...`);
+        const subtasks = await this.ctoDecomposeTask(task);
+
+        if (subtasks.length > 1) {
+          log(c.cyan, `  Executing ${subtasks.length} sub-tasks sequentially...`);
+          let allPassed = true;
+
+          for (const subtask of subtasks) {
+            // Check sub-task dependencies
+            const subDeps = subtask.dependencies || [];
+            const unmetSubDeps = subDeps.filter(d => {
+              const depSt = subtasks.find(s => s.id === d);
+              return depSt && depSt.status !== 'done';
+            });
+            if (unmetSubDeps.length > 0) {
+              log(c.yellow, `  Skipping sub-task ${subtask.id}: unmet deps [${unmetSubDeps.join(', ')}]`);
+              allPassed = false;
+              continue;
+            }
+
+            const passed = await this.executeSubTask(subtask, 5);
+            if (passed) {
+              subtask.status = 'done';
+            } else {
+              allPassed = false;
+              subtask.status = 'rejected';
+              log(c.red, `  Sub-task ${subtask.id} failed — stopping decomposition chain`);
+              break;
+            }
+          }
+
+          if (allPassed) {
+            task.status = 'done';
+            log(c.green, `\n✓ Task ${task.id} COMPLETED via CTO decomposition (${subtasks.length} sub-tasks)`);
+          } else {
+            task.status = 'rejected';
+            log(c.red, `\n✗ Task ${task.id} FAILED even after CTO decomposition`);
+          }
+          return;
+        }
+        // If decomposition returned <=1 task, continue with normal retry loop
+        log(c.yellow, '  Decomposition produced ≤1 sub-task, continuing normal retries...');
+        truncationCount = 0; // Reset to avoid re-triggering
       }
 
       if (attempt < MAX_RETRIES) {

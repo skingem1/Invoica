@@ -1,4 +1,133 @@
 {
-  "proposals": [],
+  "proposals": [
+    {
+      "id": "CTO-20260215-001",
+      "title": "Add Execution Verification Agent to catch silent failures",
+      "category": "new_agent",
+      "description": "The daily report reveals 91% execution failure rate was silently reported as 'excellent results' by the CTO system. A new verification agent should cross-check sprint results against actual task execution logs to catch false positives before executive reporting.",
+      "implementation_steps": [
+        "Create verification agent that compares sprint approval status against actual execution logs",
+        "Run verification check before CEO daily report is generated",
+        "Flag any discrepancy between reported success and actual execution outcomes",
+        "Require manual audit of tasks where verification fails"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Agent must run BEFORE CEO daily report generation",
+        "Must flag ANY discrepancy between reported vs actual execution",
+        "Must require manual audit when verification fails",
+        "Use Anthropic Claude for reasoning - this is too critical for MiniMax"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260215-002",
+      "title": "Add Redis health check to orchestrator startup",
+      "category": "process_change",
+      "description": "The learnings document mentions Redis is used for health checks but the health check task (too complex) was rejected 3x. Adding a simple Redis connectivity check at orchestrator startup ensures the execution environment is valid before tasks run, reducing false failures.",
+      "implementation_steps": [
+        "Add Redis ping to orchestrator init sequence using existing ioredis client",
+        "Log connection status at startup; fail fast if Redis unavailable",
+        "Add Redis health to /health endpoint"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Keep it simple - just Redis ping, not complex health monitoring",
+        "Fail fast at startup if Redis unavailable",
+        "Log connection status for debugging"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260216-001",
+      "title": "Add Sprint-Retrospective Agent to Capture Learnings",
+      "category": "new_agent",
+      "description": "The learnings.md file contains critical insights about MiniMax token limits (4500 max), task decomposition rules, and rejection patterns. However, these learnings aren't systematically applied to new tasks. The daily report shows 3 rejections (SDK-060, BE-110, BE-111) and stalled execution, suggesting the same issues may repeat. A dedicated agent to capture and apply sprint learnings would improve task success rates.",
+      "implementation_steps": [
+        "Create agent directory: agents/sprint-retrospective/",
+        "Implement agent to read previous sprint results and learnings before new task creation",
+        "Add pattern matching: if task type matches previously failed types, inject decomposition rules into prompt",
+        "Run every_sprint to analyze rejected tasks and update learnings.md with new patterns",
+        "Test by comparing SDK-060 failure pattern against new task prompts"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Agent must read both learnings.md AND previous sprint results before each run",
+        "Pattern matching must be specific - inject concrete rules, not generic advice",
+        "Must update learnings.md with new patterns discovered from rejected tasks"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260217-003",
+      "title": "Debug Backend-Core Execution Blocker",
+      "category": "tooling",
+      "description": "Daily report indicates backend-core agent not executing pending tasks (SDK-061, SDK-062) despite 100% Week-9 success rate. This is a critical infrastructure issue - tasks planned but not executed. Need immediate diagnostic to identify root cause.",
+      "implementation_steps": [
+        "1. Check orchestrator logs for backend-core agent errors or hangs",
+        "2. Verify agent dynamic loading is working (agents/backend-core/)",
+        "3. Check if PM2 process for backend-core is running",
+        "4. Test agent invocation manually with a simple task",
+        "5. Verify no changes to orchestrator config broke agent execution",
+        "6. Report findings and fix to CEO"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Report findings within 2 hours",
+        "If fix requires code changes, get Supervisor review"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260217-001",
+      "title": "Implement Sprint-Retrospective Agent",
+      "category": "new_agent",
+      "description": "CEO approved sprint-retrospective agent in previous cycle to prevent recurring rejection patterns. This agent should analyze sprint results, identify failure patterns, and recommend task decomposition or process changes before next sprint. The critical execution blocker in current sprint demonstrates why systematic retrospective is needed.",
+      "implementation_steps": [
+        "1. Use Skills Agent to create sprint-retrospective agent with MiniMax LLM",
+        "2. Configure trigger: every_sprint (runs after sprint results are available)",
+        "3. Agent reads: sprint results, rejection patterns, learnings.md, previous retrospectives",
+        "4. Agent outputs: pattern analysis, decomposition recommendations, process improvement suggestions",
+        "5. Store outputs in reports/sprint-retrospective/ for CEO review"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Agent must read all sprint data before analysis",
+        "Output format must be structured for CEO review"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260217-002",
+      "title": "Enhance Execution-Verifier to Monitor Agent Health",
+      "category": "process_change",
+      "description": "The execution-verifier agent exists but failed to detect the critical backend-core execution blocker. Current implementation verifies task execution but doesn't monitor agent health or detect when approved tasks aren't being processed. Need to add proactive health checks.",
+      "implementation_steps": [
+        "1. Review current execution-verifier implementation in agents/execution-verifier/",
+        "2. Add agent health check: verify all scheduled agents processed their task queues",
+        "3. Add pending task alert: if tasks remain pending >1 hour, trigger alert",
+        "4. Add execution failure pattern detection: flag agents with >2 consecutive empty sprints",
+        "5. Update orchestrator to emit agent heartbeat events for monitoring"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Must include rollback plan for health check changes",
+        "Alert thresholds must be configurable"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    }
+  ],
   "last_updated": "2026-02-15"
 }
