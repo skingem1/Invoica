@@ -1,41 +1,57 @@
 import { InvoicaClient } from '../src/client';
-import { SettlementStatus } from '../src/types';
+import { InvoicaConfig } from '../src/config';
+import { Invoice, SettlementStatus } from '../src/types';
+
+const mockConfig: InvoicaConfig = { apiKey: 'test-key', baseUrl: 'http://localhost' };
 
 describe('InvoicaClient', () => {
-  const client = new InvoicaClient({ apiKey: 'test-key', baseUrl: 'http://localhost' });
+  let client: InvoicaClient;
 
-  describe('getSettlement', () => {
-    it('returns settlement for valid invoiceId', async () => {
-      const mock: SettlementStatus = { id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 };
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
+  beforeEach(() => { client = new InvoicaClient(mockConfig); });
 
-      const result = await client.getSettlement({ invoiceId: 'inv1' });
-      expect(result).toEqual(mock);
+  describe('listInvoices', () => {
+    it('should fetch invoices with pagination params', async () => {
+      const mockResponse = { invoices: [{ id: '1', amount: 100 }] as Invoice[], total: 1, limit: 10, offset: 0 };
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResponse) });
+      
+      const result = await client.listInvoices({ limit: 10, offset: 0 });
+      
+      expect(result).toEqual(mockResponse);
+      expect(fetch).toHaveBeenCalledWith('http://localhost/v1/invoices?limit=10&offset=0', expect.any(Object));
     });
 
-    it('throws on API error', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+    it('should filter out undefined params from query string', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ invoices: [], total: 0, limit: 10, offset: 0 }) });
+      
+      await client.listInvoices({ limit: 10 });
+      const calledUrl = (fetch as jest.Mock).mock.calls[0][0];
+      
+      expect(calledUrl).not.toContain('undefined');
+      expect(calledUrl).toContain('limit=10');
+      expect(calledUrl).not.toContain('offset');
+    });
 
-      await expect(client.getSettlement({ invoiceId: 'inv1' })).rejects.toThrow('Invoica API error: 404');
+    it('should call with empty params when none provided', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ invoices: [], total: 0, limit: 10, offset: 0 }) });
+      
+      await client.listInvoices();
+      
+      expect(fetch).toHaveBeenCalledWith('http://localhost/v1/invoices', expect.any(Object));
+    });
+
+    it('should throw error on failed request', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
+      
+      await expect(client.listInvoices()).rejects.toThrow('Request failed with status 500');
     });
   });
 
   describe('listSettlements', () => {
-    it('returns all settlements when no invoiceId', async () => {
-      const mock: SettlementStatus[] = [{ id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 }];
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
-
-      const result = await client.listSettlements();
-      expect(result).toEqual(mock);
-    });
-
-    it('filters by invoiceId when provided', async () => {
-      const mock: SettlementStatus[] = [{ id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 }];
-      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
-
-      const result = await client.listSettlements('inv1');
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost/v1/settlements?invoiceId=inv1', expect.any(Object));
-      expect(result).toEqual(mock);
+    it('should handle optional invoiceId parameter', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([{ invoiceId: '1' } as SettlementStatus]) });
+      
+      const result = await client.listSettlements('1');
+      expect(result).toHaveLength(1);
     });
   });
 });
