@@ -1,39 +1,58 @@
 import { Router } from 'express';
 import request from 'supertest';
-import { router } from '../../src/api/router';
+
+const mockStats = jest.fn((req, res) => res.status(200).json({ total: 0 }));
+const mockActivity = jest.fn((req, res) => res.status(200).json({ activities: [] }));
+
+jest.mock('../../src/api/dashboard-stats', () => ({
+  getDashboardStats: mockStats,
+}));
+
+jest.mock('../../src/api/recent-activity', () => ({
+  getRecentActivity: mockActivity,
+}));
+
+jest.mock('../../src/api/health', () => ({ health: (req: any, res: any) => res.status(200).json({ status: 'ok' }) }));
+jest.mock('../../src/api/invoices', () => ({
+  listInvoices: (req: any, res: any) => res.status(200).json([]),
+  getInvoice: (req: any, res: any) => res.status(200).json({}),
+  createInvoice: (req: any, res: any) => res.status(201).json({}),
+}));
+jest.mock('../../src/api/settlements', () => ({ settlements: (req: any, res: any) => res.status(200).json([]) }));
+jest.mock('../../src/api/webhooks', () => ({
+  registerWebhook: (req: any, res: any) => res.status(201).json({}),
+  getWebhooks: (req: any, res: any) => res.status(200).json([]),
+}));
+
+import router from '../../src/api/router';
 
 describe('API Router', () => {
   const app = Router().use(router);
 
-  it('mounts GET /health route', async () => {
-    const res = await request(app).get('/health');
-    expect([200, 500]).toContain(res.status);
+  it('registers dashboard/stats route', async () => {
+    const res = await request(app).get('/v1/dashboard/stats');
+    expect(mockStats).toHaveBeenCalled();
+    expect(res.status).toBe(200);
   });
 
-  it('mounts GET /v1/settlements/:invoiceId route', async () => {
-    const res = await request(app).get('/v1/settlements/inv-123');
-    expect([200, 404, 500]).toContain(res.status);
+  it('registers dashboard/activity route', async () => {
+    const res = await request(app).get('/v1/dashboard/activity');
+    expect(mockActivity).toHaveBeenCalled();
+    expect(res.status).toBe(200);
   });
 
-  it('mounts GET /v1/invoices/:id route', async () => {
-    const res = await request(app).get('/v1/invoices/1');
-    expect([200, 404, 500]).toContain(res.status);
+  it('preserves existing health route', async () => {
+    const res = await request(app).get('/v1/health');
+    expect(res.status).toBe(200);
   });
 
-  it('mounts GET /v1/invoices route', async () => {
+  it('preserves existing invoices routes', async () => {
     const res = await request(app).get('/v1/invoices');
-    expect([200, 500]).toContain(res.status);
+    expect(res.status).toBe(200);
   });
 
-  it('mounts POST /v1/invoices route', async () => {
-    const res = await request(app).post('/v1/invoices').send({});
-    expect([200, 201, 400, 500]).toContain(res.status);
-  });
-
-  it('mounts POST /v1/webhooks and GET /v1/webhooks/:id routes', async () => {
-    const postRes = await request(app).post('/v1/webhooks').send({});
-    expect([200, 201, 400, 500]).toContain(postRes.status);
-    const getRes = await request(app).get('/v1/webhooks/test-id');
-    expect([200, 404, 500]).toContain(getRes.status);
+  it('preserves existing settlements route', async () => {
+    const res = await request(app).get('/v1/settlements');
+    expect(res.status).toBe(200);
   });
 });

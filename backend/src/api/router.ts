@@ -1,21 +1,21 @@
 import { Router } from 'express';
-import { checkHealth } from './health';
-import { getSettlement } from './settlements';
-import { getInvoiceById } from './invoices-get';
-import { createInvoice } from './invoices-create';
-import { listInvoices } from './invoices-list';
-import { registerWebhook } from './webhooks-register';
-import { getWebhook } from './webhooks-get';
+import { health } from './health';
+import { listInvoices, getInvoice, createInvoice } from './invoices';
+import { settlements } from './settlements';
+import { registerWebhook, getWebhooks } from './webhooks';
+import { getDashboardStats } from './dashboard-stats';
+import { getRecentActivity } from './recent-activity';
 
 const router = Router();
 
-router.get('/health', checkHealth);
-router.get('/v1/settlements/:invoiceId', getSettlement);
-router.get('/v1/invoices/:id', getInvoiceById);
+router.get('/v1/dashboard/stats', getDashboardStats);
+router.get('/v1/dashboard/activity', getRecentActivity);
+router.get('/v1/health', health);
 router.get('/v1/invoices', listInvoices);
+router.get('/v1/invoices/:id', getInvoice);
 router.post('/v1/invoices', createInvoice);
+router.get('/v1/settlements', settlements);
 router.post('/v1/webhooks', registerWebhook);
-router.get('/v1/webhooks/:id', getWebhook);
+router.get('/v1/webhooks', getWebhooks);
 
-export { router };
 export default router;
