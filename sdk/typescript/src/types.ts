@@ -1,35 +1,44 @@
-// SDK Type Definitions
-// This file exports all TypeScript types for the Countable SDK
+/**
+ * Countable SDK Type Definitions
+ * @package @countable/sdk
+ */
 
-export type SettlementStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type SettlementStatus = 'pending' | 'confirmed' | 'failed';
 
 export interface GetSettlementParams {
-  id: string;
+  invoiceId?: string;
+  status?: SettlementStatus;
+  limit?: number;
+  offset?: number;
 }
 
-export type WebhookEventType = 
+export type WebhookEventType =
   | 'invoice.created'
-  | 'invoice.settled'
-  | 'invoice.completed'
-  | 'invoice.failed'
+  | 'invoice.updated'
+  | 'invoice.paid'
   | 'settlement.created'
-  | 'settlement.completed';
+  | 'settlement.confirmed';
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string;
+  number: string;
   amount: number;
   currency: string;
-  status: SettlementStatus;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  description?: string;
+  customerId?: string;
+  metadata?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
-  paidAt?: string;
 }
 
 export interface ApiResponse<T> {
-  data: T;
   success: boolean;
-  message?: string;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
 export interface CreateInvoiceParams {
@@ -37,32 +46,33 @@ export interface CreateInvoiceParams {
   currency: string;
   description?: string;
   customerId?: string;
+  metadata?: Record<string, string>;
 }
 
-// New types for API Key management
 export interface ApiKey {
   id: string;
   name: string;
-  key: string;
+  prefix: string;
   createdAt: string;
-  lastUsedAt: string | null;
-  revoked: boolean;
+  lastUsedAt?: string;
 }
 
 export interface CreateApiKeyParams {
   name: string;
+  permissions?: ('read' | 'write' | 'admin')[];
 }
 
 export interface ApiKeyListResponse {
-  apiKeys: ApiKey[];
+  keys: ApiKey[];
   total: number;
+  limit: number;
+  offset: number;
 }
 
-// New types for Webhook registration
 export interface WebhookRegistrationConfig {
   url: string;
   events: WebhookEventType[];
-  secret: string;
+  secret?: string;
 }
 
 export interface WebhookRegistration {
@@ -76,4 +86,45 @@ export interface WebhookRegistration {
 export interface WebhookListResponse {
   webhooks: WebhookRegistration[];
   total: number;
+}
+
+export interface InvoiceCreateInput {
+  amount: number;
+  currency: string;
+  description?: string;
+  customerId?: string;
+  metadata?: Record<string, string>;
+}
+
+export interface Settlement {
+  id: string;
+  invoiceId: string;
+  status: SettlementStatus;
+  txHash: string | null;
+  chain: string;
+  amount: number;
+  currency: string;
+  confirmedAt: string | null;
+  createdAt: string;
+}
+
+export interface SettlementListResponse {
+  settlements: Settlement[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface InvoiceListResponse {
+  invoices: Invoice[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ApiKeyCreateResponse {
+  id: string;
+  name: string;
+  key: string;
+  createdAt: string;
 }
