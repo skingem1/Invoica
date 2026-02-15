@@ -1,52 +1,41 @@
-import { InvoicaClient, InvoicaError } from '../src/client';
-
-jest.mock('axios', () => ({
-  create: jest.fn(() => ({
-    get: jest.fn(),
-    post: jest.fn(),
-    interceptors: { request: { use: jest.fn() } },
-  })),
-}));
-
-import axios from 'axios';
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+import { InvoicaClient } from '../src/client';
+import { SettlementStatus } from '../src/types';
 
 describe('InvoicaClient', () => {
-  let client: InvoicaClient;
+  const client = new InvoicaClient({ apiKey: 'test-key', baseUrl: 'http://localhost' });
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    client = new InvoicaClient('test-key');
+  describe('getSettlement', () => {
+    it('returns settlement for valid invoiceId', async () => {
+      const mock: SettlementStatus = { id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 };
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
+
+      const result = await client.getSettlement({ invoiceId: 'inv1' });
+      expect(result).toEqual(mock);
+    });
+
+    it('throws on API error', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+
+      await expect(client.getSettlement({ invoiceId: 'inv1' })).rejects.toThrow('Invoica API error: 404');
+    });
   });
 
-  it('uses default baseUrl', () => {
-    expect(mockedAxios.create).toHaveBeenCalledWith({ baseURL: 'https://api.invoica.ai' });
-  });
+  describe('listSettlements', () => {
+    it('returns all settlements when no invoiceId', async () => {
+      const mock: SettlementStatus[] = [{ id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 }];
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
 
-  it('creates invoice and returns data', async () => {
-    const mockInstance = mockedAxios.create();
-    (mockInstance.post as jest.Mock).mockResolvedValue({ data: { id: 'inv-1' } });
-    const result = await client.createInvoice({ amount: 100 });
-    expect(result).toEqual({ id: 'inv-1' });
-  });
+      const result = await client.listSettlements();
+      expect(result).toEqual(mock);
+    });
 
-  it('throws InvoicaError on failure', async () => {
-    const mockInstance = mockedAxios.create();
-    (mockInstance.post as jest.Mock).mockRejectedValue({ message: 'Err', response: { status: 400 } });
-    await expect(client.createInvoice({})).rejects.toThrow(InvoicaError);
-  });
+    it('filters by invoiceId when provided', async () => {
+      const mock: SettlementStatus[] = [{ id: 's1', invoiceId: 'inv1', status: 'completed', amount: 100 }];
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mock });
 
-  it('gets invoice by id', async () => {
-    const mockInstance = mockedAxios.create();
-    (mockInstance.get as jest.Mock).mockResolvedValue({ data: { id: 'inv-2' } });
-    const result = await client.getInvoice('inv-2');
-    expect(result).toEqual({ id: 'inv-2' });
-  });
-
-  it('lists all invoices', async () => {
-    const mockInstance = mockedAxios.create();
-    (mockInstance.get as jest.Mock).mockResolvedValue({ data: [{ id: 'inv-1' }, { id: 'inv-2' }] });
-    const result = await client.listInvoices();
-    expect(result).toHaveLength(2);
+      const result = await client.listSettlements('inv1');
+      expect(global.fetch).toHaveBeenCalledWith('http://localhost/v1/settlements?invoiceId=inv1', expect.any(Object));
+      expect(result).toEqual(mock);
+    });
   });
 });
