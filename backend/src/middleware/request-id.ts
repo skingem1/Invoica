@@ -1,55 +1,53 @@
-import { type Request, type Response, type NextFunction } from 'express';
-import { randomUUID } from 'node:crypto';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 
 /**
- * Generates a new UUID v4 using crypto.randomUUID()
- * @returns A new UUID string
+ * Extended Express Request interface that includes the requestId property
+ */
+export interface RequestWithId extends Request {
+  requestId: string;
+}
+
+/**
+ * Generates a unique request ID using the pattern: req-{timestamp}-{random}
+ * @returns A unique request ID string
  */
 function generateRequestId(): string {
-  return randomUUID();
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 8);
+  return `req-${timestamp}-${random}`;
 }
 
 /**
- * Extracts the X-Request-Id header from a request
- * @param req - Express Request object
- * @returns The request ID or 'unknown' if not present
- */
-export function getRequestId(req: Request): string {
-  const requestId = req.headers['x-request-id'];
-
-  if (typeof requestId === 'string' && requestId.length > 0) {
-    return requestId;
-  }
-
-  return 'unknown';
-}
-
-/**
- * Express middleware that ensures every request has a unique request ID.
- * If X-Request-Id header is present in the request, it uses that value.
- * Otherwise, it generates a new UUID v4.
- *
- * The request ID is:
- * - Attached to req.headers['x-request-id']
- * - Set on the response header X-Request-Id
- *
+ * Request ID middleware for Express
+ * 
+ * Generates a unique request ID for each incoming request and attaches it to:
+ * - The request object (req.requestId)
+ * - The response headers (x-request-id)
+ * 
+ * If the incoming request already has an x-request-id header, it will be used
+ * to maintain traceability through proxies.
+ * 
  * @returns Express middleware function
  */
-export function requestId(): (req: Request, res: Response, next: NextFunction) => void {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const existingRequestId = getRequestId(req);
+const requestIdMiddleware: RequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  // Check if x-request-id header already exists (from proxy or upstream)
+  const existingRequestId = req.headers['x-request-id'] as string | undefined;
+  
+  // Use existing ID if provided, otherwise generate a new one
+  const requestId = existingRequestId || generateRequestId();
+  
+  // Attach requestId to the request object
+  (req as RequestWithId).requestId = requestId;
+  
+  // Set the x-request-id header on the response
+  res.setHeader('x-request-id', requestId);
+  
+  // Continue to the next middleware
+  next();
+};
 
-    // If header is missing or empty, generate a new UUID
-    const finalRequestId = existingRequestId === 'unknown'
-      ? generateRequestId()
-      : existingRequestId;
-
-    // Attach to request headers
-    req.headers['x-request-id'] = finalRequestId;
-
-    // Set response header
-    res.setHeader('X-Request-Id', finalRequestId);
-
-    next();
-  };
-}
+export default requestIdMiddleware;
