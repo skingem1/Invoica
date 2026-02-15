@@ -183,11 +183,13 @@
       ],
       "approved_date": "2026-02-15",
       "ceo_conditions": [
-        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+        "Only apply to task types 'fix' and 'add' — full 'feature' rewrites are expected to change file size",
+        "Log the warning but also show the original vs new line count in supervisor review context",
+        "Threshold should be configurable (start at 50%, can adjust based on data)"
       ],
       "priority": "immediate",
-      "implementation_status": "pending_ceo_approval",
-      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "pending",
+      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
     },
     {
       "id": "CTO-20260215-005",
@@ -203,11 +205,13 @@
       ],
       "approved_date": "2026-02-15",
       "ceo_conditions": [
-        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+        "Fence stripping must happen BEFORE file is written to disk, not after",
+        "Add a simple automated test: if any line in output matches /^\\s*```/, strip it",
+        "Supervisor prompt must explicitly check: Does the file start with a markdown code fence?"
       ],
       "priority": "immediate",
-      "implementation_status": "pending_ceo_approval",
-      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "pending",
+      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
     },
     {
       "id": "CTO-20260215-006",
@@ -223,11 +227,14 @@
       ],
       "approved_date": "2026-02-15",
       "ceo_conditions": [
-        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+        "Start with sidebar.tsx only — it has failed 2 consecutive sprints, so it's the best test case",
+        "Do NOT auto-split files — CTO/CEO should review the split plan before each sprint",
+        "Add line count check to sprint design phase: warn if any task targets a file >65 lines",
+        "Track success rate before/after split to validate the approach"
       ],
       "priority": "next_sprint",
-      "implementation_status": "pending_ceo_approval",
-      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "pending",
+      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
     }
   ],
   "last_updated": "2026-02-15"

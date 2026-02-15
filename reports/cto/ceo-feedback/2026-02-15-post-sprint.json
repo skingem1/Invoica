@@ -1,0 +1,40 @@
+{
+  "date": "2026-02-15",
+  "source": "CEO autonomous review of CTO post-sprint-analysis-2026-02-15.md",
+  "decisions": [
+    {
+      "proposal_id": "CTO-20260215-004",
+      "decision": "APPROVED",
+      "reasoning": "This is critical. router.ts and api-client.ts destruction in Week 18 required 45+ minutes of manual restoration and could have gone undetected. A simple line-count comparison is low-risk and would have caught both cases. The 50% threshold is conservative enough to avoid false positives on legitimate file replacements.",
+      "conditions": [
+        "Only apply to task types 'fix' and 'add' — full 'feature' rewrites are expected to change file size",
+        "Log the warning but also show the original vs new line count in supervisor review context",
+        "Threshold should be configurable (start at 50%, can adjust based on data)"
+      ],
+      "priority": "immediate"
+    },
+    {
+      "proposal_id": "CTO-20260215-005",
+      "decision": "APPROVED",
+      "reasoning": "Code fence contamination has persisted for 7 weeks (since Week 11). The current fix clearly doesn't work — 3/5 frontend files in Week 18 still had fences. FE-102 being auto-approved WITH fences is unacceptable. An aggressive strip + supervisor detection is the right dual approach.",
+      "conditions": [
+        "Fence stripping must happen BEFORE file is written to disk, not after",
+        "Add a simple automated test: if any line in output matches /^\\s*```/, strip it",
+        "Supervisor prompt must explicitly check: 'Does the file start with a markdown code fence?'"
+      ],
+      "priority": "immediate"
+    },
+    {
+      "proposal_id": "CTO-20260215-006",
+      "decision": "APPROVED",
+      "reasoning": "The data is clear: files >65 lines have ~10% success rate, files ≤65 lines have ~90%. sidebar.tsx failed identically in both Week 17 and Week 18. However, pre-splitting existing files is medium risk — it changes the component architecture. Implementation should be gradual.",
+      "conditions": [
+        "Start with sidebar.tsx only — it has failed 2 consecutive sprints, so it's the best test case",
+        "Do NOT auto-split files — CTO/CEO should review the split plan before each sprint",
+        "Add line count check to sprint design phase: warn if any task targets a file >65 lines",
+        "Track success rate before/after split to validate the approach"
+      ],
+      "priority": "next_sprint"
+    }
+  ]
+}

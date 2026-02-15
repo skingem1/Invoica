@@ -1682,6 +1682,45 @@ ONLY output the JSON array. No markdown, no explanation.`;
     try {
       postSprintReport = await this.cto.postSprintAnalysis(this.tasks, this.stats);
       log(c.cyan, '  Post-sprint analysis saved to reports/cto/');
+
+      // Extract proposals from post-sprint analysis and feed into CEO review
+      const jsonMatch = postSprintReport.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          const postSprintProposals = parsed.proposals || [];
+          if (postSprintProposals.length > 0) {
+            log(c.cyan, `  Found ${postSprintProposals.length} proposals — sending to CEO for autonomous review`);
+
+            // Build CTOReport for CEO review
+            const postSprintCTOReport: CTOReport = {
+              summary: parsed.summary || 'Post-sprint analysis proposals',
+              proposals: postSprintProposals.map((p: any) => ({
+                id: p.id,
+                title: p.title,
+                category: p.category,
+                description: p.description,
+                estimated_impact: p.estimated_impact || '',
+                risk_level: p.risk_level || 'medium',
+                implementation_steps: p.implementation_steps || [],
+              })),
+              metrics_reviewed: ['sprint_results', 'failure_patterns', 'trend_analysis'],
+            };
+
+            // Phase 5c: CEO autonomously reviews post-sprint proposals
+            log(c.magenta, '\n--- Phase 5c: CEO Reviews Post-Sprint Proposals (Autonomous) ---');
+            const postSprintDecisions = await this.ceo.reviewCTOProposals(postSprintCTOReport);
+
+            // Persist CEO decisions + update approved-proposals tracker
+            persistCEODecisions(postSprintDecisions, postSprintCTOReport);
+            log(c.magenta, '  CEO post-sprint proposal review complete');
+          } else {
+            log(c.cyan, '  No proposals in post-sprint analysis');
+          }
+        } catch (parseErr: any) {
+          log(c.yellow, `  Could not parse post-sprint proposals JSON: ${parseErr.message}`);
+        }
+      }
     } catch (error: any) {
       log(c.yellow, `  Post-sprint analysis skipped: ${error.message}`);
     }
