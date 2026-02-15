@@ -1,21 +1,50 @@
 import { Router } from 'express';
-import router from '../../../src/api/router';
+import request from 'supertest';
+import router from '../../src/api/router';
+
+// Mock handlers
+const mockGetInvoiceById = jest.fn((req, res) => res.json({ id: req.params.id }));
+const mockCreateInvoice = jest.fn((req, res) => res.json({ id: '123' }));
+const mockRegisterWebhook = jest.fn((req, res) => res.json({ registered: true }));
+
+jest.mock('../../src/api/invoices-get', () => ({
+  getInvoiceById: (req: any, res: any) => mockGetInvoiceById(req, res),
+}));
+
+jest.mock('../../src/api/invoices-create', () => ({
+  createInvoice: (req: any, res: any) => mockCreateInvoice(req, res),
+}));
+
+jest.mock('../../src/api/webhooks-register', () => ({
+  registerWebhook: (req: any, res: any) => mockRegisterWebhook(req, res),
+}));
 
 describe('API Router', () => {
-  it('mounts health check route', () => {
-    const healthRoute = router.stack.find((layer) => layer.route?.path === '/health');
-    expect(healthRoute).toBeDefined();
-    expect(healthRoute.route?.methods.get).toBe(true);
+  const app = request(router);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('GET /health returns ok status', async () => {
+    const res = await app.get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ok' });
   });
 
-  it('mounts settlements route with invoiceId param', () => {
-    const settlementRoute = router.stack.find((layer) => layer.route?.path === '/v1/settlements/:invoiceId');
-    expect(settlementRoute).toBeDefined();
-    expect(settlementRoute.route?.methods.get).toBe(true);
+  it('GET /v1/invoices/:id delegates to getInvoiceById', async () => {
+    const res = await app.get('/v1/invoices/abc123');
+    expect(mockGetInvoiceById).toHaveBeenCalled();
+    expect(res.body).toEqual({ id: 'abc123' });
   });
 
-  it('has exactly 2 routes defined', () => {
-    const routes = router.stack.filter((layer) => layer.route);
-    expect(routes).toHaveLength(2);
+  it('POST /v1/invoices delegates to createInvoice', async () => {
+    const res = await app.post('/v1/invoices').send({ amount: 100 });
+    expect(mockCreateInvoice).toHaveBeenCalled();
+    expect(res.body).toEqual({ id: '123' });
+  });
+
+  it('POST /v1/webhooks delegates to registerWebhook', async () => {
+    const res = await app.post('/v1/webhooks').send({ url: 'https://example.com' });
+    expect(mockRegisterWebhook).toHaveBeenCalled();
+    expect(res.body).toEqual({ registered: true });
   });
 });
