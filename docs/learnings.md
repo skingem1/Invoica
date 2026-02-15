@@ -361,5 +361,66 @@ The one-function-per-file approach from Section 12 works exactly as predicted:
 
 ---
 
-*Last updated: 2026-02-14*
-*Updated by: Claude — Week 5b sprint analysis (decomposition validation)*
+## 14. Week 6 — Developer Experience Sprint
+
+### Results: 7/7 Tasks Approved (100% completion)
+| Task | Attempts | Final Score | Key Pattern |
+|------|----------|-------------|-------------|
+| SDK-020 (rebrand client) | 6 | 92/100 | Rename class — MiniMax kept adding Zod schemas |
+| SDK-021 (settlement types) | 1 | 92/100 | Pure interfaces — instant pass |
+| SDK-022 (settlement methods) | 1 | 92/100 | 2 methods on existing class |
+| SDK-023 (webhook verify) | 1 | 92/100 | Crypto utility — clean first pass |
+| BC-040 (webhook events) | 1 | 95/100 | Constants + factory — highest score |
+| BC-041 (settlement endpoint) | 1 | 92/100 | Mock endpoint — well-scoped |
+| FE-040 (webhook card) | 2 | 92/100 | React component — 2nd attempt |
+
+### Takeaway
+- Decomposition rules from Week 5b hold: all tasks followed one-file, 500-1300 chars pattern
+- Pure types and constants (SDK-021, BC-040) consistently score 92-95 on first attempt
+- SDK-020 shows renaming tasks need explicit "do NOT add features" instructions
+
+---
+
+## 15. Week 7 — Bug Fix Tasks Need Different Approach (CRITICAL)
+
+### Results: 6/7 Tasks Approved (86% completion)
+| Task | Attempts | Final Score | Result | Root Cause |
+|------|----------|-------------|--------|------------|
+| BUG-001 (dispatch fix) | 10 | 25 | FAILED → manual fix | See analysis below |
+| SDK-030 (validation module) | 1 | 95 | APPROVED | Create-new-file task |
+| BC-050 (API router) | 1 | 95 | APPROVED | Simple router setup |
+| BC-051 (GET invoices) | 1 | 92 | APPROVED | Single endpoint |
+| BC-052 (POST invoices) | ~6 | 92 | APPROVED | Missing crypto import |
+| BC-053 (POST webhooks) | 1 | 92 | APPROVED | Clean first pass |
+| BC-054 (update router) | 4 | 85 | APPROVED | Overengineering on retries |
+
+### BUG-001 Failure Analysis — Why "Fix Existing File" Tasks Fail
+
+MiniMax failed **10/10 attempts** on a simple one-line bug fix. Three compounding problems:
+
+1. **MiniMax can't do surgical edits**: The orchestrator's one-file-per-call pattern means MiniMax generates the ENTIRE file from scratch. It never sees the original file, so "change one line, keep the rest" is impossible — it rewrites everything from the task description alone.
+
+2. **Task spec had conflicting requirements**: The context said "one-line fix, keep as-is" but deliverables listed test files. MiniMax dutifully created tests (because deliverables said to), which the Supervisor rejected (because context said not to).
+
+3. **Ambiguous negation logic**: The original code used `!==` (not-equal filter), and the fix instruction said to use `!registration.events.includes()`. But the `!` in the fix is correct here because the pattern is `if (!match) continue;` (skip non-matching). MiniMax and even the Supervisor got confused about whether `!` should be there.
+
+### Fix Applied Manually
+4 changes to dispatch.ts:
+- `registration.eventType !== event.type` → `!registration.events.includes(event.type)`
+- `X-Countable-*` headers → `X-Invoica-*`
+- DispatchResult aligned with types.ts interface (removed extra `url`/`eventType`/`error` properties)
+
+### Rules for Bug Fix Tasks (NEW)
+1. **Never assign "edit one line" tasks to MiniMax** — it regenerates from scratch
+2. **If a task requires preserving existing code, do it manually** or provide the FULL original file in the context
+3. **Never put conflicting requirements** in task context vs deliverables
+4. **Cross-sprint type mismatches** aren't caught by single-task review — need a `tsc --noEmit` integration check phase
+5. **Bug fix tasks should be "create replacement file"** not "edit existing file" — give MiniMax the full spec of what the file should look like
+
+### CTO Blind Spot: Cross-Sprint Integration
+The CTO reviews each task in isolation. When Week 4 defined `WebhookRegistration.eventType` (singular) and Week 6 defined `WebhookRegistration.events` (plural array), nobody caught the mismatch because they were in different sprints. **Need: integration test phase that runs `tsc --noEmit` after each sprint to catch type errors.**
+
+---
+
+*Last updated: 2026-02-15*
+*Updated by: Claude — Week 6 & 7 sprint analysis (bug fix pattern, CTO blind spots)*

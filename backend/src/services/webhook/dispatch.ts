@@ -10,7 +10,7 @@ export async function dispatch(
   const timestamp = Date.now();
 
   for (const [, registration] of registrationMap) {
-    if (registration.eventType !== event.type) continue;
+    if (!registration.events.includes(event.type)) continue;
 
     const signature = signPayload(payload, registration.secret);
 
@@ -18,9 +18,9 @@ export async function dispatch(
       const response = await fetch(registration.url, {
         method: 'POST',
         headers: {
-          'X-Countable-Signature': signature,
-          'X-Countable-Event': event.type,
-          'X-Countable-Timestamp': String(timestamp),
+          'X-Invoica-Signature': signature,
+          'X-Invoica-Event': event.type,
+          'X-Invoica-Timestamp': String(timestamp),
           'Content-Type': 'application/json',
         },
         body: payload,
@@ -29,16 +29,13 @@ export async function dispatch(
       results.push({
         success: response.ok,
         statusCode: response.status,
-        url: registration.url,
-        eventType: event.type,
+        retryable: response.status >= 500,
       });
     } catch (error) {
       results.push({
         success: false,
         statusCode: 0,
-        url: registration.url,
-        eventType: event.type,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        retryable: true,
       });
     }
   }
