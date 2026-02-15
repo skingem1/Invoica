@@ -1,88 +1,76 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { getSettlements, getSettlement } from './settlements';
-import { listInvoices, createInvoice, getInvoice, updateInvoice } from './invoices';
-import { listMerchants, createMerchant, getMerchant } from './merchants';
-import { createPayment, getPayment } from './payments';
-import { AppError, ValidationError } from '../errors';
-import { logger } from '../utils/logger';
+import asyncHandler from '../middleware/async-handler';
+import { getHealth } from './health';
+import { getSettlements, getSettlementById, createSettlement } from './settlements';
+import { 
+  getInvoices, 
+  getInvoiceById, 
+  createInvoice, 
+  updateInvoice,
+  deleteInvoice 
+} from './invoices';
+import { getMerchants, getMerchantById, createMerchant, updateMerchant } from './merchants';
+import { getPayments, getPaymentById, createPayment } from './payments';
+import { getDashboardStats } from './dashboard-stats';
+import { getDashboardActivity } from './dashboard-activity';
+import { getInvoicesWithSettlements } from './invoices-settlements';
 
 const router = Router();
 
-/**
- * Validates request against a Zod schema
- */
-function validate<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
-  const result = schema.safeParse(data);
-  if (!result.success) {
-    throw new ValidationError('Invalid request data', result.error.errors);
-  }
-  return result.data;
-}
-
-/**
- * Async route handler wrapper to catch errors
- */
-function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
-) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-}
-
 // Health check
-router.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+router.get('/health', asyncHandler(getHealth));
 
-// Settlement routes
-router.get('/v1/settlements/:invoiceId', asyncHandler(getSettlement));
+// Settlements
 router.get('/v1/settlements', asyncHandler(getSettlements));
+router.get('/v1/settlements/:id', asyncHandler(getSettlementById));
+router.post('/v1/settlements', asyncHandler(createSettlement));
 
-// Invoice routes
-router.get('/v1/invoices', asyncHandler(listInvoices));
+// Invoices
+router.get('/v1/invoices', asyncHandler(getInvoices));
+router.get('/v1/invoices/:id', asyncHandler(getInvoiceById));
 router.post('/v1/invoices', asyncHandler(createInvoice));
-router.get('/v1/invoices/:id', asyncHandler(getInvoice));
-router.patch('/v1/invoices/:id', asyncHandler(updateInvoice));
+router.put('/v1/invoices/:id', asyncHandler(updateInvoice));
+router.delete('/v1/invoices/:id', asyncHandler(deleteInvoice));
 
-// Merchant routes
-router.get('/v1/merchants', asyncHandler(listMerchants));
+// Merchants
+router.get('/v1/merchants', asyncHandler(getMerchants));
+router.get('/v1/merchants/:id', asyncHandler(getMerchantById));
 router.post('/v1/merchants', asyncHandler(createMerchant));
-router.get('/v1/merchants/:id', asyncHandler(getMerchant));
+router.put('/v1/merchants/:id', asyncHandler(updateMerchant));
 
-// Payment routes
+// Payments
+router.get('/v1/payments', asyncHandler(getPayments));
+router.get('/v1/payments/:id', asyncHandler(getPaymentById));
 router.post('/v1/payments', asyncHandler(createPayment));
-router.get('/v1/payments/:id', asyncHandler(getPayment));
+
+// Dashboard
+router.get('/v1/dashboard/stats', asyncHandler(getDashboardStats));
+router.get('/v1/dashboard/activity', asyncHandler(getDashboardActivity));
+
+// Invoices with Settlements
+router.get('/v1/invoices-settlements', asyncHandler(getInvoicesWithSettlements));
 
 // 404 handler
-router.use((_req: Request, res: Response, _next: NextFunction) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// Global error handler
-router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error('Router error', { error: err.message, stack: err.stack });
-
-  if (err instanceof AppError) {
-    res.status(err.statusCode).json({
-      error: err.message,
-      code: err.code,
-    });
-    return;
-  }
-
-  if (err instanceof z.ZodError) {
-    res.status(400).json({
-      error: 'Validation error',
-      details: err.errors,
-    });
-    return;
-  }
-
-  res.status(500).json({
-    error: 'Internal server error',
+router.use((req: Request, res: Response, next: NextFunction) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: `Route ${req.method} ${req.path} not found`
+    }
   });
 });
 
-export { router };
+// Global error handler
+router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    success: false,
+    error: {
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'An unexpected error occurred'
+    }
+  });
+});
+
+export default router;
