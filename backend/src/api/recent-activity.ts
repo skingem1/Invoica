@@ -1,37 +1,17 @@
-import { Request, Response } from 'express';
-import { prisma } from '../db/client';
+import { Router, Request, Response } from 'express';
 
-/**
- * GET /api/recent-activity - Returns the 10 most recent invoices as activity items
- */
-export async function getRecentActivity(req: Request, res: Response): Promise<void> {
-  try {
-    const invoices = await prisma.invoice.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        invoiceNumber: true,
-        status: true,
-        amount: true,
-        currency: true,
-        customerName: true,
-        createdAt: true,
-        settledAt: true,
-      },
-    });
+const router = Router();
 
-    const activity = invoices.map((invoice) => ({
-      id: invoice.id,
-      type: invoice.status === 'SETTLED' || invoice.status === 'COMPLETED' ? 'payment' : 'invoice',
-      title: invoice.status === 'SETTLED' ? 'Payment Received' : `Invoice #INV-${invoice.invoiceNumber}`,
-      description: `${invoice.customerName} — ${invoice.currency} ${Number(invoice.amount)}`,
-      timestamp: invoice.createdAt.toISOString(),
-      status: invoice.status === 'SETTLED' || invoice.status === 'COMPLETED' ? 'success' : invoice.status === 'PENDING' ? 'pending' : 'failed',
-    }));
+const activities = [
+  { id: 'act_1', title: 'Invoice #INV-0042 Created', description: 'Amount: $1,000 USD', status: 'success', timestamp: '2 minutes ago' },
+  { id: 'act_2', title: 'Settlement Processing', description: 'Invoice #INV-0041 — waiting for on-chain confirmation', status: 'pending', timestamp: '15 minutes ago' },
+  { id: 'act_3', title: 'API Key Generated', description: 'Key inv_a1b2...c5d6 created for Production', status: 'success', timestamp: '1 hour ago' },
+  { id: 'act_4', title: 'Webhook Delivery Failed', description: 'Endpoint https://app.example.com/webhook returned 500', status: 'failed', timestamp: '3 hours ago' },
+  { id: 'act_5', title: 'Invoice #INV-0040 Settled', description: 'Amount: $2,500 USD — confirmed on Base', status: 'success', timestamp: '5 hours ago' }
+];
 
-    res.json(activity);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch recent activity' });
-  }
-}
+router.get('/', (_req: Request, res: Response) => {
+  res.json(activities);
+});
+
+export default router;
