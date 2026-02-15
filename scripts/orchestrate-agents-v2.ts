@@ -153,14 +153,20 @@ async function callAnthropic(model: string, systemPrompt: string, userPrompt: st
 async function callOpenAI(model: string, systemPrompt: string, userPrompt: string, timeoutMs: number): Promise<LLMResponse> {
   const apiKey = process.env.OPENAI_API_KEY || '';
   if (!apiKey) throw new Error('OPENAI_API_KEY not set in .env');
-  const body = JSON.stringify({
-    model, max_tokens: 16000,
+  // o4-mini and reasoning models use max_completion_tokens and developer role
+  const isReasoningModel = model.startsWith('o');
+  const tokenParam = isReasoningModel ? 'max_completion_tokens' : 'max_tokens';
+  const sysRole = isReasoningModel ? 'developer' : 'system';
+  const bodyObj: Record<string, unknown> = {
+    model,
+    [tokenParam]: 16000,
     messages: [
-      { role: 'system', content: systemPrompt },
+      { role: sysRole, content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    temperature: 0.3,
-  });
+  };
+  if (!isReasoningModel) bodyObj.temperature = 0.3;
+  const body = JSON.stringify(bodyObj);
   return httpPost('https://api.openai.com/v1/chat/completions', {
     'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`,
   }, body, timeoutMs);
