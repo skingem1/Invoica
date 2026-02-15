@@ -1,16 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response } from 'express';
 
-const router = Router();
-
-router.get('/', (_req: Request, res: Response) => {
+/**
+ * Mock dashboard statistics endpoint handler.
+ * Returns hardcoded statistics for frontend development.
+ */
+export async function getDashboardStats(_req: Request, res: Response): Promise<void> {
   res.json({
-    totalInvoices: 142,
+    totalInvoices: 156,
     pending: 23,
-    settled: 107,
-    revenue: 84500,
-    failedCount: 12,
-    recentCount: 15
+    settled: 128,
+    revenue: 45250.00,
+    failedSettlements: 5,
   });
-});
-
-export default router;
+}
