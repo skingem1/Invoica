@@ -1,0 +1,152 @@
+{
+  "tasks": [
+    {
+      "id": "BE-180",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a Zod validation schemas module for invoice operations at backend/src/validators/invoice-schemas.ts. Import { z } from 'zod'. Export these schemas: (1) createInvoiceSchema — z.object with: amount: z.number().positive(), currency: z.string().min(3).max(3), description: z.string().max(500).optional(), customerId: z.string().uuid().optional(), metadata: z.record(z.string()).optional(). (2) updateInvoiceSchema — z.object with: status: z.enum(['pending', 'processing', 'completed', 'failed']).optional(), description: z.string().max(500).optional(), metadata: z.record(z.string()).optional(). Make at least one field required via .refine(). (3) invoiceQuerySchema — z.object with: limit: z.coerce.number().int().min(1).max(100).default(10), offset: z.coerce.number().int().min(0).default(0), status: z.enum(['pending', 'processing', 'completed', 'failed']).optional(). Export inferred types: CreateInvoiceInput, UpdateInvoiceInput, InvoiceQuery. Keep under 45 lines.",
+      "deliverables": {
+        "code": [
+          "backend/src/validators/invoice-schemas.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create Zod validation schemas for invoice create, update, and query operations at backend/src/validators/invoice-schemas.ts. ~40 lines.",
+      "constraints": "NEW file only. Only dependency is 'zod'. Export 3 schemas and 3 inferred types. Keep under 50 lines. No imports from other project files."
+    },
+    {
+      "id": "BE-181",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a Zod validation schemas module for webhook operations at backend/src/validators/webhook-schemas.ts. Import { z } from 'zod'. Export these schemas: (1) registerWebhookSchema — z.object with: url: z.string().url(), events: z.array(z.enum(['invoice.created', 'invoice.updated', 'invoice.paid', 'settlement.created', 'settlement.confirmed'])).min(1), secret: z.string().min(16).max(64).optional(), description: z.string().max(200).optional(). (2) webhookQuerySchema — z.object with: limit: z.coerce.number().int().min(1).max(100).default(10), offset: z.coerce.number().int().min(0).default(0), status: z.enum(['active', 'inactive']).optional(). (3) webhookEventSchema — z.object with: id: z.string(), type: z.enum(['invoice.created', 'invoice.updated', 'invoice.paid', 'settlement.created', 'settlement.confirmed']), data: z.record(z.unknown()), timestamp: z.string().datetime(). Export inferred types: RegisterWebhookInput, WebhookQuery, WebhookEvent. Keep under 45 lines.",
+      "deliverables": {
+        "code": [
+          "backend/src/validators/webhook-schemas.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create Zod validation schemas for webhook registration, query, and event payloads at backend/src/validators/webhook-schemas.ts. ~40 lines.",
+      "constraints": "NEW file only. Only dependency is 'zod'. Export 3 schemas and 3 inferred types. Keep under 50 lines. No imports from other project files."
+    },
+    {
+      "id": "BE-182",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create a response formatting utility at backend/src/utils/response-helpers.ts. Export these helper functions for consistent API responses: (1) function successResponse<T>(data: T, meta?: { total?: number; limit?: number; offset?: number }): { success: true; data: T; meta?: typeof meta } — wraps data in standard success envelope. (2) function errorResponse(message: string, code: string, status: number, details?: unknown): { success: false; error: { message: string; code: string; details?: unknown } } — wraps errors in standard error envelope. (3) function paginatedResponse<T>(items: T[], total: number, limit: number, offset: number): { success: true; data: T[]; meta: { total: number; limit: number; offset: number; hasMore: boolean } } — wraps paginated results with hasMore computed as offset + limit < total. All functions are pure (no side effects), no external dependencies. TypeScript strict mode. Keep under 40 lines.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/response-helpers.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create response formatting helpers (successResponse, errorResponse, paginatedResponse) at backend/src/utils/response-helpers.ts. ~35 lines.",
+      "constraints": "NEW file only. No external dependencies. Pure functions only. Export 3 named functions. Keep under 45 lines."
+    },
+    {
+      "id": "SDK-100",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create an SDK event emitter module at sdk/typescript/src/events.ts. This typed event system lets SDK consumers listen for client events. Export: (1) type SdkEventMap = { 'request:start': { method: string; url: string }; 'request:end': { method: string; url: string; status: number; durationMs: number }; 'request:error': { method: string; url: string; error: Error }; 'rate-limit:hit': { retryAfter: number }; }. (2) class SdkEventEmitter — private listeners: Map<keyof SdkEventMap, Set<Function>>. Methods: on<K extends keyof SdkEventMap>(event: K, listener: (data: SdkEventMap[K]) => void): void — adds listener. off<K extends keyof SdkEventMap>(event: K, listener: (data: SdkEventMap[K]) => void): void — removes listener. emit<K extends keyof SdkEventMap>(event: K, data: SdkEventMap[K]): void — calls all listeners. removeAllListeners(): void — clears all. No external dependencies. Keep under 50 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/events.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create typed event emitter for SDK client lifecycle events (request:start, request:end, request:error, rate-limit:hit) at sdk/typescript/src/events.ts. ~45 lines.",
+      "constraints": "NEW file only. No external dependencies. Type-safe event system using generics. Export SdkEventMap type and SdkEventEmitter class. Keep under 55 lines."
+    },
+    {
+      "id": "SDK-101",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create an SDK request builder utility at sdk/typescript/src/request-builder.ts. This helps construct API requests with query params, headers, and body. Export: (1) interface RequestConfig { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; path: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; headers?: Record<string, string>; }. (2) function buildUrl(baseUrl: string, path: string, query?: Record<string, string | number | boolean | undefined>): string — joins baseUrl + path, appends non-undefined query params as URLSearchParams. (3) function buildHeaders(apiKey: string, extra?: Record<string, string>): Record<string, string> — returns { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'User-Agent': 'countable-sdk/1.0.0', ...extra }. (4) function buildRequestInit(config: RequestConfig, apiKey: string): { url: string; init: RequestInit } — not exported, combines the above. Actually, export all 3 functions. No external dependencies. Keep under 45 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/request-builder.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create request builder utility (buildUrl, buildHeaders, RequestConfig) for the SDK at sdk/typescript/src/request-builder.ts. ~40 lines.",
+      "constraints": "NEW file only. No external dependencies. Use native URL and URLSearchParams. Export interface and 2 functions. Keep under 50 lines."
+    },
+    {
+      "id": "SDK-102",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create an SDK response parser utility at sdk/typescript/src/response-parser.ts. This utility handles parsing API responses with proper error handling. Export: (1) interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string; code: string; details?: unknown }; meta?: { total?: number; limit?: number; offset?: number; hasMore?: boolean } }. (2) async function parseResponse<T>(response: Response): Promise<T> — if response.ok, parse JSON as ApiResponse<T>, return data field. If not ok, parse error JSON and throw appropriate error. Import { CountableError, AuthenticationError, NotFoundError, RateLimitError, ValidationError } from './errors'. Map status codes: 400 -> ValidationError, 401 -> AuthenticationError, 404 -> NotFoundError, 429 -> RateLimitError, default -> CountableError. (3) function isApiError(error: unknown): error is CountableError — type guard. No external dependencies beyond local SDK errors module. Keep under 50 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/response-parser.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create response parser with error mapping (parseResponse, isApiError) for the SDK at sdk/typescript/src/response-parser.ts. ~45 lines.",
+      "constraints": "NEW file only. Only import from './errors' (local SDK module). Map HTTP status codes to specific error classes. Export interface, async function, and type guard. Keep under 55 lines."
+    },
+    {
+      "id": "FE-120",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a custom React hook for data fetching at frontend/hooks/use-api.ts. This hook wraps fetch calls with loading, error, and data states. Use 'use client' directive is NOT needed (hooks don't need it). Export: (1) interface UseApiState<T> { data: T | null; error: Error | null; isLoading: boolean; }. (2) function useApi<T>(fetcher: () => Promise<T>, deps?: unknown[]): UseApiState<T> & { refetch: () => void } — uses React.useState for data/error/isLoading, React.useEffect to call fetcher on mount and when deps change, React.useCallback for refetch. On mount: set isLoading=true, call fetcher, on success set data, on error set error, finally set isLoading=false. refetch function re-triggers the effect. Import { useState, useEffect, useCallback } from 'react'. No other dependencies. Keep under 40 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-api.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create useApi<T> React hook for data fetching with loading/error/refetch states at frontend/hooks/use-api.ts. ~35 lines.",
+      "constraints": "NEW file only. Import only from 'react'. No 'use client' directive needed in hook files. Generic type parameter for response type. Export interface and hook function. Keep under 45 lines."
+    },
+    {
+      "id": "FE-121",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create formatting utility functions at frontend/lib/format-utils.ts. Export these pure functions: (1) function formatCurrency(amount: number, currency: string = 'USD'): string — uses Intl.NumberFormat with style 'currency' and the given currency code. (2) function formatDate(dateStr: string): string — parses ISO date string, returns Intl.DateTimeFormat with 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }. (3) function formatRelativeTime(dateStr: string): string — returns 'just now', 'X minutes ago', 'X hours ago', 'X days ago', or formatDate() for older dates. Compute diff in milliseconds from Date.now() - new Date(dateStr).getTime(). (4) function truncateText(text: string, maxLength: number = 50): string — if text.length > maxLength, return text.slice(0, maxLength) + '...', else return text. (5) function formatNumber(num: number): string — uses Intl.NumberFormat with 'en-US'. No external dependencies. Pure functions only. Keep under 45 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/lib/format-utils.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create formatting utilities (formatCurrency, formatDate, formatRelativeTime, truncateText, formatNumber) at frontend/lib/format-utils.ts. ~40 lines.",
+      "constraints": "NEW file only. No external dependencies. Use Intl.NumberFormat and Intl.DateTimeFormat. Pure functions only. Export 5 named functions. Keep under 50 lines."
+    },
+    {
+      "id": "FE-122",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create an empty state component at frontend/components/ui/empty-state.tsx. This is a reusable component for pages with no data. Add 'use client' at the top. Import React. Export interface EmptyStateProps { icon?: React.ReactNode; title: string; description?: string; actionLabel?: string; onAction?: () => void; }. Export function EmptyState({ icon, title, description, actionLabel, onAction }: EmptyStateProps). Render a centered flex column div with: (1) If icon, render it in a 12x12 rounded-full bg-slate-100 flex items-center justify-center container. (2) h3 with title in text-lg font-semibold text-slate-900 mt-4. (3) If description, p tag with text-sm text-slate-500 mt-1 max-w-sm text-center. (4) If actionLabel and onAction, a button with mt-4 px-4 py-2 bg-sky-600 text-white rounded-lg text-sm font-medium hover:bg-sky-700 transition-colors. Outer div: flex flex-col items-center justify-center py-12. Use Tailwind CSS only. Keep under 35 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/components/ui/empty-state.tsx"
+        ],
+        "tests": []
+      },
+      "description": "Create reusable EmptyState UI component with icon, title, description, and action button at frontend/components/ui/empty-state.tsx. ~30 lines.",
+      "constraints": "NEW file only. 'use client' directive. Tailwind CSS only, no external UI libraries. Export interface and component function. Keep under 40 lines."
+    }
+  ],
+  "sprint": "week-20",
+  "theme": "SDK Utilities + Frontend Hooks + Backend Validation",
+  "created": "2026-02-15",
+  "summary": "9 tasks: 3 backend (validation schemas, response helpers), 3 SDK (events, request-builder, response-parser), 3 frontend (useApi hook, format utils, empty-state component). All create NEW files. All targets <55 lines. Zero edit-existing tasks."
+}
