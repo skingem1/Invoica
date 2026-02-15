@@ -1,47 +1,72 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-export interface ApiError {
-  message: string;
-  status: number;
-}
-
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(API_BASE_URL + path, {
+async function apiGet<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
-  if (!response.ok) {
-    throw { message: 'API request failed', status: response.status } as ApiError;
-  }
+  if (!response.ok) throw new Error(`API Error: ${response.status}`);
   return response.json();
 }
 
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(API_BASE_URL + path, {
+async function apiPost<T>(endpoint: string, data: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    throw { message: 'API request failed', status: response.status } as ApiError;
-  }
+  if (!response.ok) throw new Error(`API Error: ${response.status}`);
   return response.json();
 }
 
-export interface InvoiceListResponse {
-  invoices: { id: string; number: string; amount: number; currency: string; status: string; createdAt: string }[];
-  total: number;
-  limit: number;
-  offset: number;
+export interface Invoice {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
 }
 
-export async function fetchInvoices(limit?: number, offset?: number): Promise<InvoiceListResponse> {
-  const params = new URLSearchParams();
-  if (limit) params.set('limit', String(limit));
-  if (offset) params.set('offset', String(offset));
-  const query = params.toString();
-  return apiGet<InvoiceListResponse>(`/v1/invoices${query ? '?' + query : ''}`);
+export async function fetchInvoices(): Promise<Invoice[]> {
+  return apiGet<Invoice[]>('/v1/invoices');
 }
 
-export async function fetchInvoiceById(id: string): Promise<{ id: string; number: string; amount: number; currency: string; status: string; createdAt: string; paidAt: string | null; metadata: Record<string, string> }> {
-  return apiGet(`/v1/invoices/${id}`);
+export async function fetchInvoiceById(id: string): Promise<Invoice> {
+  return apiGet<Invoice>(`/v1/invoices/${id}`);
+}
+
+export interface DashboardStats {
+  totalInvoices: number;
+  pending: number;
+  settled: number;
+  revenue: number;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  type: 'invoice' | 'payment';
+  title: string;
+  description: string;
+  timestamp: string;
+  status: 'success' | 'pending' | 'failed';
+}
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  return apiGet<DashboardStats>('/v1/dashboard/stats');
+}
+
+export async function fetchRecentActivity(): Promise<RecentActivityItem[]> {
+  return apiGet<RecentActivityItem[]>('/v1/dashboard/activity');
+}
+
+export async function fetchSettlement(invoiceId: string): Promise<{
+  invoiceId: string;
+  status: string;
+  txHash: string | null;
+  chain: string;
+  confirmedAt: string | null;
+  amount: number;
+  currency: string;
+}> {
+  return apiGet(`/v1/settlements/${invoiceId}`);
 }
