@@ -4,9 +4,10 @@
  * Invoica Agent Orchestrator v2
  *
  * Dynamic Agent Architecture:
- *   Leadership (Claude via Anthropic API):
+ *   Leadership (Claude via Anthropic API + OpenAI Codex):
  *     - CEO: Sprint planning, strategy, decisions, daily reports
- *     - Supervisor: Code review & quality gate
+ *     - Supervisor 1: Code review & quality gate (Claude Sonnet)
+ *     - Supervisor 2: Code review & quality gate (OpenAI Codex)
  *     - Skills: Agent/skill factory
  *   Marketing (Manus AI — runs independently):
  *     - CMO: Brand strategy, market intelligence, product proposals (reports loaded from files)
@@ -16,8 +17,8 @@
  *     - Coding agents auto-discovered from agents/{name}/prompt.md
  *     - New agents created by CTO proposals + CEO approval
  *
- * Flow: CEO plans → MiniMax codes → Supervisor reviews
- *       → CTO analyzes → CMO reports loaded → CEO reviews all → CEO daily report
+ * Flow: CEO plans → MiniMax codes → Dual Supervisor review (Claude + Codex)
+ *       → CEO resolves conflicts → CTO analyzes → CMO reports → CEO daily report
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
@@ -101,7 +102,7 @@ function log(color: string, msg: string) {
 // ===== Generic LLM Client =====
 
 async function callLLM(
-  provider: 'minimax' | 'anthropic',
+  provider: 'minimax' | 'anthropic' | 'openai',
   model: string,
   systemPrompt: string,
   userPrompt: string,
@@ -109,6 +110,9 @@ async function callLLM(
 ): Promise<LLMResponse> {
   if (provider === 'anthropic') {
     return callAnthropic(model, systemPrompt, userPrompt, timeoutMs);
+  }
+  if (provider === 'openai') {
+    return callOpenAI(model, systemPrompt, userPrompt, timeoutMs);
   }
   const apiKey = process.env.MINIMAX_API_KEY || '';
   if (!apiKey) throw new Error('MINIMAX_API_KEY not set');
@@ -145,6 +149,21 @@ async function callAnthropic(model: string, systemPrompt: string, userPrompt: st
     };
   }
   return rawResponse;
+}
+async function callOpenAI(model: string, systemPrompt: string, userPrompt: string, timeoutMs: number): Promise<LLMResponse> {
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  if (!apiKey) throw new Error('OPENAI_API_KEY not set in .env');
+  const body = JSON.stringify({
+    model, max_tokens: 16000,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+  });
+  return httpPost('https://api.openai.com/v1/chat/completions', {
+    'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`,
+  }, body, timeoutMs);
 }
 function httpPost(url: string, headers: Record<string, string>, body: string, timeoutMs: number): Promise<any> {
   const parsed = new URL(url);
@@ -214,6 +233,137 @@ class SupervisorAgent {
     }
   }
 }
+// ===== Supervisor 2 Agent (OpenAI Codex) =====
+
+class Supervisor2Agent {
+  private systemPrompt: string;
+  constructor() {
+    const promptPath = './agents/supervisor/prompt.md';
+    this.systemPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are a code review supervisor.';
+    log(c.magenta, '+ Loaded supervisor 2 agent (OpenAI Codex)');
+  }
+
+  async reviewTask(task: AgentTask, files: string[]): Promise<ReviewResult> {
+    log(c.magenta, `\n[supervisor-2/codex] Reviewing: ${task.id}`);
+    const fileContents = files.map((filepath) => {
+      const content = existsSync(filepath) ? readFileSync(filepath, 'utf-8') : '';
+      return `### ${filepath}\n\`\`\`typescript\n${content.substring(0, 4000)}\n\`\`\``;
+    }).join('\n\n');
+    const userPrompt = `Review the following code generated for task ${task.id}.\n\n## Task Spec\n${task.context}\n\n## Generated Files (${files.length})\n${fileContents}\n\n## Instructions\nRespond with a JSON object:\n{\n  "verdict": "APPROVED" or "REJECTED",\n  "score": 0-100,\n  "summary": "brief review summary",\n  "issues": [{"severity": "critical|high|medium|low", "file": "path", "description": "..."}],\n  "strengths": ["..."]\n}`;
+    const startTime = Date.now();
+    log(c.gray, '  -> Sending to OpenAI Codex...');
+    try {
+      const response = await callLLM('openai', 'o4-mini', this.systemPrompt, userPrompt, 120000);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      log(c.gray, `  -> Codex review received in ${elapsed}s (${response.usage?.total_tokens || '?'} tokens)`);
+      const content = response.choices?.[0]?.message?.content || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const review = JSON.parse(jsonMatch[0]) as ReviewResult;
+        if (review.verdict === 'APPROVED') { log(c.green, `  ✓ [Codex] APPROVED (score: ${review.score}/100)`); }
+        else {
+          log(c.red, `  ✗ [Codex] REJECTED (score: ${review.score}/100)`);
+          log(c.yellow, `  Summary: ${review.summary}`);
+          for (const issue of review.issues || []) { log(c.yellow, `    [${issue.severity}] ${issue.file}: ${issue.description}`); }
+        }
+        return review;
+      }
+      log(c.yellow, '  ! [Codex] Could not parse review JSON, auto-approving');
+      return { verdict: 'APPROVED', score: 70, summary: 'Auto-approved (Codex parse failure)', issues: [], strengths: [] };
+    } catch (error: any) {
+      log(c.yellow, `  ! [Codex] Supervisor 2 error: ${error.message}`);
+      return { verdict: 'APPROVED', score: 0, summary: `Supervisor 2 unavailable: ${error.message}`, issues: [], strengths: [] };
+    }
+  }
+}
+
+// ===== Dual Supervisor Review Reconciliation =====
+
+interface DualReviewResult {
+  finalReview: ReviewResult;
+  review1: ReviewResult;
+  review2: ReviewResult;
+  consensus: boolean;
+  escalatedToCEO: boolean;
+  ceoDecision?: string;
+}
+
+async function reconcileSupervisorReviews(
+  review1: ReviewResult,
+  review2: ReviewResult,
+  task: AgentTask,
+  ceo: CEOAgent,
+): Promise<DualReviewResult> {
+  const bothApproved = review1.verdict === 'APPROVED' && review2.verdict === 'APPROVED';
+  const bothRejected = review1.verdict !== 'APPROVED' && review2.verdict !== 'APPROVED';
+  const consensus = bothApproved || bothRejected;
+
+  if (bothApproved) {
+    // Both approve — take the average score, merge strengths
+    const avgScore = Math.round((review1.score + review2.score) / 2);
+    log(c.green, `  ✓ DUAL CONSENSUS: Both supervisors APPROVED (Claude: ${review1.score}, Codex: ${review2.score}, avg: ${avgScore})`);
+    return {
+      finalReview: {
+        verdict: 'APPROVED',
+        score: avgScore,
+        summary: `Dual-approved: Claude (${review1.score}/100) + Codex (${review2.score}/100)`,
+        issues: [...review1.issues, ...review2.issues],
+        strengths: [...new Set([...review1.strengths, ...review2.strengths])],
+      },
+      review1, review2, consensus: true, escalatedToCEO: false,
+    };
+  }
+
+  if (bothRejected) {
+    // Both reject — merge issues, take lower score
+    const minScore = Math.min(review1.score, review2.score);
+    log(c.red, `  ✗ DUAL CONSENSUS: Both supervisors REJECTED (Claude: ${review1.score}, Codex: ${review2.score})`);
+    return {
+      finalReview: {
+        verdict: 'REJECTED',
+        score: minScore,
+        summary: `Dual-rejected: Claude (${review1.score}/100) + Codex (${review2.score}/100). ${review1.summary} | ${review2.summary}`,
+        issues: [...review1.issues, ...review2.issues],
+        strengths: [],
+      },
+      review1, review2, consensus: true, escalatedToCEO: false,
+    };
+  }
+
+  // CONFLICT — one approved, one rejected → escalate to CEO
+  const approver = review1.verdict === 'APPROVED' ? 'Claude' : 'Codex';
+  const rejecter = review1.verdict === 'APPROVED' ? 'Codex' : 'Claude';
+  const approvalReview = review1.verdict === 'APPROVED' ? review1 : review2;
+  const rejectionReview = review1.verdict === 'APPROVED' ? review2 : review1;
+
+  log(c.yellow, `  ⚡ SUPERVISOR CONFLICT on ${task.id}: ${approver} APPROVED (${approvalReview.score}), ${rejecter} REJECTED (${rejectionReview.score})`);
+  log(c.magenta, `  → Escalating to CEO for final decision...`);
+
+  try {
+    const ceoDecision = await ceo.resolveReviewConflict(task, approvalReview, rejectionReview, approver, rejecter);
+    const ceoApproves = ceoDecision.toLowerCase().includes('approve');
+    log(ceoApproves ? c.green : c.red, `  CEO DECISION: ${ceoApproves ? 'APPROVED' : 'REJECTED'} — ${ceoDecision.substring(0, 200)}`);
+
+    return {
+      finalReview: {
+        verdict: ceoApproves ? 'APPROVED' : 'REJECTED',
+        score: ceoApproves ? approvalReview.score : rejectionReview.score,
+        summary: `CEO resolved conflict (${approver} approved, ${rejecter} rejected): ${ceoDecision.substring(0, 300)}`,
+        issues: rejectionReview.issues,
+        strengths: approvalReview.strengths,
+      },
+      review1, review2, consensus: false, escalatedToCEO: true, ceoDecision,
+    };
+  } catch (error: any) {
+    // CEO unavailable — default to rejection (safer)
+    log(c.yellow, `  CEO unavailable for conflict resolution: ${error.message}. Defaulting to REJECTED.`);
+    return {
+      finalReview: rejectionReview,
+      review1, review2, consensus: false, escalatedToCEO: false,
+    };
+  }
+}
+
 // ===== CEO Agent (Claude via Anthropic API) =====
 
 class CEOAgent {
@@ -241,6 +391,51 @@ class CEOAgent {
       return 'CEO agent unavailable';
     }
   }
+
+  async resolveReviewConflict(
+    task: AgentTask,
+    approvalReview: ReviewResult,
+    rejectionReview: ReviewResult,
+    approver: string,
+    rejecter: string,
+  ): Promise<string> {
+    log(c.magenta, `\n[ceo] Resolving supervisor conflict on ${task.id}...`);
+    const userPrompt = `Two code review supervisors disagree on task ${task.id}.
+
+## Task Spec
+${task.context?.substring(0, 800) || 'No context'}
+
+## ${approver} says APPROVED (score: ${approvalReview.score}/100)
+Summary: ${approvalReview.summary}
+Strengths: ${approvalReview.strengths?.join(', ') || 'none listed'}
+
+## ${rejecter} says REJECTED (score: ${rejectionReview.score}/100)
+Summary: ${rejectionReview.summary}
+Issues found:
+${(rejectionReview.issues || []).map(i => `- [${i.severity}] ${i.file}: ${i.description}`).join('\n')}
+
+## Your Decision
+As CEO, you must make the final call. Consider:
+1. Are the rejection issues genuine blockers or nitpicks?
+2. Does the code meet the task spec requirements?
+3. Is it safe to ship, or are there real quality/security concerns?
+
+Respond with ONE of:
+- "APPROVE — [brief reason]" if the code is good enough to ship
+- "REJECT — [brief reason]" if the rejection issues are valid and must be fixed
+
+Keep response under 100 words.`;
+    try {
+      const response = await callLLM('anthropic', 'claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 60000);
+      const content = response.choices?.[0]?.message?.content || 'No response';
+      log(c.magenta, `  CEO conflict resolution: ${content.substring(0, 300)}`);
+      return content;
+    } catch (error: any) {
+      log(c.yellow, `  ! CEO unavailable for conflict resolution: ${error.message}`);
+      throw error;
+    }
+  }
+
   async reviewCTOProposals(ctoReport: CTOReport): Promise<string> {
     log(c.magenta, `\n[ceo] Reviewing ${ctoReport.proposals.length} CTO proposals...`);
     const proposalsSummary = ctoReport.proposals.map((p, i) => `
@@ -303,7 +498,7 @@ Wrap all decisions in a JSON array. Be concise.`;
       return 'CEO unavailable for CTO review';
     }
   }
-  async generateDailyReport(tasks: AgentTask[], stats: { tasksExecuted: number; approved: number; rejected: number }, ctoReport: string, ctoDecisions: string): Promise<void> {
+  async generateDailyReport(tasks: AgentTask[], stats: { tasksExecuted: number; approved: number; rejected: number; conflicts?: number; escalations?: number }, ctoReport: string, ctoDecisions: string): Promise<void> {
     log(c.magenta, '\n[ceo] Generating daily report for owner...');
     const done = tasks.filter(t => t.status === 'done').length;
     const rejected = tasks.filter(t => t.status === 'rejected').length;
@@ -327,9 +522,15 @@ ${ctoReport}
 ## CEO Decisions on CTO Proposals
 ${ctoDecisions}
 
+## Dual Supervisor Review Stats
+- Supervisor conflicts: ${stats.conflicts || 0}
+- CEO escalations: ${stats.escalations || 0}
+
 ## Estimated Costs
 - MiniMax coding: ~$0.09/task x ${stats.tasksExecuted} tasks = ~$${(stats.tasksExecuted * 0.09).toFixed(2)}
 - Claude reviews: ~$0.04/review x ${stats.approved + stats.rejected} reviews = ~$${((stats.approved + stats.rejected) * 0.04).toFixed(2)}
+- Codex reviews: ~$0.03/review x ${stats.approved + stats.rejected} reviews = ~$${((stats.approved + stats.rejected) * 0.03).toFixed(2)}
+- CEO conflict resolution: ~$0.03 x ${stats.escalations || 0} escalations = ~$${((stats.escalations || 0) * 0.03).toFixed(2)}
 - Claude CEO calls: ~$0.03 x 4 = ~$0.12
 - MiniMax CTO scan: ~$0.05
 
@@ -870,19 +1071,21 @@ class Orchestrator {
   private ceo: CEOAgent;
   private cto: CTOAgent;
   private supervisor: SupervisorAgent;
+  private supervisor2: Supervisor2Agent;
   private agents: Map<string, CodingAgent> = new Map();
   private tasks: AgentTask[] = [];
-  private stats = { tasksExecuted: 0, approved: 0, rejected: 0, totalTokens: 0 };
+  private stats = { tasksExecuted: 0, approved: 0, rejected: 0, totalTokens: 0, conflicts: 0, escalations: 0 };
 
   constructor() {
     log(c.bold, '\n╔══════════════════════════════════════════════════════════╗');
-    log(c.bold, '║   Invoica Agent Orchestrator v2                          ║');
-    log(c.bold, '║   Dynamic: 3 Claude + 1 Manus + N MiniMax                ║');
+    log(c.bold, '║   Invoica Agent Orchestrator v2 — Dual Supervisor        ║');
+    log(c.bold, '║   Claude + Codex review → CEO conflict resolution        ║');
     log(c.bold, '╚══════════════════════════════════════════════════════════╝\n');
 
-    // Leadership layer (Claude via Anthropic API)
+    // Leadership layer (Claude via Anthropic API + OpenAI Codex)
     this.ceo = new CEOAgent();
     this.supervisor = new SupervisorAgent();
+    this.supervisor2 = new Supervisor2Agent();
 
     // Technology layer (MiniMax)
     this.cto = new CTOAgent();
@@ -900,8 +1103,8 @@ class Orchestrator {
       log(c.cyan, `+ Loaded ${name} agent (MiniMax M2.5)`);
     }
 
-    const totalAgents = 3 + 1 + 1 + this.agents.size; // 3 Claude + 1 Manus CMO + 1 CTO + N coding
-    log(c.green, `\n✓ ${totalAgents} agents loaded (3 Claude + 1 Manus CMO + ${1 + this.agents.size} MiniMax)\n`);
+    const totalAgents = 3 + 1 + 1 + 1 + this.agents.size; // 3 Claude + 1 OpenAI Codex + 1 Manus CMO + 1 CTO + N coding
+    log(c.green, `\n✓ ${totalAgents} agents loaded (3 Claude + 1 Codex + 1 Manus CMO + ${1 + this.agents.size} MiniMax)\n`);
   }
   private loadTasks(): void {
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -1103,7 +1306,15 @@ ONLY output the JSON array. No markdown, no explanation.`;
         return false;
       }
 
-      const review = await this.supervisor.reviewTask(subtask, result.files);
+      // Dual supervisor review
+      const [review1, review2] = await Promise.all([
+        this.supervisor.reviewTask(subtask, result.files),
+        this.supervisor2.reviewTask(subtask, result.files),
+      ]);
+      const dualResult = await reconcileSupervisorReviews(review1, review2, subtask, this.ceo);
+      const review = dualResult.finalReview;
+      if (!dualResult.consensus) this.stats.conflicts++;
+      if (dualResult.escalatedToCEO) this.stats.escalations++;
       lastReview = review;
 
       if (review.verdict === 'APPROVED') {
@@ -1158,9 +1369,16 @@ ONLY output the JSON array. No markdown, no explanation.`;
         return;
       }
 
-      // Supervisor review
+      // Dual Supervisor review (Claude + Codex in parallel)
       task.status = 'review';
-      const review = await this.supervisor.reviewTask(task, result.files);
+      const [review1, review2] = await Promise.all([
+        this.supervisor.reviewTask(task, result.files),
+        this.supervisor2.reviewTask(task, result.files),
+      ]);
+      const dualResult = await reconcileSupervisorReviews(review1, review2, task, this.ceo);
+      const review = dualResult.finalReview;
+      if (!dualResult.consensus) this.stats.conflicts++;
+      if (dualResult.escalatedToCEO) this.stats.escalations++;
       lastReview = review;
 
       task.output = { files: result.files, commit: '', model: result.model, review };
@@ -1366,10 +1584,12 @@ ONLY output the JSON array. No markdown, no explanation.`;
     log(c.green, `  Tasks executed: ${this.stats.tasksExecuted}`);
     log(c.green, `  Approved: ${this.stats.approved}`);
     log(c.red,   `  Rejected: ${this.stats.rejected}`);
+    log(c.yellow,`  Supervisor conflicts: ${this.stats.conflicts}`);
+    log(c.magenta,`  CEO escalations: ${this.stats.escalations}`);
     log(c.cyan,  `  CTO proposals: ${ctoReport.proposals.length}`);
     log(c.magenta, `  CMO reports: ${cmoReports ? 'loaded' : 'none'}`);
     log(c.blue,  `  Total time: ${elapsed}s`);
-    log(c.gray,  `  Pipeline: CEO → MiniMax code → Claude review → CTO analyze → CMO/Grok reports → CEO approve → Daily report`);
+    log(c.gray,  `  Pipeline: CEO → MiniMax code → Dual review (Claude+Codex) → CEO resolves conflicts → CTO → CMO/Grok → Daily report`);
   }
 }
 
