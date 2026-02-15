@@ -1,63 +1,52 @@
-import { CountableClient } from '../src/client';
-import { CreateInvoiceParams, Invoice, InvoiceFilter } from '../src/types';
+import { InvoicaClient, InvoicaError } from '../src/client';
 
-global.fetch = jest.fn();
+jest.mock('axios', () => ({
+  create: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+    interceptors: { request: { use: jest.fn() } },
+  })),
+}));
 
-describe('CountableClient', () => {
-  const client = new CountableClient('https://api.countable.com', 'test-key');
+import axios from 'axios';
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe('InvoicaClient', () => {
+  let client: InvoicaClient;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    client = new InvoicaClient('test-key');
   });
 
-  it('createInvoice sends POST request with params', async () => {
-    const mockInvoice: Invoice = { id: 'inv-1', amount: 100, status: 'pending' };
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoice });
-
-    const result = await client.createInvoice({ amount: 100, customerId: 'cust-1' });
-
-    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ amount: 100, customerId: 'cust-1' }) }));
-    expect(result).toEqual(mockInvoice);
+  it('uses default baseUrl', () => {
+    expect(mockedAxios.create).toHaveBeenCalledWith({ baseURL: 'https://api.invoica.ai' });
   });
 
-  it('getInvoice sends GET request with id path', async () => {
-    const mockInvoice: Invoice = { id: 'inv-1', amount: 100, status: 'pending' };
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoice });
-
-    const result = await client.getInvoice('inv-1');
-
-    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices/inv-1',
-      expect.objectContaining({ method: 'GET' }));
-    expect(result).toEqual(mockInvoice);
+  it('creates invoice and returns data', async () => {
+    const mockInstance = mockedAxios.create();
+    (mockInstance.post as jest.Mock).mockResolvedValue({ data: { id: 'inv-1' } });
+    const result = await client.createInvoice({ amount: 100 });
+    expect(result).toEqual({ id: 'inv-1' });
   });
 
-  it('listInvoices sends GET with filter query params', async () => {
-    const mockInvoices: Invoice[] = [{ id: 'inv-1', amount: 100, status: 'pending' }];
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoices });
-
-    const filter: InvoiceFilter = { status: 'pending' };
-    const result = await client.listInvoices(filter);
-
-    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices?status=pending',
-      expect.objectContaining({ method: 'GET' }));
-    expect(result).toEqual(mockInvoices);
+  it('throws InvoicaError on failure', async () => {
+    const mockInstance = mockedAxios.create();
+    (mockInstance.post as jest.Mock).mockRejectedValue({ message: 'Err', response: { status: 400 } });
+    await expect(client.createInvoice({})).rejects.toThrow(InvoicaError);
   });
 
-  it('listInvoices returns all when no filter provided', async () => {
-    const mockInvoices: Invoice[] = [];
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => mockInvoices });
+  it('gets invoice by id', async () => {
+    const mockInstance = mockedAxios.create();
+    (mockInstance.get as jest.Mock).mockResolvedValue({ data: { id: 'inv-2' } });
+    const result = await client.getInvoice('inv-2');
+    expect(result).toEqual({ id: 'inv-2' });
+  });
 
+  it('lists all invoices', async () => {
+    const mockInstance = mockedAxios.create();
+    (mockInstance.get as jest.Mock).mockResolvedValue({ data: [{ id: 'inv-1' }, { id: 'inv-2' }] });
     const result = await client.listInvoices();
-
-    expect(fetch).toHaveBeenCalledWith('https://api.countable.com/invoices',
-      expect.objectContaining({ method: 'GET' }));
-    expect(result).toEqual(mockInvoices);
-  });
-
-  it('throws error on failed request', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 404 });
-
-    await expect(client.getInvoice('bad-id')).rejects.toThrow('Request failed with status 404');
+    expect(result).toHaveLength(2);
   });
 });

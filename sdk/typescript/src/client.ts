@@ -1,39 +1,51 @@
-import { CreateInvoiceParams, Invoice, InvoiceFilter } from './types';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 
-export class CountableClient {
-  private baseUrl: string;
-  private apiKey: string;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
+export class InvoicaError extends Error {
+  constructor(public message: string, public statusCode?: number) {
+    super(message);
+    this.name = 'InvoicaError';
   }
+}
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+export class InvoicaClient {
+  private client: AxiosInstance;
+
+  constructor(private apiKey: string, private baseUrl = 'https://api.invoica.ai') {
+    this.client = axios.create({ baseURL: this.baseUrl });
+    this.client.interceptors.request.use((config) => {
+      config.headers['Authorization'] = `Bearer ${this.apiKey}`;
+      config.headers['X-Invoica-Version'] = '2024-01-01';
+      return config;
     });
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  async createInvoice(data: Record<string, unknown>) {
+    try {
+      const response = await this.client.post('/invoices', data);
+      return response.data;
+    } catch (e) {
+      const err = e as AxiosError;
+      throw new InvoicaError(err.message, err.response?.status);
     }
-    return response.json();
   }
 
-  createInvoice(params: CreateInvoiceParams): Promise<Invoice> {
-    return this.request<Invoice>('POST', '/invoices', params);
+  async getInvoice(id: string) {
+    try {
+      const response = await this.client.get(`/invoices/${id}`);
+      return response.data;
+    } catch (e) {
+      const err = e as AxiosError;
+      throw new InvoicaError(err.message, err.response?.status);
+    }
   }
 
-  getInvoice(id: string): Promise<Invoice> {
-    return this.request<Invoice>('GET', `/invoices/${id}`);
-  }
-
-  listInvoices(filter?: InvoiceFilter): Promise<Invoice[]> {
-    const query = filter ? `?${new URLSearchParams(filter as Record<string, string>).toString()}` : '';
-    return this.request<Invoice[]>('GET', `/invoices${query}`);
+  async listInvoices() {
+    try {
+      const response = await this.client.get('/invoices');
+      return response.data;
+    } catch (e) {
+      const err = e as AxiosError;
+      throw new InvoicaError(err.message, err.response?.status);
+    }
   }
 }
