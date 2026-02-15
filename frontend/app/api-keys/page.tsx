@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -74,20 +73,20 @@ export default function ApiKeysPage() {
 
     try {
       setIsCreating(true);
-      const newKey = await createNewApiKey(newKeyName);
-      
+      const result = await createNewApiKey(newKeyName);
+
       toast({
         title: "API Key Created",
         description: "Make sure to copy your API key now. You won't be able to see it again.",
       });
-      
-      setApiKeys((prev) => [newKey, ...prev]);
+
+      setApiKeys((prev) => [result.apiKey, ...prev]);
       setIsDialogOpen(false);
       setNewKeyName("");
-      
-      // Copy the key to clipboard
-      await navigator.clipboard.writeText(newKey.key);
-      setCopiedKeyId(newKey.id);
+
+      // Copy the secret to clipboard
+      await navigator.clipboard.writeText(result.secret);
+      setCopiedKeyId(result.apiKey.id);
       setTimeout(() => setCopiedKeyId(null), 2000);
     } catch (error) {
       toast({
@@ -242,13 +241,13 @@ export default function ApiKeysPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
-                          {apiKey.key.substring(0, 20)}...
+                          {apiKey.prefix}...
                         </code>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => handleCopyKey(apiKey.id, apiKey.key)}
+                          onClick={() => handleCopyKey(apiKey.id, apiKey.prefix)}
                         >
                           {copiedKeyId === apiKey.id ? (
                             <Check className="h-4 w-4 text-green-500" />
@@ -289,4 +288,3 @@ export default function ApiKeysPage() {
     </div>
   );
 }
-```
