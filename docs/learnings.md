@@ -580,5 +580,64 @@ Reports are saved to `reports/cto/` with `latest-*` pointers. The orchestrator l
 
 ---
 
+## 22. Week 13 — CTO Auto-Decomposition + Fundamental Limits
+
+### Results (Run 1): 3/7 Approved (43% completion, 24 rejections)
+| Task | Attempts | Final Score | Result | Root Cause |
+|------|----------|-------------|--------|------------|
+| SDK-060 (SDK client+types) | 10+5 | 35 | FAILED | CTO decomposed → types.ts alone still too complex |
+| SDK-061 (auth module) | — | — | SKIPPED | Blocked by SDK-060 |
+| SDK-062 (webhook verify) | — | — | SKIPPED | Blocked by SDK-060 |
+| FE-050 (getting started) | 1 | 92 | ✅ APPROVED | Simple page component |
+| FE-051 (API explorer) | 1 | 92 | ✅ APPROVED | Interactive component |
+| BE-110 (health endpoint) | 10 | 35 | FAILED | Over-engineering + truncation |
+| BE-111 (rate limiter) | 9 | 88 | ✅ APPROVED | Success after many retries |
+
+### CTO Auto-Decomposition — Works But Has Limits
+The CTO auto-decomposition feature (added in orchestrate-agents-v2.ts) correctly:
+- Detected 3 consecutive truncation rejections on SDK-060
+- Called CTO to intelligently split into 3 sub-tasks (types.ts, client.ts+test, index.ts)
+- Executed sub-tasks with 5-attempt retry loops
+
+**But it hit a fundamental limit**: SDK-060's types.ts ALONE (12+ interfaces for invoices, settlements, API keys, webhooks + create/list params + response types for each) exceeds MiniMax's ~4500 token output even as the sole file in a sub-task.
+
+### Key Lesson: Task Redesign > Auto-Decomposition
+Auto-decomposition splits files mechanically, but can't fix fundamentally over-scoped task specs. The real fix is:
+
+1. **Extend existing files** instead of regenerating from scratch — MiniMax only needs to add 15 lines, not regenerate 80
+2. **Tasks that "edit existing" should list ONLY the additions** — "add 3 methods to class" not "build entire client"
+3. **Remove false dependencies** — SDK-061 (auth.ts) and SDK-062 (webhook-verify.ts) don't actually need SDK-060's types
+4. **Health endpoint failed from over-engineering, not truncation** — explicitly constrain: "under 50 lines, NO singletons, NO patterns"
+5. **Test-only tasks work great** — when the source file already exists, a test-only task is simple and well-scoped
+
+### Sprint Redesign Pattern
+Instead of: `SDK-060: Build entire SDK (types + client + index + test) = 4 files → FAILED`
+Do:
+```
+SDK-060a: Add 6 new interfaces to existing types.ts → ~20 lines added
+SDK-060b: Add 3 API Key methods to existing client.ts → ~15 lines added
+SDK-060c: Add 3 Webhook methods to existing client.ts → ~15 lines added
+SDK-060d: Test file for new methods → ~60 lines
+SDK-060e: Update barrel exports → ~8 lines total
+```
+
+### Sprint Stats Updated
+| Sprint | Approved | Rejected | Cost | Time | Notes |
+|--------|----------|----------|------|------|-------|
+| Week 3 | 3/3 | 9 | ~$1.73 | ~5 min | First working sprint |
+| Week 4 | 4/4 | 0 | ~$0.36 | ~4 min | Truncation fix |
+| Week 5 | 3/5 | 22 | ~$3.42 | ~10 min | Source truncation failures |
+| Week 5b | 5/5 | 7 | ~$1.73 | ~11 min | Decomposition validated |
+| Week 6 | 7/7 | ~8 | ~$1.86 | ~9 min | SDK + webhook events |
+| Week 7 | 6/7+1 | 18 | ~$3.29 | ~22 min | BUG-001 manual fix |
+| Week 8 | 7/7 | 0 | ~$1.03 | ~6 min | Perfect sprint |
+| Week 9 | 6/7+1 | 19 | ~$3.42 | ~21 min | Supervisor hallucination |
+| Week 10 | 6/7+1 | 31 | ~$4.50 | ~37 min | Supervisor contradictions |
+| Week 11 | 6/7+1 | 13 | ~$2.64 | ~24 min | Markdown fence bug |
+| Week 12 | 3/6+3 | 31 | ~$4.50 | ~49 min | API foundations, truncation returns |
+| Week 13 (run 1) | 3/7 | 24+ | ~$4.00 | ~35 min | CTO decomposition, fundamental limits |
+
+---
+
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 10/11/12 analysis, CTO tech-watch feature*
+*Updated by: Claude — Week 13 analysis, CTO auto-decomposition lessons*
