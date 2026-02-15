@@ -748,6 +748,115 @@ Rules:
       return { summary: `Error: ${error.message}`, proposals: [], metrics_reviewed: [] };
     }
   }
+
+  /**
+   * Post-sprint analysis: autonomous retrospective that runs after every sprint.
+   * Analyzes sprint results, detects failure patterns, and saves a report.
+   * This runs the CTO techwatch `post-sprint-analysis` watch type.
+   */
+  async postSprintAnalysis(tasks: any[], stats: any): Promise<string> {
+    log(c.cyan, '\n[cto] Running autonomous post-sprint analysis...');
+    const startTime = Date.now();
+
+    // Build sprint summary for context
+    const totalTasks = tasks.length;
+    const done = tasks.filter((t: any) => t.status === 'done').length;
+    const doneManual = tasks.filter((t: any) => t.status === 'done-manual').length;
+    const rejected = tasks.filter((t: any) => t.status === 'rejected').length;
+    const autoRate = totalTasks > 0 ? ((done / totalTasks) * 100).toFixed(0) : '0';
+
+    const taskDetails = tasks.map((t: any) => {
+      const id = t.id || 'unknown';
+      const agent = t.agent || 'unknown';
+      const status = t.status || 'unknown';
+      const title = t.title || t.description || 'no title';
+      const score = t.output?.review?.score || t.output?.score || '?';
+      const attempts = t.output?.attempts || t.attempts || '?';
+      const feedback = t.output?.review?.feedback || '';
+      let line = `- ${id} (${agent}): ${title} — status=${status}, score=${score}, attempts=${attempts}`;
+      if (status === 'done-manual' || status === 'rejected') {
+        line += `\n  ⚠ ${feedback ? String(feedback).substring(0, 200) : 'Required manual intervention'}`;
+      }
+      return line;
+    }).join('\n');
+
+    const projectContext = this.dataCollector.collect();
+
+    const userPrompt = `You are the CTO of Invoica performing your MANDATORY post-sprint retrospective analysis.
+
+## Sprint Just Completed
+- Total tasks: ${totalTasks}
+- Auto-approved: ${done} (${autoRate}%)
+- Manual fixes needed: ${doneManual}
+- Still rejected: ${rejected}
+- Supervisor conflicts: ${stats.conflicts || 0}
+- CEO escalations: ${stats.escalations || 0}
+
+## Task-by-Task Results
+${taskDetails}
+
+## Project Context
+${projectContext}
+
+## CRITICAL: Your Responsibilities
+1. Analyze every failed/manual-fix task — identify root cause (truncation, code fences, wrong imports, supervisor error, etc.)
+2. Compare auto-approval rate with previous sprints — are we improving or declining?
+3. Identify recurring patterns that need process changes
+4. Generate max 3 concrete improvement proposals for the CEO
+5. Each proposal MUST reference specific task IDs and data from THIS sprint
+
+## Output Format
+Respond with a structured markdown report containing:
+1. Executive Summary (2-3 sentences)
+2. Sprint Scorecard
+3. Failure Root Cause Analysis (per failed task)
+4. Trend Analysis
+5. Proposals in JSON format:
+\`\`\`json
+{
+  "summary": "...",
+  "proposals": [...],
+  "sprint_metrics": { "total_tasks": ${totalTasks}, "auto_approved": ${done}, "manual_fixes": ${doneManual}, "rejected": ${rejected}, "auto_success_rate": "${autoRate}%", "trend": "improving|declining|stable" }
+}
+\`\`\`
+
+Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.`;
+
+    try {
+      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
+      let content = response.choices?.[0]?.message?.content || '';
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+      // Save report
+      const date = new Date().toISOString().split('T')[0];
+      const reportDir = './reports/cto';
+      mkdirSync(reportDir, { recursive: true });
+      const reportPath = `${reportDir}/post-sprint-analysis-${date}.md`;
+      writeFileSync(reportPath, content);
+      // Also update latest pointer
+      writeFileSync(`${reportDir}/latest-post-sprint-analysis.md`, content);
+
+      log(c.cyan, `  Post-sprint analysis complete (${elapsed}s)`);
+      log(c.cyan, `  Report saved: ${reportPath}`);
+
+      // Try to extract proposals and add to approved-proposals tracker for CEO review
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) || content.match(/\{[\s\S]*"proposals"[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        try {
+          const parsed = JSON.parse(jsonStr.trim());
+          const proposalCount = parsed.proposals?.length || 0;
+          log(c.cyan, `  Extracted ${proposalCount} proposals for CEO review`);
+        } catch { /* JSON parse failed — report is still saved as markdown */ }
+      }
+
+      return content;
+    } catch (error: any) {
+      log(c.yellow, `  Post-sprint analysis failed: ${error.message}`);
+      return `Post-sprint analysis error: ${error.message}`;
+    }
+  }
 }
 
 // ===== Agent Creator (creates new agents from CEO-approved CTO proposals) =====
@@ -1567,6 +1676,16 @@ ONLY output the JSON array. No markdown, no explanation.`;
     log(c.magenta, '\n--- Phase 5: CEO Final Assessment ---');
     await this.ceo.reviewSprintProgress(this.tasks);
 
+    // 6b. CTO autonomous post-sprint analysis (runs after EVERY sprint)
+    log(c.cyan, '\n--- Phase 5b: CTO Post-Sprint Analysis (Autonomous) ---');
+    let postSprintReport = '';
+    try {
+      postSprintReport = await this.cto.postSprintAnalysis(this.tasks, this.stats);
+      log(c.cyan, '  Post-sprint analysis saved to reports/cto/');
+    } catch (error: any) {
+      log(c.yellow, `  Post-sprint analysis skipped: ${error.message}`);
+    }
+
     // 7. CEO generates daily report
     log(c.magenta, '\n--- Phase 6: Daily Report Generation ---');
     const ctoReportStr = `Summary: ${ctoReport.summary}\nProposals: ${ctoReport.proposals.length}\n${ctoReport.proposals.map(p => `- [${p.category}] ${p.title} (${p.risk_level})`).join('\n')}`;
@@ -1575,7 +1694,8 @@ ONLY output the JSON array. No markdown, no explanation.`;
       ? '\n\n## CMO Activity (Manus AI)\n' + cmoReports.substring(0, 2000)
       : '\n\nCMO: No reports available this cycle.';
     const grokForReport = grokSection ? '\n\n## Grok Intelligence Feed\nGrok AI reports available — included in CTO/CEO analysis.' : '\n\nGrok: No feed reports this cycle.';
-    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection + grokForReport, ctoDecisions);
+    const postSprintSection = postSprintReport ? '\n\n## CTO Post-Sprint Analysis\n' + postSprintReport.substring(0, 2000) : '';
+    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection + grokForReport + postSprintSection, ctoDecisions);
 
     // 8. Save updated sprint state
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -1595,7 +1715,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
     log(c.cyan,  `  CTO proposals: ${ctoReport.proposals.length}`);
     log(c.magenta, `  CMO reports: ${cmoReports ? 'loaded' : 'none'}`);
     log(c.blue,  `  Total time: ${elapsed}s`);
-    log(c.gray,  `  Pipeline: CEO → MiniMax code → Dual review (Claude+Codex) → CEO resolves conflicts → CTO → CMO/Grok → Daily report`);
+    log(c.gray,  `  Pipeline: CEO → MiniMax code → Dual review (Claude+Codex) → CEO resolves conflicts → CTO → CMO/Grok → Post-sprint analysis → Daily report`);
   }
 }
 

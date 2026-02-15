@@ -15,7 +15,8 @@
  *   clawhub-scan           - Scan ClawHub for relevant skills and MCP servers
  *   learnings-review       - Analyze docs/learnings.md for patterns, propose improvements
  *   verify-implementations - Check CEO-approved proposals were properly implemented
- *   full-scan              - Run all four watches and produce a combined report
+ *   post-sprint-analysis   - Post-sprint retrospective: analyze results, detect patterns, propose improvements
+ *   full-scan              - Run all watches and produce a combined report
  *
  * Data Sources:
  *   - OpenClaw GitHub releases API
@@ -36,9 +37,9 @@ import 'dotenv/config';
 
 // ===== Types =====
 
-type WatchType = 'openclaw-watch' | 'clawhub-scan' | 'learnings-review' | 'verify-implementations' | 'full-scan';
+type WatchType = 'openclaw-watch' | 'clawhub-scan' | 'learnings-review' | 'verify-implementations' | 'post-sprint-analysis' | 'full-scan';
 
-const VALID_WATCHES: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations', 'full-scan'];
+const VALID_WATCHES: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations', 'post-sprint-analysis', 'full-scan'];
 
 interface LLMResponse {
   choices: Array<{ message: { content: string } }>;
@@ -292,6 +293,64 @@ class DataCollector {
     } catch { return '(could not parse approved-proposals.json)'; }
   }
 
+  /** Get detailed analysis of the most recent sprint (full task data for post-sprint review) */
+  getLatestSprintDetails(): string {
+    const sprintsDir = join(this.projectRoot, 'sprints');
+    if (!existsSync(sprintsDir)) return '(no sprints directory)';
+    const files = readdirSync(sprintsDir).filter(f => f.endsWith('.json')).sort().reverse();
+    if (files.length === 0) return '(no sprint files found)';
+    try {
+      const latestFile = files[0];
+      const content = JSON.parse(readFileSync(join(sprintsDir, latestFile), 'utf-8'));
+      const tasks = content.tasks || [];
+      const done = tasks.filter((t: any) => t.status === 'done').length;
+      const doneManual = tasks.filter((t: any) => t.status === 'done-manual').length;
+      const rejected = tasks.filter((t: any) => t.status === 'rejected').length;
+      const sections: string[] = [
+        `### ${latestFile.replace('.json', '')} — Detailed Sprint Results`,
+        `- **Total tasks**: ${tasks.length}`,
+        `- **Auto-approved**: ${done}`,
+        `- **Manual fixes needed**: ${doneManual}`,
+        `- **Still rejected**: ${rejected}`,
+        `- **Auto success rate**: ${tasks.length > 0 ? ((done / tasks.length) * 100).toFixed(0) : 0}%`,
+        '',
+      ];
+      for (const t of tasks) {
+        const status = t.status || 'unknown';
+        const agent = t.agent || 'unknown';
+        const attempts = t.output?.attempts || t.attempts || '?';
+        const score = t.output?.review?.score || t.output?.score || '?';
+        const feedback = t.output?.review?.feedback || t.output?.feedback || '';
+        const rejectionReasons = t.output?.rejectionReasons || [];
+        sections.push(`**${t.id}** (${agent}) — ${t.title || t.description || 'no title'}`);
+        sections.push(`  Status: ${status} | Score: ${score} | Attempts: ${attempts}`);
+        if (status === 'done-manual' || status === 'rejected') {
+          sections.push(`  ⚠ Required manual intervention or failed`);
+          if (rejectionReasons.length > 0) {
+            sections.push(`  Rejection reasons: ${rejectionReasons.slice(0, 3).join('; ')}`);
+          }
+          if (feedback) {
+            sections.push(`  Last feedback: ${String(feedback).substring(0, 300)}`);
+          }
+        }
+        sections.push('');
+      }
+      // Also include previous sprint for trend comparison
+      if (files.length > 1) {
+        const prevFile = files[1];
+        const prevContent = JSON.parse(readFileSync(join(sprintsDir, prevFile), 'utf-8'));
+        const prevTasks = prevContent.tasks || [];
+        const prevDone = prevTasks.filter((t: any) => t.status === 'done').length;
+        const prevManual = prevTasks.filter((t: any) => t.status === 'done-manual').length;
+        sections.push(`### Previous Sprint (${prevFile.replace('.json', '')}) — Trend Comparison`);
+        sections.push(`- Total: ${prevTasks.length}, Auto: ${prevDone}, Manual: ${prevManual}`);
+        sections.push(`- Auto success rate: ${prevTasks.length > 0 ? ((prevDone / prevTasks.length) * 100).toFixed(0) : 0}%`);
+        sections.push('');
+      }
+      return sections.join('\n');
+    } catch (e: any) { return `(error reading sprint details: ${e.message})`; }
+  }
+
   /** Fetch OpenClaw GitHub releases */
   async fetchOpenClawReleases(): Promise<string> {
     try {
@@ -385,9 +444,9 @@ class CTOTechWatch {
   }
 
   private async runFullScan(additionalContext?: string): Promise<string> {
-    log(c.blue, '\n[cto-watch] Running full scan (all four watches)...\n');
+    log(c.blue, '\n[cto-watch] Running full scan (all five watches)...\n');
     const reports: string[] = [];
-    const types: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations'];
+    const types: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations', 'post-sprint-analysis'];
 
     for (const watchType of types) {
       try {
@@ -587,6 +646,87 @@ class CTOTechWatch {
           additionalContext ? '\n## Additional Context\n' + additionalContext : '',
         ].join('\n'),
       },
+
+      'post-sprint-analysis': {
+        system: this.ctoPrompt,
+        user: [
+          '# CTO Task: Post-Sprint Analysis & Improvement Proposals',
+          '',
+          'You are running AFTER a sprint has completed. Analyze sprint results and generate improvement proposals for the CEO.',
+          '',
+          projectContext,
+          '',
+          '## Detailed Sprint Results',
+          this.collector.getLatestSprintDetails(),
+          '',
+          '## Learnings History',
+          this.collector.getLearnings().substring(0, 4000),
+          '',
+          '## Recent Daily Reports',
+          this.collector.getRecentDailyReports(2),
+          '',
+          '## Your Task',
+          'Perform a thorough retrospective analysis of the most recent sprint:',
+          '',
+          '1. **Success Rate Analysis**:',
+          '   - What was the auto-approval rate? How does it compare to the previous sprint?',
+          '   - Which agent types performed best/worst?',
+          '   - What was the average number of attempts before approval?',
+          '',
+          '2. **Failure Pattern Detection**:',
+          '   - For each failed/manual-fix task: what was the root cause?',
+          '   - Group failures by type: truncation, code fences, wrong imports, supervisor false positives, etc.',
+          '   - Are these recurring patterns from previous sprints?',
+          '',
+          '3. **Dual Supervisor Performance**:',
+          '   - Did the dual supervisor (Claude + Codex) add value this sprint?',
+          '   - Were there conflicts? Which supervisor was usually right?',
+          '   - Any false positives (rejecting good code) or false negatives (approving broken code)?',
+          '',
+          '4. **Agent Capability Assessment**:',
+          '   - Are MiniMax agents hitting token limits consistently?',
+          '   - Should certain task types be decomposed differently?',
+          '   - Are there tasks that should use a different model (e.g., Claude instead of MiniMax)?',
+          '',
+          '5. **Concrete Improvement Proposals** (max 3):',
+          '   - Each proposal must reference specific sprint data (task IDs, rejection counts, patterns)',
+          '   - Each must include measurable expected impact',
+          '   - Each must be actionable (not vague "improve quality" — specify exact changes)',
+          '   - Categories: process_change, tooling, cost_optimization, architecture',
+          '',
+          'Output a structured markdown report with:',
+          '1. Executive summary (2-3 sentences)',
+          '2. Sprint scorecard table',
+          '3. Failure analysis with root causes',
+          '4. Trend analysis (improving/declining/stable)',
+          '5. Proposals in CTO JSON format:',
+          '```json',
+          '{',
+          '  "summary": "Post-sprint analysis summary",',
+          '  "proposals": [',
+          '    {',
+          '      "id": "CTO-YYYYMMDD-NNN",',
+          '      "title": "Short title",',
+          '      "category": "process_change|tooling|cost_optimization|architecture",',
+          '      "description": "What and why, referencing specific task IDs",',
+          '      "estimated_impact": "Expected improvement (e.g., reduce manual fixes by 50%)",',
+          '      "risk_level": "low|medium|high",',
+          '      "implementation_steps": ["step1", "step2"]',
+          '    }',
+          '  ],',
+          '  "sprint_metrics": {',
+          '    "total_tasks": 0,',
+          '    "auto_approved": 0,',
+          '    "manual_fixes": 0,',
+          '    "rejected": 0,',
+          '    "auto_success_rate": "0%",',
+          '    "trend": "improving|declining|stable"',
+          '  }',
+          '}',
+          '```',
+          additionalContext ? '\n## Additional Context\n' + additionalContext : '',
+        ].join('\n'),
+      },
     };
 
     const selected = prompts[watchType as Exclude<WatchType, 'full-scan'>];
@@ -623,7 +763,8 @@ async function main() {
     console.log('  clawhub-scan           Scan for relevant ClawHub skills and MCP servers');
     console.log('  learnings-review       Analyze docs/learnings.md for patterns & improvements');
     console.log('  verify-implementations Check CEO-approved proposals were properly implemented');
-    console.log('  full-scan              Run all four watches combined');
+    console.log('  post-sprint-analysis   Analyze most recent sprint results, detect patterns, propose improvements');
+    console.log('  full-scan              Run all five watches combined');
     console.log('');
     console.log('Schedule: Daily 10AM CET (9 UTC) via PM2 cron — full-scan');
     console.log('');

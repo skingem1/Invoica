@@ -802,5 +802,63 @@ The o4-mini model has different API requirements than standard OpenAI models:
 
 ---
 
+## 27. Week 18 — Destructive Rewrites, Code Fence Persistence & Frontend Size Ceiling
+
+### Context
+Week 18: 9 tasks (4 backend + 5 frontend). Theme: Dashboard API Keys, Webhooks & Bug Fixes.
+Results: 6/9 auto-approved (67%), 3 manual fixes needed. All failures were frontend.
+
+### Critical Finding: MiniMax Destructive File Rewrites
+The most dangerous pattern discovered in Week 18. MiniMax rewrites ENTIRE files instead of making targeted edits:
+- **router.ts destroyed** (BE-163): Task was "add 4 route lines to existing router." MiniMax rewrote the entire file, losing ALL original routes (settlements, invoices, merchants, payments), the validate() function, and the global error handler. File went from 80 lines with 14 routes to 30 lines with 4 routes.
+- **api-client.ts destroyed** (FE-100-A): CTO decomposed FE-100 into sub-task FE-100-A to "add InvoiceListResponse type." MiniMax replaced the 170-line api-client.ts (containing ALL API functions) with a 15-line type-only stub.
+- **Both were "approved" by supervisors** — they couldn't detect the missing functionality because they only reviewed the new file, not the diff against the original.
+
+### Prevention Rule
+**RULE**: For "fix" and "add" task types that target EXISTING files, the orchestrator MUST:
+1. Save original file line count before MiniMax writes
+2. After write: if new file is <50% of original line count, auto-reject with "Possible destructive rewrite"
+3. Add to supervisor prompt: "Verify the file retains all original functionality, not just the new additions"
+
+### Code Fence Contamination Still Active
+Despite Week 11 fence-stripping fix, 3/5 frontend files had code fences in Week 18:
+- FE-100: starts with ```tsx, ends with ```
+- FE-101: same pattern
+- FE-102: auto-approved WITH fences at score 88 (supervisor false negative!)
+
+**Current fence stripper misses**: leading whitespace before fences, fences with language tags, fences not at exact first/last line position.
+
+### Frontend File Size Hard Ceiling: 65 Lines
+Clear pattern across Weeks 16-18:
+- Files ≤65 lines: ~90% success rate (settings, agents, mock endpoints)
+- Files 66-100 lines: ~30% success (invoices, webhooks)
+- Files >100 lines: ~5% success (sidebar 105 lines, api-keys 227 lines)
+- sidebar.tsx failed in BOTH Week 17 (FE-093) and Week 18 (FE-103) — identical failure mode (SVG truncation)
+
+### Dual Supervisor False Negatives
+Week 18 exposed Codex reliability issues:
+- FE-102: approved at 88 despite code fences + wrong field name (created_at instead of createdAt)
+- FE-101-A: CEO said "REJECT" but parser extracted "APPROVED" (parsing bug)
+- Codex returned invalid JSON 3 times ("score": thirty/forty/fifty)
+- Codex auto-approve-on-error triggers when JSON is invalid — effectively rubber-stamping broken code
+
+### Week 18 Task Results
+| ID | Agent | Status | Notes |
+|----|-------|--------|-------|
+| SDK-081 | backend-core | done | Type exports fix |
+| BE-160 | backend-core | done | Dashboard routes |
+| FE-100 | frontend | done-manual | Invoices page — 15 attempts all failed |
+| FE-101 | frontend | done-manual | API keys fixes — file too large (227 lines) |
+| BE-161 | backend-core | done | Mock API keys endpoint |
+| BE-162 | backend-core | done | Mock webhooks endpoint |
+| BE-163 | backend-core | done | Wire routes — DESTROYED router.ts |
+| FE-102 | frontend | done | Webhooks page — had code fences (false negative) |
+| FE-103 | frontend | done-manual | Sidebar — SVG truncation (repeat of W17 FE-093) |
+
+### CTO Post-Sprint Analysis Now Autonomous
+As of Week 18, the CTO runs autonomous post-sprint analysis after every sprint (Phase 5b in orchestrator). This generates failure analysis, trend comparison, and improvement proposals for CEO review. Reports saved to reports/cto/post-sprint-analysis-YYYY-MM-DD.md.
+
+---
+
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 17 Dual Supervisor system operational, FE-093 manually fixed*
+*Updated by: Claude — Week 18 analysis, CTO autonomous post-sprint retrospective system added*

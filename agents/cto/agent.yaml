@@ -22,6 +22,7 @@ context_files:
   - ../../reports/cto/latest-openclaw-watch.md
   - ../../reports/cto/latest-clawhub-scan.md
   - ../../reports/cto/latest-learnings-review.md
+  - ../../reports/cto/latest-post-sprint-analysis.md
   - ../../reports/grok-feed/  # Grok AI X/Twitter intelligence
   - ../../reports/cto/ceo-feedback/  # CEO decisions on proposals
   - ../../reports/cto/approved-proposals.json  # Implementation tracker
@@ -55,6 +56,7 @@ outputs:
   - Skill scan reports: reports/cto/clawhub-scan-YYYY-MM-DD.md
   - Learnings analysis: reports/cto/learnings-review-YYYY-MM-DD.md
   - Implementation verification: reports/cto/verify-implementations-YYYY-MM-DD.md
+  - Post-sprint analysis: reports/cto/post-sprint-analysis-YYYY-MM-DD.md
   - Full scan reports: reports/cto/full-scan-YYYY-MM-DD.md
   - CEO feedback persistence: reports/cto/ceo-feedback/YYYY-MM-DD.json
   - Approved proposals tracker: reports/cto/approved-proposals.json
@@ -62,6 +64,8 @@ schedule:
   standalone_techwatch:
     full_scan: "daily 10:00 CET (9:00 UTC) via PM2 cron"
     verify_implementations: "included in daily full-scan"
+    post_sprint_analysis: "included in daily full-scan + autonomous after every sprint"
   in_sprint: "Phase 3 of orchestrator pipeline (every sprint run)"
+  post_sprint: "Phase 5b of orchestrator pipeline — AUTONOMOUS after every sprint completion"
   pm2_config: "ecosystem.config.js — app name: cto-daily-scan"
 runner: scripts/run-cto-techwatch.ts

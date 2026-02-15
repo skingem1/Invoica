@@ -61,8 +61,8 @@
         "Must update learnings.md with new patterns discovered from rejected tasks"
       ],
       "priority": "next_sprint",
-      "implementation_status": "pending",
-      "verification_notes": ""
+      "implementation_status": "superseded",
+      "verification_notes": "Superseded by autonomous CTO post-sprint-analysis built into orchestrator Phase 5b (2026-02-15)"
     },
     {
       "id": "CTO-20260217-003",
@@ -104,8 +104,8 @@
         "Output format must be structured for CEO review"
       ],
       "priority": "next_sprint",
-      "implementation_status": "pending",
-      "verification_notes": ""
+      "implementation_status": "superseded",
+      "verification_notes": "Superseded by autonomous CTO post-sprint-analysis built into orchestrator Phase 5b (2026-02-15)"
     },
     {
       "id": "CTO-20260217-002",
@@ -148,6 +148,86 @@
       "priority": "immediate",
       "implementation_status": "pending",
       "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260216-003",
+      "title": "Add response caching for repeated LLM calls",
+      "category": "cost_optimization",
+      "description": "Review learnings mention caching opportunities. Implement caching layer for identical LLM calls (e.g., system prompts, common validation logic) to reduce redundant API calls.",
+      "implementation_steps": [
+        "Audit recent sprint logs for repeated identical prompts",
+        "Implement Redis-backed prompt cache with TTL",
+        "Add cache hit/miss metrics to monitoring",
+        "Test cache effectiveness over 1-2 sprints"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Implement cache invalidation strategy",
+        "Add monitoring for cache hit rates",
+        "Start with 1-hour TTL for safety"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260215-004",
+      "title": "Add post-write file integrity check to orchestrator",
+      "category": "process_change",
+      "description": "MiniMax destructive rewrites destroyed router.ts (lost all routes) and api-client.ts (replaced 170-line file with 15-line stub) in Week 18. Add a pre-commit integrity check: after MiniMax writes a file, compare line count with the original. If new file is <50% the size of the original AND the task was fix/add, flag for manual review.",
+      "implementation_steps": [
+        "In orchestrator executeTask(), save original file line count before MiniMax writes",
+        "After write, compare new line count. If new < 50% of original AND task type is fix/add, reject automatically",
+        "Log warning: File shrank from N to M lines — possible destructive rewrite",
+        "Add to supervisor prompt: Check if the file lost existing functionality"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending_ceo_approval",
+      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
+    },
+    {
+      "id": "CTO-20260215-005",
+      "title": "Upgrade code fence stripping to handle all MiniMax variants",
+      "category": "tooling",
+      "description": "Code fence contamination persists despite Week 11 fix. FE-100, FE-101, and FE-102 all had code fences in Week 18. FE-102 was even auto-approved WITH fences (supervisor false negative). Need comprehensive post-processing.",
+      "implementation_steps": [
+        "In orchestrator, after receiving MiniMax output: apply aggressive fence strip regex",
+        "Pattern: remove any line matching /^\\s*```\\w*\\s*$/ at start and end of output",
+        "Also strip <think>...</think> tags and any markdown headers before first code line",
+        "Add fence detection to supervisor checklist: if output contains ``` anywhere, auto-reject",
+        "Test against FE-100, FE-101, FE-102 outputs from Week 18"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending_ceo_approval",
+      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
+    },
+    {
+      "id": "CTO-20260215-006",
+      "title": "Split large frontend files into composable components before task assignment",
+      "category": "architecture",
+      "description": "Frontend files >65 lines consistently fail (sidebar 105 lines, api-keys 227 lines). MiniMax 4500-token output limit is a hard ceiling. Pre-split large components into smaller files (<60 lines each) and assign tasks to individual files.",
+      "implementation_steps": [
+        "Before sprint creation: scan target files for line count",
+        "If file >65 lines: split into composable sub-components",
+        "Task description should target the specific sub-component file, not the parent",
+        "Add to task creation rules: Frontend tasks must target files <65 lines",
+        "Apply to Week 19: pre-split sidebar.tsx and api-keys/page.tsx before assigning tasks"
+      ],
+      "approved_date": "2026-02-15",
+      "ceo_conditions": [
+        "Pending CEO approval — from CTO Week 18 post-sprint analysis"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending_ceo_approval",
+      "verification_notes": "Source: CTO post-sprint-analysis-2026-02-15.md"
     }
   ],
   "last_updated": "2026-02-15"
