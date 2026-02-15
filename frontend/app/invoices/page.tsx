@@ -1,49 +1,68 @@
 ```tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { fetchInvoices, InvoiceListResponse } from '@/lib/api-client';
-import { InvoiceTable } from '@/components/invoices/invoice-table';
+import { useState, useEffect } from "react";
+import { fetchInvoices } from "@/lib/api-client";
+import type { InvoiceListResponse } from "@/types/invoices";
+
+type Invoice = InvoiceListResponse["invoices"][number];
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<InvoiceListResponse | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadInvoices = async () => {
+    async function loadInvoices() {
       try {
         const data = await fetchInvoices();
-        setInvoices(data);
+        setInvoices(data.invoices);
       } catch (error) {
-        console.error('Failed to fetch invoices:', error);
+        console.error("Failed to fetch invoices:", error);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     loadInvoices();
   }, []);
 
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Invoices</h1>
-        <Link
-          href="/invoices/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          New Invoice
-        </Link>
+  if (loading) {
+    return (
+      <div className="loading-spinner" role="status">
+        <span className="sr-only">Loading invoices...</span>
       </div>
+    );
+  }
 
-      {loading && (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-        </div>
-      )}
+  if (invoices.length === 0) {
+    return <div>No invoices found</div>;
+  }
 
-      <InvoiceTable invoices={invoices?.invoices ?? []} loading={loading} />
+  return (
+    <div>
+      <h1>Invoices</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Invoice Number</th>
+            <th>Amount</th>
+            <th>Currency</th>
+            <th>Status</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.map((invoice) => (
+            <tr key={invoice.id}>
+              <td>{invoice.invoice_number}</td>
+              <td>{invoice.amount}</td>
+              <td>{invoice.currency}</td>
+              <td>{invoice.status}</td>
+              <td>{invoice.created_at}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
