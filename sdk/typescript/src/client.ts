@@ -1,111 +1,99 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import {
   Invoice,
-  CreateInvoiceParams,
+  InvoiceCreateInput,
   Settlement,
-  InvoiceListResponse,
   SettlementListResponse,
+  InvoiceListResponse,
   ApiKey,
-  CreateApiKeyParams,
-  ApiKeyListResponse,
+  ApiKeyCreateResponse,
+  WebhookRegistrationConfig,
+  WebhookRegistration,
+  WebhookListResponse,
 } from './types';
-import { InvoicaError } from './errors';
 
-export interface InvoicaClientConfig {
-  baseUrl: string;
-  apiKey: string;
-}
-
-/**
- * Invoica SDK Client for interacting with the Invoica API
- */
 export class InvoicaClient {
   private readonly client: AxiosInstance;
 
-  constructor(config: InvoicaClientConfig) {
+  constructor(private readonly config: { baseUrl: string; apiKey: string }) {
     this.client = axios.create({
       baseURL: config.baseUrl,
       headers: {
-        Authorization: `Bearer ${config.apiKey}`,
+        'Authorization': `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
       },
     });
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        const message = error.response?.data?.message || error.message;
-        throw new InvoicaError(message, error.response?.status, error.response?.data);
-      }
-    );
   }
 
-  /**
-   * Make an authenticated request to the API
-   */
-  private async request<T>(method: string, url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.request<T>({
+  private async request<T>(method: string, url: string, data?: unknown): Promise<T> {
+    const config: AxiosRequestConfig = {
       method,
       url,
-      data,
-      ...config,
-    });
-    return response.data;
+      ...(data && { data }),
+    };
+
+    try {
+      const response = await this.client.request<T>(config);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || error.message;
+        throw new Error(`Invoica API Error: ${message}`);
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Get a single invoice by ID
-   */
   async getInvoice(id: string): Promise<Invoice> {
     return this.request<Invoice>('GET', `/invoices/${id}`);
   }
 
-  /**
-   * Create a new invoice
-   */
-  async createInvoice(params: CreateInvoiceParams): Promise<Invoice> {
-    return this.request<Invoice>('POST', '/invoices', params);
+  async createInvoice(input: InvoiceCreateInput): Promise<Invoice> {
+    return this.request<Invoice>('POST', '/invoices', input);
   }
 
-  /**
-   * Get a single settlement by ID
-   */
   async getSettlement(id: string): Promise<Settlement> {
     return this.request<Settlement>('GET', `/settlements/${id}`);
   }
 
-  /**
-   * List all settlements with optional filtering
-   */
   async listSettlements(params?: { limit?: number; offset?: number }): Promise<SettlementListResponse> {
-    return this.request<SettlementListResponse>('GET', '/settlements', undefined, { params });
+    const query = new URLSearchParams();
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.offset) query.append('offset', String(params.offset));
+    const queryString = query.toString();
+    return this.request<SettlementListResponse>('GET', `/settlements${queryString ? `?${queryString}` : ''}`);
   }
 
-  /**
-   * List all invoices with optional filtering
-   */
   async listInvoices(params?: { limit?: number; offset?: number; status?: string }): Promise<InvoiceListResponse> {
-    return this.request<InvoiceListResponse>('GET', '/invoices', undefined, { params });
+    const query = new URLSearchParams();
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.offset) query.append('offset', String(params.offset));
+    if (params?.status) query.append('status', params.status);
+    const queryString = query.toString();
+    return this.request<InvoiceListResponse>('GET', `/invoices${queryString ? `?${queryString}` : ''}`);
   }
 
-  /**
-   * Create a new API key
-   */
-  async createApiKey(params: CreateApiKeyParams): Promise<ApiKey> {
-    return this.request<ApiKey>('POST', '/api-keys', params);
+  async createApiKey(name: string): Promise<ApiKeyCreateResponse> {
+    return this.request<ApiKeyCreateResponse>('POST', '/api-keys', { name });
   }
 
-  /**
-   * Revoke an API key by ID
-   */
   async revokeApiKey(id: string): Promise<void> {
     return this.request<void>('DELETE', `/api-keys/${id}`);
   }
 
-  /**
-   * List all API keys
-   */
-  async listApiKeys(): Promise<ApiKeyListResponse> {
-    return this.request<ApiKeyListResponse>('GET', '/api-keys');
+  async listApiKeys(): Promise<ApiKey[]> {
+    return this.request<ApiKey[]>('GET', '/api-keys');
+  }
+
+  async registerWebhook(config: WebhookRegistrationConfig): Promise<WebhookRegistration> {
+    return this.request<WebhookRegistration>('POST', '/webhooks', config);
+  }
+
+  async listWebhooks(): Promise<WebhookListResponse> {
+    return this.request<WebhookListResponse>('GET', '/webhooks');
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/webhooks/${id}`);
   }
 }
