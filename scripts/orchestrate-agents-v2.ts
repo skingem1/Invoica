@@ -1,13 +1,15 @@
 #!/usr/bin/env ts-node
 
 /**
- * Countable Agent Orchestrator v2
+ * Invoica Agent Orchestrator v2
  *
  * Dynamic Agent Architecture:
  *   Leadership (Claude via Anthropic API):
  *     - CEO: Sprint planning, strategy, decisions, daily reports
  *     - Supervisor: Code review & quality gate
  *     - Skills: Agent/skill factory
+ *   Marketing (Manus AI — runs independently):
+ *     - CMO: Brand strategy, market intelligence, product proposals (reports loaded from files)
  *   Technology (MiniMax M2.5):
  *     - CTO: Data-driven analysis, OpenClaw/ClawHub monitoring, agent spawning proposals
  *   Execution (MiniMax M2.5 — dynamically loaded from agents/ directory):
@@ -15,7 +17,7 @@
  *     - New agents created by CTO proposals + CEO approval
  *
  * Flow: CEO plans → MiniMax codes → Supervisor reviews
- *       → CTO analyzes (with real data) → CEO approves → agents created → CEO daily report
+ *       → CTO analyzes → CMO reports loaded → CEO reviews all → CEO daily report
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
@@ -564,7 +566,7 @@ context_files:
     // Write prompt.md
     const prompt = `# ${spec.name} Agent — ${spec.role}
 
-You are the **${spec.name}** agent at **Countable** — the world's first Financial OS for AI Agents.
+You are the **${spec.name}** agent at **Invoica** (invoica.ai) — the world's first Financial OS for AI Agents.
 
 ## Your Role
 ${spec.prompt_summary}
@@ -588,6 +590,43 @@ LLM: ${spec.llm}
     return spec.name;
   }
 }
+// ===== CMO Report Loader (reads CMO reports produced by standalone Manus runner) =====
+
+function loadCMOReports(): string {
+  const reportsDir = './reports/cmo';
+  const sections: string[] = [];
+
+  try {
+    // Load latest market watch
+    const marketWatch = reportsDir + '/latest-market-watch.md';
+    if (existsSync(marketWatch)) {
+      const content = readFileSync(marketWatch, 'utf-8');
+      sections.push('### CMO Market Watch\n' + content.substring(0, 3000));
+    }
+
+    // Load latest strategy report
+    const strategy = reportsDir + '/latest-strategy-report.md';
+    if (existsSync(strategy)) {
+      const content = readFileSync(strategy, 'utf-8');
+      sections.push('### CMO Strategy Report\n' + content.substring(0, 3000));
+    }
+
+    // Load pending product proposals
+    const proposalsDir = reportsDir + '/proposals';
+    if (existsSync(proposalsDir)) {
+      const proposals = readdirSync(proposalsDir).filter(f => f.endsWith('.md'));
+      for (const pf of proposals.slice(0, 3)) {
+        const content = readFileSync(proposalsDir + '/' + pf, 'utf-8');
+        sections.push('### CMO Product Proposal: ' + pf + '\n' + content.substring(0, 2000));
+      }
+    }
+  } catch { /* CMO reports not available yet — graceful degradation */ }
+
+  return sections.length > 0
+    ? '## CMO Reports (Manus AI)\n\n' + sections.join('\n\n---\n\n')
+    : '';
+}
+
 // ===== MiniMax Coding Agent (ONE FILE PER API CALL) =====
 
 class CodingAgent {
@@ -727,8 +766,8 @@ class Orchestrator {
 
   constructor() {
     log(c.bold, '\n╔══════════════════════════════════════════════════════════╗');
-    log(c.bold, '║   Countable Agent Orchestrator v2                        ║');
-    log(c.bold, '║   Dynamic agents: 3 Claude + N MiniMax (auto-discovered) ║');
+    log(c.bold, '║   Invoica Agent Orchestrator v2                          ║');
+    log(c.bold, '║   Dynamic: 3 Claude + 1 Manus + N MiniMax                ║');
     log(c.bold, '╚══════════════════════════════════════════════════════════╝\n');
 
     // Leadership layer (Claude via Anthropic API)
@@ -739,7 +778,7 @@ class Orchestrator {
     this.cto = new CTOAgent();
 
     // Execution layer — dynamically load all coding agents from agents/ directory
-    const skipAgents = ['ceo', 'supervisor', 'skills', 'cto'];
+    const skipAgents = ['ceo', 'supervisor', 'skills', 'cto', 'cmo'];
     const agentDirs = existsSync('./agents') ? readdirSync('./agents').filter(d => {
       if (skipAgents.includes(d)) return false;
       return existsSync(`./agents/${d}/prompt.md`);
@@ -751,8 +790,8 @@ class Orchestrator {
       log(c.cyan, `+ Loaded ${name} agent (MiniMax M2.5)`);
     }
 
-    const totalAgents = 3 + 1 + this.agents.size; // 3 Claude + 1 CTO + N coding
-    log(c.green, `\n✓ ${totalAgents} agents loaded (3 Claude + ${1 + this.agents.size} MiniMax)\n`);
+    const totalAgents = 3 + 1 + 1 + this.agents.size; // 3 Claude + 1 Manus CMO + 1 CTO + N coding
+    log(c.green, `\n✓ ${totalAgents} agents loaded (3 Claude + 1 Manus CMO + ${1 + this.agents.size} MiniMax)\n`);
   }
   private loadTasks(): void {
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -863,16 +902,25 @@ class Orchestrator {
       }
       await this.executeTask(task);
     }
-    // 4. CTO data-driven analysis (reads sprint results, learnings, agent list)
-    log(c.cyan, '\n--- Phase 3: CTO Data-Driven Analysis ---');
+    // 4. CTO data-driven analysis + CMO reports
+    log(c.cyan, '\n--- Phase 3: CTO Data-Driven Analysis + CMO Reports ---');
     let ctoReport: CTOReport = { summary: '', proposals: [], metrics_reviewed: [] };
     let ctoDecisions = '';
+    let cmoReports = '';
     try {
       ctoReport = await this.cto.analyze();
 
-      // 5. CEO reviews CTO proposals (including new agent requests)
-      if (ctoReport.proposals.length > 0) {
-        log(c.magenta, '\n--- Phase 4: CEO Reviews CTO Proposals ---');
+      // Load CMO reports (produced independently by Manus AI runner)
+      cmoReports = loadCMOReports();
+      if (cmoReports) {
+        log(c.magenta, '  CMO reports found — will include in CEO review');
+      } else {
+        log(c.gray, '  No CMO reports available yet');
+      }
+
+      // 5. CEO reviews CTO proposals + CMO reports
+      if (ctoReport.proposals.length > 0 || cmoReports) {
+        log(c.magenta, '\n--- Phase 4: CEO Reviews CTO Proposals + CMO Reports ---');
         ctoDecisions = await this.ceo.reviewCTOProposals(ctoReport);
 
         // Handle approved new_agent proposals
@@ -905,7 +953,8 @@ class Orchestrator {
     // 7. CEO generates daily report
     log(c.magenta, '\n--- Phase 6: Daily Report Generation ---');
     const ctoReportStr = `Summary: ${ctoReport.summary}\nProposals: ${ctoReport.proposals.length}\n${ctoReport.proposals.map(p => `- [${p.category}] ${p.title} (${p.risk_level})`).join('\n')}`;
-    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr, ctoDecisions);
+    const cmoSection = cmoReports ? '\n\n## CMO Activity (Manus AI)\n' + cmoReports.substring(0, 2000) : '\n\nCMO: No reports available this cycle.';
+    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection, ctoDecisions);
 
     // 8. Save updated sprint state
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -921,8 +970,9 @@ class Orchestrator {
     log(c.green, `  Approved: ${this.stats.approved}`);
     log(c.red,   `  Rejected: ${this.stats.rejected}`);
     log(c.cyan,  `  CTO proposals: ${ctoReport.proposals.length}`);
+    log(c.magenta, `  CMO reports: ${cmoReports ? 'loaded' : 'none'}`);
     log(c.blue,  `  Total time: ${elapsed}s`);
-    log(c.gray,  `  Pipeline: CEO → MiniMax code → Claude review → CTO analyze → CEO approve → Daily report`);
+    log(c.gray,  `  Pipeline: CEO → MiniMax code → Claude review → CTO analyze → CMO reports → CEO approve → Daily report`);
   }
 }
 
