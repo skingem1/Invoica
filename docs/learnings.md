@@ -422,5 +422,52 @@ The CTO reviews each task in isolation. When Week 4 defined `WebhookRegistration
 
 ---
 
+## 16. Week 8 — Perfect Sprint (7/7, 0 rejections)
+
+Week 8 achieved the first perfect sprint: 7/7 approved on first attempt, 0 rejections, ~$1.03 total, 363.4 seconds. Validated that the decomposition rules from Week 5b work perfectly when strictly followed.
+
+### What Worked
+- Every task was "create new file" (never "edit existing file")
+- All tasks had explicit function signatures in the context
+- All files stayed under line limits
+- No dependencies between tasks (all independent, parallel-safe)
+
+---
+
+## 17. Week 9 — Supervisor Hallucination Pattern (NEW BUG CLASS)
+
+### The Problem: Supervisor Rejects Valid Test Files for Config Tasks
+SDK-051 (tsconfig.json) was rejected **10 times** — 100% failure rate. The tsconfig.json was correct on EVERY attempt. The supervisor consistently flagged the test file (tsconfig.test.ts) as "unnecessary/overengineered" even though `deliverables.tests` explicitly listed it.
+
+SDK-050 (package.json) had the same issue — took 5 attempts for the same reason before the supervisor randomly approved one.
+
+### Root Cause
+The supervisor prompt has learned the pattern "reject if agent adds files not requested in task spec" from learnings.md. But it doesn't cross-reference the `deliverables` JSON to check if the test file IS requested. For config/JSON files (package.json, tsconfig.json), the supervisor considers tests fundamentally unnecessary — a domain-level bias.
+
+### Rules to Prevent This
+1. **Don't include tests in deliverables for config/JSON files** — package.json, tsconfig.json, .eslintrc, etc. Just have 1 code file and no test file.
+2. **If a task produces only a JSON file, set deliverables.tests to empty array []** — the supervisor will then not see a test file at all.
+3. **Alternative: Don't assign JSON-only files to MiniMax at all** — write them manually. They're static configs that don't need AI generation.
+4. **Supervisor fix needed**: The review prompt should check `deliverables.tests` before flagging test files as "unrequested."
+
+### Cost Impact
+SDK-051: 10 attempts × (~$0.09 MiniMax + ~$0.04 review) = ~$1.30 wasted on a correct file.
+SDK-050: 5 attempts × ~$0.13 = ~$0.65 wasted.
+**Total waste: ~$1.95** — 57% of the sprint budget.
+
+### Sprint Stats
+| Sprint | Approved | Rejected | Cost | Time | Notes |
+|--------|----------|----------|------|------|-------|
+| Week 3 | 3/3 | 9 | ~$1.73 | ~5 min | First working sprint |
+| Week 4 | 4/4 | 0 | ~$0.36 | ~4 min | Truncation fix |
+| Week 5 | 3/5 | 22 | ~$3.42 | ~10 min | Source truncation failures |
+| Week 5b | 5/5 | 7 | ~$1.73 | ~11 min | Decomposition validated |
+| Week 6 | 7/7 | ~8 | ~$1.86 | ~9 min | SDK + webhook events |
+| Week 7 | 6/7+1 | 18 | ~$3.29 | ~22 min | BUG-001 manual fix |
+| Week 8 | 7/7 | 0 | ~$1.03 | ~6 min | Perfect sprint |
+| Week 9 | 6/7+1 | 19 | ~$3.42 | ~21 min | Supervisor hallucination |
+
+---
+
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 6 & 7 sprint analysis (bug fix pattern, CTO blind spots)*
+*Updated by: Claude — Week 8 perfect sprint, Week 9 supervisor hallucination analysis*
