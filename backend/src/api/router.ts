@@ -1,76 +1,46 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import asyncHandler from '../middleware/async-handler';
-import { getHealth } from './health';
-import { getSettlements, getSettlementById, createSettlement } from './settlements';
-import { 
-  getInvoices, 
-  getInvoiceById, 
-  createInvoice, 
-  updateInvoice,
-  deleteInvoice 
-} from './invoices';
-import { getMerchants, getMerchantById, createMerchant, updateMerchant } from './merchants';
-import { getPayments, getPaymentById, createPayment } from './payments';
-import { getDashboardStats } from './dashboard-stats';
-import { getDashboardActivity } from './dashboard-activity';
-import { getInvoicesWithSettlements } from './invoices-settlements';
+import { Request, Response, Router, NextFunction } from 'express';
+import { dashboardMetrics, dashboardHealth } from './dashboard-mock';
+import { listApiKeys, createApiKey } from './api-keys-mock';
+import { listWebhooks, registerWebhook } from './webhooks-mock';
 
 const router = Router();
 
+// Type for async handler
+type AsyncRequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<void>;
+
+// Wrapper for async route handlers
+const asyncHandler = (fn: AsyncRequestHandler) => (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // Health check
-router.get('/health', asyncHandler(getHealth));
+router.get('/health', asyncHandler(async (req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+}));
 
-// Settlements
-router.get('/v1/settlements', asyncHandler(getSettlements));
-router.get('/v1/settlements/:id', asyncHandler(getSettlementById));
-router.post('/v1/settlements', asyncHandler(createSettlement));
+// Dashboard endpoints (added in BE-160)
+router.get('/v1/dashboard/metrics', asyncHandler(dashboardMetrics));
+router.get('/v1/dashboard/health', asyncHandler(dashboardHealth));
 
-// Invoices
-router.get('/v1/invoices', asyncHandler(getInvoices));
-router.get('/v1/invoices/:id', asyncHandler(getInvoiceById));
-router.post('/v1/invoices', asyncHandler(createInvoice));
-router.put('/v1/invoices/:id', asyncHandler(updateInvoice));
-router.delete('/v1/invoices/:id', asyncHandler(deleteInvoice));
+// API Keys endpoints
+router.get('/v1/api-keys', asyncHandler(listApiKeys));
+router.post('/v1/api-keys', asyncHandler(createApiKey));
 
-// Merchants
-router.get('/v1/merchants', asyncHandler(getMerchants));
-router.get('/v1/merchants/:id', asyncHandler(getMerchantById));
-router.post('/v1/merchants', asyncHandler(createMerchant));
-router.put('/v1/merchants/:id', asyncHandler(updateMerchant));
-
-// Payments
-router.get('/v1/payments', asyncHandler(getPayments));
-router.get('/v1/payments/:id', asyncHandler(getPaymentById));
-router.post('/v1/payments', asyncHandler(createPayment));
-
-// Dashboard
-router.get('/v1/dashboard/stats', asyncHandler(getDashboardStats));
-router.get('/v1/dashboard/activity', asyncHandler(getDashboardActivity));
-
-// Invoices with Settlements
-router.get('/v1/invoices-settlements', asyncHandler(getInvoicesWithSettlements));
+// Webhooks endpoints
+router.get('/v1/webhooks', asyncHandler(listWebhooks));
+router.post('/v1/webhooks', asyncHandler(registerWebhook));
 
 // 404 handler
-router.use((req: Request, res: Response, next: NextFunction) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Route ${req.method} ${req.path} not found`
-    }
-  });
-});
-
-// Global error handler
-router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    success: false,
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'An unexpected error occurred'
-    }
-  });
+router.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not Found' });
 });
 
 export default router;
