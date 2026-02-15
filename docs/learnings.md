@@ -636,8 +636,41 @@ SDK-060e: Update barrel exports → ~8 lines total
 | Week 11 | 6/7+1 | 13 | ~$2.64 | ~24 min | Markdown fence bug |
 | Week 12 | 3/6+3 | 31 | ~$4.50 | ~49 min | API foundations, truncation returns |
 | Week 13 (run 1) | 3/7 | 24+ | ~$4.00 | ~35 min | CTO decomposition, fundamental limits |
+| Week 13 (redesign) | 8/8 | 0 | ~$1.21 | ~5 min | Perfect sprint after task redesign |
+| Week 14 (run 1) | 8/9 | 15 | ~$2.50 | ~17 min | FE-060 server/client contradiction |
+| Week 14 (fix) | 1/1 | 0 | ~$0.22 | ~1 min | FE-060 fixed, 9/9 complete |
+
+## 23. Week 14 — Supervisor Contradiction Pattern (CRITICAL)
+
+### The Problem
+FE-060 (docs layout) required:
+1. **Server component** (no `use client`, no hooks)
+2. **Active link styling** (bold + blue for current page)
+
+These are **mutually exclusive** in Next.js — detecting the current pathname requires `usePathname()`, a client-side hook. The supervisor correctly rejected both:
+- Using `usePathname()` → "violates server component requirement"
+- Not detecting active link → "missing active link styling from spec"
+
+### The Fix
+Remove contradictory requirements from task specs. For FE-060:
+- Removed "active link should be styled" requirement
+- Made ALL links same style (no detection needed)
+- Explicitly stated: "no active link detection needed — this is a server component"
+- Result: 95/100, first attempt
+
+### Prevention Rules
+1. **Server components CANNOT use**: `usePathname`, `useRouter`, `useState`, `useEffect`, `useSearchParams`, or any hook
+2. **Active link detection needs client code** — if needed, create a separate `'use client'` sidebar component
+3. **When spec has contradictions**, the agent loops endlessly between two rejection reasons
+4. **Extreme specificity prevents over-engineering**: "Use ONLY inline styles, no Tailwind classes" stopped MiniMax from importing Card/Badge/Table components
+
+### MiniMax Over-Engineering Pattern
+Several Week 14 tasks were initially rejected because MiniMax used shadcn/ui Card, Badge, Table components instead of simple HTML. Fix:
+- Explicitly state "use h1, h2, p, and code blocks" in task specs
+- Say "no external component imports" when you want plain HTML
+- The rejection feedback loop fixes this (attempt 2 passes after feedback)
 
 ---
 
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 13 analysis, CTO auto-decomposition lessons*
+*Updated by: Claude — Week 14 Developer Portal + Sandbox complete*
