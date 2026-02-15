@@ -1,72 +1,148 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+// frontend/lib/api-client.ts
 
-async function apiGet<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error(`API Error: ${response.status}`);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.countable.ai';
+
+interface RequestOptions extends RequestInit {
+  params?: Record<string, string>;
+}
+
+class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public data?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new ApiError(
+      response.status,
+      errorData.message || `HTTP error ${response.status}`,
+      errorData
+    );
+  }
   return response.json();
 }
 
-async function apiPost<T>(endpoint: string, data: unknown): Promise<T> {
+function buildUrl(endpoint: string, params?: Record<string, string>): string {
+  const url = new URL(`${API_BASE_URL}${endpoint}`);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+  }
+  return url.toString();
+}
+
+export async function apiGet<T = unknown>(
+  endpoint: string,
+  params?: Record<string, string>
+): Promise<T> {
+  const response = await fetch(buildUrl(endpoint, params), {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  return handleResponse<T>(response);
+}
+
+export async function apiPost<T = unknown>(
+  endpoint: string,
+  data?: unknown
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: data ? JSON.stringify(data) : undefined,
   });
-  if (!response.ok) throw new Error(`API Error: ${response.status}`);
-  return response.json();
+  return handleResponse<T>(response);
 }
 
-export interface Invoice {
+export async function apiDelete(endpoint: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new ApiError(
+      response.status,
+      errorData.message || `HTTP error ${response.status}`,
+      errorData
+    );
+  }
+}
+
+// ====================
+// Settlement API
+// ====================
+
+export interface Settlement {
   id: string;
+  customerId: string;
   amount: number;
   currency: string;
-  status: string;
+  status: 'pending' | 'completed' | 'failed';
   createdAt: string;
 }
 
-export async function fetchInvoices(): Promise<Invoice[]> {
-  return apiGet<Invoice[]>('/v1/invoices');
+export async function fetchSettlement(settlementId: string): Promise<Settlement> {
+  return apiGet<Settlement>(`/v1/settlements/${settlementId}`);
 }
 
-export async function fetchInvoiceById(id: string): Promise<Invoice> {
-  return apiGet<Invoice>(`/v1/invoices/${id}`);
-}
+// ====================
+// API Key Management
+// ====================
 
-export interface DashboardStats {
-  totalInvoices: number;
-  pending: number;
-  settled: number;
-  revenue: number;
-}
-
-export interface RecentActivityItem {
+export interface ApiKey {
   id: string;
-  type: 'invoice' | 'payment';
-  title: string;
-  description: string;
-  timestamp: string;
-  status: 'success' | 'pending' | 'failed';
+  name: string;
+  keyPrefix: string;
+  tier: string;
+  plan: string;
+  permissions: string[];
+  isActive: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
 }
 
-export async function fetchDashboardStats(): Promise<DashboardStats> {
-  return apiGet<DashboardStats>('/v1/dashboard/stats');
+export interface CreateApiKeyResponse extends ApiKey {
+  key?: string;
 }
 
-export async function fetchRecentActivity(): Promise<RecentActivityItem[]> {
-  return apiGet<RecentActivityItem[]>('/v1/dashboard/activity');
+export async function fetchApiKeys(customerId: string): Promise<ApiKey[]> {
+  return apiGet<ApiKey[]>('/v1/api-keys', { customerId });
 }
 
-export async function fetchSettlement(invoiceId: string): Promise<{
-  invoiceId: string;
-  status: string;
-  txHash: string | null;
-  chain: string;
-  confirmedAt: string | null;
-  amount: number;
-  currency: string;
-}> {
-  return apiGet(`/v1/settlements/${invoiceId}`);
+export async function createNewApiKey(data: {
+  customerId: string;
+  customerEmail: string;
+  name: string;
+}): Promise<CreateApiKeyResponse> {
+  return apiPost<CreateApiKeyResponse>('/v1/api-keys', data);
 }
+
+export async function revokeApiKey(id: string): Promise<void> {
+  return apiDelete(`/v1/api-keys/${id}`);
+}
+
+export async function rotateApiKey(id: string): Promise<CreateApiKeyResponse> {
+  return apiPost<CreateApiKeyResponse>(`/v1/api-keys/${id}/rotate`, {});
+}
+
+// Re-export ApiError for external use
+export { ApiError };
