@@ -188,8 +188,8 @@
         "Threshold should be configurable (start at 50%, can adjust based on data)"
       ],
       "priority": "immediate",
-      "implementation_status": "pending",
-      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "verified",
+      "verification_notes": "IMPLEMENTED 2026-02-15. Added to orchestrate-agents-v2.ts CodingAgent.execute(): (1) Pre-write integrity check comparing original vs new line count, (2) 50% threshold (configurable INTEGRITY_THRESHOLD), (3) Applies to bugfix tasks + all existing files >10 lines, (4) Logs warning with line counts, (5) Preserves original file on failure, (6) Passes integrity alert to supervisor prompts"
     },
     {
       "id": "CTO-20260215-005",
@@ -210,8 +210,8 @@
         "Supervisor prompt must explicitly check: Does the file start with a markdown code fence?"
       ],
       "priority": "immediate",
-      "implementation_status": "pending",
-      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "verified",
+      "verification_notes": "IMPLEMENTED 2026-02-15. Added to orchestrate-agents-v2.ts: (1) Enhanced extractCodeBlocks() with broader regex for all fence variants, (2) New stripResidualFences() method removes ALL fence markers + markdown headers before code, (3) Applied BEFORE file write to disk (CEO condition met), (4) Residual fence detection warning logged, (5) Both supervisor prompts (Claude+Codex) now explicitly check for code fences and auto-reject"
     },
     {
       "id": "CTO-20260215-006",
@@ -233,8 +233,8 @@
         "Track success rate before/after split to validate the approach"
       ],
       "priority": "next_sprint",
-      "implementation_status": "pending",
-      "verification_notes": "CEO APPROVED 2026-02-15. Source: CTO post-sprint-analysis-2026-02-15.md"
+      "implementation_status": "in_progress",
+      "verification_notes": "STARTED 2026-02-15. sidebar.tsx split: 114 lines → sidebar.tsx (53 lines) + sidebar-nav-items.ts (75 lines data). Week 19 sprint tasks all target files <65 lines. api-keys/page.tsx split deferred — no api-keys tasks in Week 19."
     }
   ],
   "last_updated": "2026-02-15"

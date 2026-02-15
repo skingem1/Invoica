@@ -212,7 +212,11 @@ class SupervisorAgent {
       const content = existsSync(filepath) ? readFileSync(filepath, 'utf-8') : '';
       return `### ${filepath}\n\`\`\`typescript\n${content.substring(0, 4000)}\n\`\`\``;
     }).join('\n\n');
-    const userPrompt = `Review the following code generated for task ${task.id}.\n\n## Task Spec\n${task.context}\n\n## Generated Files (${files.length})\n${fileContents}\n\n## Instructions\nRespond with a JSON object:\n{\n  "verdict": "APPROVED" or "REJECTED",\n  "score": 0-100,\n  "summary": "brief review summary",\n  "issues": [{"severity": "critical|high|medium|low", "file": "path", "description": "..."}],\n  "strengths": ["..."]\n}`;
+    // CTO-005: Add fence detection to supervisor review checklist
+    const integrityContext = (task as any)._integrityFailed
+      ? `\n\n## ⚠️ INTEGRITY ALERT\n${(task as any)._integrityDetails}\nThis file was flagged for destructive rewrite. The original was preserved. REJECT this task.\n`
+      : '';
+    const userPrompt = `Review the following code generated for task ${task.id}.\n\n## Task Spec\n${task.context}\n\n## Generated Files (${files.length})\n${fileContents}${integrityContext}\n\n## Instructions\nCRITICAL CHECK: Does ANY file start with a markdown code fence (\`\`\`tsx, \`\`\`typescript, etc.)? If YES, auto-REJECT — code fences in source files are invalid syntax.\nAlso check: Did the file lose existing functionality? If a file shrank significantly, REJECT.\n\nRespond with a JSON object:\n{\n  "verdict": "APPROVED" or "REJECTED",\n  "score": 0-100,\n  "summary": "brief review summary",\n  "issues": [{"severity": "critical|high|medium|low", "file": "path", "description": "..."}],\n  "strengths": ["..."]\n}`;
     const startTime = Date.now();
     log(c.gray, '  -> Sending to Claude (Anthropic API)...');
     try {
@@ -255,7 +259,11 @@ class Supervisor2Agent {
       const content = existsSync(filepath) ? readFileSync(filepath, 'utf-8') : '';
       return `### ${filepath}\n\`\`\`typescript\n${content.substring(0, 4000)}\n\`\`\``;
     }).join('\n\n');
-    const userPrompt = `Review the following code generated for task ${task.id}.\n\n## Task Spec\n${task.context}\n\n## Generated Files (${files.length})\n${fileContents}\n\n## Instructions\nRespond with a JSON object:\n{\n  "verdict": "APPROVED" or "REJECTED",\n  "score": 0-100,\n  "summary": "brief review summary",\n  "issues": [{"severity": "critical|high|medium|low", "file": "path", "description": "..."}],\n  "strengths": ["..."]\n}`;
+    // CTO-005: Add fence detection to Codex supervisor review checklist
+    const integrityContext2 = (task as any)._integrityFailed
+      ? `\n\n## ⚠️ INTEGRITY ALERT\n${(task as any)._integrityDetails}\nThis file was flagged for destructive rewrite. The original was preserved. REJECT this task.\n`
+      : '';
+    const userPrompt = `Review the following code generated for task ${task.id}.\n\n## Task Spec\n${task.context}\n\n## Generated Files (${files.length})\n${fileContents}${integrityContext2}\n\n## Instructions\nCRITICAL CHECK: Does ANY file start with a markdown code fence (\`\`\`tsx, \`\`\`typescript, etc.)? If YES, auto-REJECT — code fences in source files are invalid syntax.\nAlso check: Did the file lose existing functionality? If a file shrank significantly, REJECT.\n\nRespond with a JSON object:\n{\n  "verdict": "APPROVED" or "REJECTED",\n  "score": 0-100,\n  "summary": "brief review summary",\n  "issues": [{"severity": "critical|high|medium|low", "file": "path", "description": "..."}],\n  "strengths": ["..."]\n}`;
     const startTime = Date.now();
     log(c.gray, '  -> Sending to OpenAI Codex...');
     try {
@@ -1125,20 +1133,63 @@ Write ONLY the content for "${filepath}". Rules:
 
         log(c.gray, `  -> Response: ${elapsed}s, ${tokens} tokens, ${content.length} chars`);
 
-        // Extract code from fenced block
+        // CTO-005: Extract code from fenced block with enhanced fence stripping
         const codeBlocks = this.extractCodeBlocks(content);
+        let fileContent: string;
         if (codeBlocks.length === 0) {
-          log(c.yellow, `  ! No code block found for ${filepath}, using raw content`);
-          createdFiles.push({ path: filepath, content: content.trim() });
+          log(c.yellow, `  ! No code block found for ${filepath}, using raw content (with fence strip)`);
+          fileContent = this.stripResidualFences(content);
         } else {
-          createdFiles.push({ path: filepath, content: codeBlocks[0] });
+          fileContent = codeBlocks[0];
         }
+        // CTO-005: Final fence sanitization BEFORE adding to createdFiles
+        // CEO condition: stripping must happen BEFORE file is written to disk
+        fileContent = this.stripResidualFences(fileContent);
+        // Check if any fences remain after stripping (should be impossible, but log it)
+        if (/^\s*```/m.test(fileContent)) {
+          log(c.yellow, `  ! WARNING: Residual code fences detected in ${filepath} after stripping`);
+        }
+        createdFiles.push({ path: filepath, content: fileContent });
       } catch (error: any) {
         log(c.red, `  ✗ Failed to generate ${filepath}: ${error.message}`);
         // Create minimal placeholder so build doesn't break
         createdFiles.push({ path: filepath, content: `// ERROR: Generation failed - ${error.message}\n// Task: ${task.id}\n` });
       }
     }
+    // CTO-004: File integrity check — detect destructive MiniMax rewrites
+    // For bugfix tasks (and feature tasks editing existing files), reject if new file
+    // is <50% the size of the original. Configurable threshold.
+    const INTEGRITY_THRESHOLD = 0.5; // Reject if new < 50% of original
+    const integrityCheckTypes = ['bugfix']; // Task types that always get integrity check
+    const integrityCheckAllExisting = true; // Also check feature tasks editing existing files
+
+    for (const file of createdFiles) {
+      if (existsSync(file.path)) {
+        try {
+          const originalContent = readFileSync(file.path, 'utf-8');
+          const originalLines = originalContent.split('\n').length;
+          const newLines = file.content.split('\n').length;
+          const ratio = originalLines > 0 ? newLines / originalLines : 1;
+
+          const shouldCheck = integrityCheckTypes.includes(task.type) ||
+            (integrityCheckAllExisting && originalLines > 10);
+
+          if (shouldCheck && ratio < INTEGRITY_THRESHOLD) {
+            log(c.red, `  ✗ INTEGRITY CHECK FAILED: ${file.path}`);
+            log(c.red, `    Original: ${originalLines} lines → New: ${newLines} lines (${(ratio * 100).toFixed(0)}%)`);
+            log(c.red, `    Possible destructive rewrite detected — file shrank from ${originalLines} to ${newLines} lines`);
+            // Replace with error content, preserving original file
+            file.content = `// INTEGRITY CHECK FAILED — destructive rewrite detected\n// Original: ${originalLines} lines, New attempt: ${newLines} lines (${(ratio * 100).toFixed(0)}%)\n// Task: ${task.id} (${task.type})\n// The original file has been preserved. Manual review required.\n`;
+            // Also flag in task output for supervisor
+            (task as any)._integrityFailed = true;
+            (task as any)._integrityDetails = `File ${file.path} shrank from ${originalLines} to ${newLines} lines (${(ratio * 100).toFixed(0)}%). Possible destructive rewrite.`;
+          } else if (originalLines > 0) {
+            log(c.gray, `  -> Integrity OK: ${file.path} (${originalLines} → ${newLines} lines, ${(ratio * 100).toFixed(0)}%)`);
+          }
+        } catch { /* File exists but can't read — skip check */ }
+      }
+    }
+
     // Write all files to disk
     const writtenFiles: string[] = [];
     for (const file of createdFiles) {
@@ -1158,14 +1209,52 @@ Write ONLY the content for "${filepath}". Rules:
     return { files: writtenFiles, model };
   }
 
+  // CTO-005: Enhanced code fence stripping — handles all MiniMax output variants
+  // Catches: ```tsx, ```typescript, leading whitespace, fences at any position,
+  // markdown headers before code, and incomplete closing fences
   private extractCodeBlocks(content: string): string[] {
     const blocks: string[] = [];
-    const regex = /```(?:typescript|ts|javascript|js|json|yaml|dockerfile|sh|bash|css|html)?\s*\n([\s\S]*?)```/g;
+    // Broader regex: optional whitespace before fences, any language tag, flexible spacing
+    const regex = /^\s*```[\w.+-]*\s*\n([\s\S]*?)^\s*```\s*$/gm;
     let match;
     while ((match = regex.exec(content)) !== null) {
       if (match[1].trim().length > 0) blocks.push(match[1].trim());
     }
+    // Fallback: try simpler pattern if multiline didn't match
+    if (blocks.length === 0) {
+      const simpleRegex = /```(?:typescript|tsx|ts|javascript|jsx|js|json|yaml|yml|dockerfile|sh|bash|css|html|scss|less|txt)?\s*\n([\s\S]*?)```/g;
+      while ((match = simpleRegex.exec(content)) !== null) {
+        if (match[1].trim().length > 0) blocks.push(match[1].trim());
+      }
+    }
     return blocks;
+  }
+
+  // CTO-005: Aggressive fence sanitization — strips ANY remaining fences from content
+  // Applied BEFORE file is written to disk (CEO condition)
+  private stripResidualFences(content: string): string {
+    let cleaned = content;
+    // Remove lines that are ONLY a fence marker (with optional language tag)
+    cleaned = cleaned.replace(/^\s*```[\w.+-]*\s*$/gm, '');
+    // Remove markdown headers that appear before the first line of actual code
+    // (MiniMax sometimes prepends "## filename.ts" or "Here's the code:")
+    const lines = cleaned.split('\n');
+    let firstCodeLine = 0;
+    for (let i = 0; i < Math.min(lines.length, 5); i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('#') || line.startsWith('Here') || line.startsWith('Below') ||
+          line.startsWith('The following') || line === '') {
+        firstCodeLine = i + 1;
+      } else {
+        break;
+      }
+    }
+    if (firstCodeLine > 0) {
+      cleaned = lines.slice(firstCodeLine).join('\n');
+    }
+    // Remove trailing fence if present at end
+    cleaned = cleaned.replace(/\n\s*```\s*$/, '');
+    return cleaned.trim();
   }
 
   private commitChanges(task: AgentTask, files: string[]): void {
