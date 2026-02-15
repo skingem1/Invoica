@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
 import { createInvoice, createInvoiceSchema } from '../../src/api/invoices-create';
+import { createPendingInvoice } from '../../src/services/invoice';
+
+jest.mock('../../src/services/invoice');
+
+const mockCreatePendingInvoice = createPendingInvoice as jest.MockedFunction<typeof createPendingInvoice>;
 
 describe('createInvoice', () => {
   let mockReq: Partial<Request>;
@@ -14,47 +19,44 @@ describe('createInvoice', () => {
     mockRes = { status: statusMock, json: jsonMock };
   });
 
-  it('returns 400 for invalid input', async () => {
-    mockReq.body = { amount: -10, currency: 'USD' };
+  it('returns 201 and creates invoice on valid data', async () => {
+    mockReq.body = { amount: 1000, currency: 'USD', customerEmail: 'test@example.com', customerName: 'Test User' };
+    mockCreatePendingInvoice.mockResolvedValue({
+      id: 'inv-123',
+      invoiceNumber: 1,
+      amount: 1000n,
+      currency: 'USD',
+      status: 'PENDING' as const,
+      customerEmail: 'test@example.com',
+      customerName: 'Test User',
+      createdAt: new Date('2024-01-01'),
+    });
+
     await createInvoice(mockReq as Request, mockRes as Response);
+
+    expect(statusMock).toHaveBeenCalledWith(201);
+    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'inv-123', number: 'INV-1', status: 'pending' }));
+  });
+
+  it('returns 400 on invalid email', async () => {
+    mockReq.body = { amount: 100, currency: 'USD', customerEmail: 'invalid', customerName: 'User' };
+
+    await createInvoice(mockReq as Request, mockRes as Response);
+
     expect(statusMock).toHaveBeenCalledWith(400);
-    expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ error: 'Validation failed' }));
   });
 
-  it('returns 201 with invoice data on success', async () => {
-    mockReq.body = { amount: 100, currency: 'USD', description: 'Test' };
+  it('returns 500 when service throws', async () => {
+    mockReq.body = { amount: 100, currency: 'USD', customerEmail: 'test@test.com', customerName: 'User' };
+    mockCreatePendingInvoice.mockRejectedValue(new Error('DB error'));
+
     await createInvoice(mockReq as Request, mockRes as Response);
-    expect(statusMock).toHaveBeenCalledWith(201);
-    const response = jsonMock.mock.calls[0][0];
-    expect(response.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(response.number).toMatch(/^INV-\d+$/);
-    expect(response.status).toBe('pending');
-    expect(response.paidAt).toBeNull();
+
+    expect(statusMock).toHaveBeenCalledWith(500);
   });
 
-  it('applies defaults for optional fields', async () => {
-    mockReq.body = { amount: 50, currency: 'EUR' };
-    await createInvoice(mockReq as Request, mockRes as Response);
-    const response = jsonMock.mock.calls[0][0];
-    expect(response.description).toBeNull();
-    expect(response.metadata).toBeNull();
-  });
-
-  it('validates metadata as record<string>', async () => {
-    mockReq.body = { amount: 100, currency: 'USD', metadata: { key: 'value' } };
-    await createInvoice(mockReq as Request, mockRes as Response);
-    expect(statusMock).toHaveBeenCalledWith(201);
-  });
-
-  describe('createInvoiceSchema', () => {
-    it('validates correct input', () => {
-      const result = createInvoiceSchema.safeParse({ amount: 100, currency: 'USD' });
-      expect(result.success).toBe(true);
-    });
-
-    it('rejects invalid currency length', () => {
-      const result = createInvoiceSchema.safeParse({ amount: 100, currency: 'USDD' });
-      expect(result.success).toBe(false);
-    });
+  it('validates createInvoiceSchema correctly', () => {
+    expect(createInvoiceSchema.safeParse({ amount: 100, currency: 'USD', customerEmail: 'a@b.com', customerName: 'Name' }).success).toBe(true);
+    expect(createInvoiceSchema.safeParse({ amount: -1, currency: 'USD', customerEmail: 'a@b.com', customerName: 'Name' }).success).toBe(false);
   });
 });

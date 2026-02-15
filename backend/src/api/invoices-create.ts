@@ -1,45 +1,35 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import crypto from 'crypto';
+import { createPendingInvoice } from '../services/invoice';
 
-/** Creates a new invoice with validated data */
 export const createInvoiceSchema = z.object({
   amount: z.number().positive(),
   currency: z.string().length(3),
-  description: z.string().optional(),
-  metadata: z.record(z.string()).optional(),
+  customerEmail: z.string().email(),
+  customerName: z.string().min(1),
 });
 
-export type CreateInvoiceBody = z.infer<typeof createInvoiceSchema>;
+type CreateInvoiceBody = z.infer<typeof createInvoiceSchema>;
 
-/**
- * POST /v1/invoices - Create a new invoice
- * @param req - Express request with validated body
- * @param res - Express response
- */
 export async function createInvoice(req: Request, res: Response): Promise<void> {
   const parseResult = createInvoiceSchema.safeParse(req.body);
 
   if (!parseResult.success) {
-    res.status(400).json({ error: 'Validation failed', details: parseResult.error.errors });
+    res.status(400).json({ error: 'Invalid request body', details: parseResult.error.issues });
     return;
   }
 
   try {
-    const { amount, currency, description, metadata } = parseResult.data;
-    const id = crypto.randomUUID();
-    const number = `INV-${Date.now()}`;
-    const createdAt = new Date().toISOString();
-
+    const invoice = await createPendingInvoice(parseResult.data);
     res.status(201).json({
-      id,
-      number,
-      amount,
-      currency,
-      status: 'pending',
-      description: description ?? null,
-      metadata: metadata ?? null,
-      createdAt,
+      id: invoice.id,
+      number: 'INV-' + invoice.invoiceNumber,
+      amount: Number(invoice.amount),
+      currency: invoice.currency,
+      status: invoice.status.toLowerCase(),
+      customerEmail: invoice.customerEmail,
+      customerName: invoice.customerName,
+      createdAt: invoice.createdAt.toISOString(),
       paidAt: null,
     });
   } catch (error) {
