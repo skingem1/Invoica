@@ -700,5 +700,47 @@ Discovered critical missing modules during Week 16 prep:
 
 ---
 
+## 25. Week 16 — Supervisor Mock Endpoint Contradiction (7/9 + 2 manual)
+
+### Results: 7/9 Approved, 20 rejections, ~$3.51, 727.3s
+
+| Task | Score | Attempts | Result |
+|------|-------|----------|--------|
+| BE-140 (errors module) | 95 | 1 | ✅ |
+| BE-141 (logger) | 95 | 1 | ✅ |
+| BE-142 (invoices barrel) | 25 | 10 | ❌ → manual |
+| BE-143 (merchants) | 25 | 10 | ❌ → manual |
+| BE-144 (payments) | 85 | 1 | ✅ |
+| BE-145 (settlements ext) | 85 | 1 | ✅ |
+| FE-080 (frontend errors) | 100 | 1 | ✅ Perfect! |
+| FE-081 (spinner) | 95 | 1 | ✅ |
+| FE-082 (empty-state) | 95 | 1 | ✅ |
+
+### New Supervisor Bug: Mock Endpoint Contradiction
+
+BE-142 and BE-143 both failed 10/10 with the same pattern:
+- **Attempts 1-4**: "Code matches task spec but has critical issues: no validation, no error handling, no tests" → score 25
+- **Attempt 5**: MiniMax adds validation/error handling → "Overengineered! Task says 12 lines, you wrote 40+" → score 25
+- **Attempts 6-10**: Oscillates between both rejection reasons
+
+This is the **same contradiction from §18 (Week 10)** but now specifically targeting mock endpoints. The supervisor simultaneously demands production-quality code AND spec-adherence when the spec says "simple mock handler."
+
+### Why BE-144 (payments) Passed But BE-142/BE-143 Didn't
+
+BE-144 (payments) was identical in concept to BE-143 (merchants) — both mock handlers. The difference: BE-144 had simpler spec (2 functions vs 3) and MiniMax's output happened to hit the supervisor's "sweet spot" on the first try. The supervisor's scoring is **non-deterministic** for edge cases.
+
+### Prevention for Future Sprints
+1. **Pure barrel re-exports should have NO inline functions** — split updateInvoice into its own file
+2. **Mock handlers need explicit "this is intentionally simple" language** in task specs: "This is a MOCK endpoint for frontend development. Do NOT add validation, error handling, or database operations."
+3. **When supervisor contradicts itself on mock tasks, fix manually** — these tasks are too simple to warrant 10 retries
+
+### Sprint Stats Updated
+| Sprint | Approved | Rejected | Cost | Time | Notes |
+|--------|----------|----------|------|------|-------|
+| Week 15 | 9/9 | 0 | ~$1.30 | ~5 min | 4th perfect sprint |
+| Week 16 | 7/9+2 | 20 | ~$3.51 | ~12 min | Mock endpoint contradiction |
+
+---
+
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 15 API Client + SDK Types + Utilities complete*
+*Updated by: Claude — Week 16 Missing Imports resolved, all router.ts dependencies now exist*
