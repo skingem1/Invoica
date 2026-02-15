@@ -1,37 +1,43 @@
-export class AppError extends Error {
-  statusCode: number;
-  code: string;
-  isOperational: boolean;
+export class ApiError extends Error {
+  public readonly statusCode: number;
+  public readonly code: string;
+  public readonly details?: Record<string, unknown>;
 
-  constructor(message: string, statusCode: number, code: string) {
+  constructor(
+    message: string,
+    statusCode: number,
+    code: string,
+    details?: Record<string, unknown>
+  ) {
     super(message);
-    this.name = 'AppError';
+    this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.code = code;
-    this.isOperational = true;
-  }
-}
-
-export class ValidationError extends AppError {
-  details: unknown[];
-
-  constructor(message: string, details: unknown[]) {
-    super(message, 400, 'VALIDATION_ERROR');
-    this.name = 'ValidationError';
     this.details = details;
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 
-export class NotFoundError extends AppError {
-  constructor(resource: string) {
-    super(`${resource} not found`, 404, 'NOT_FOUND');
-    this.name = 'NotFoundError';
+export class ValidationError extends ApiError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 400, 'VALIDATION_ERROR', details);
   }
 }
 
-export class AuthenticationError extends AppError {
-  constructor(message?: string) {
-    super(message || 'Unauthorized', 401, 'UNAUTHORIZED');
-    this.name = 'AuthenticationError';
+export class NotFoundError extends ApiError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 404, 'NOT_FOUND', details);
+  }
+}
+
+export class AuthenticationError extends ApiError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 401, 'UNAUTHORIZED', details);
+  }
+}
+
+export class RateLimitError extends ApiError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 429, 'RATE_LIMIT_EXCEEDED', details);
   }
 }
