@@ -1,74 +1,83 @@
 import {
+  GetSettlementParams,
+  SettlementStatus,
+  WebhookEventType,
   Invoice,
-  CreateInvoiceParams,
-  InvoiceFilter,
-  Settlement,
-  ApiError,
-  WebhookEvent,
+  ApiResponse,
 } from '../src/types';
 
-describe('Countable SDK Types', () => {
-  it('Invoice has required properties', () => {
-    const invoice: Invoice = {
-      id: 'inv_123',
-      amount: 1000,
-      currency: 'USD',
-      status: 'paid',
-      createdAt: '2024-01-01T00:00:00Z',
-      paidAt: '2024-01-02T00:00:00Z',
-      metadata: { key: 'value' },
-    };
-    expect(invoice.id).toBe('inv_123');
-    expect(invoice.amount).toBe(1000);
-    expect(invoice.paidAt).toBeDefined();
+describe('SDK Types', () => {
+  describe('GetSettlementParams', () => {
+    it('should create valid params with invoiceId', () => {
+      const params: GetSettlementParams = { invoiceId: 'inv_123' };
+      expect(params.invoiceId).toBe('inv_123');
+    });
   });
 
-  it('CreateInvoiceParams supports optional fields', () => {
-    const minimal: CreateInvoiceParams = { amount: 500, currency: 'EUR' };
-    const full: CreateInvoiceParams = {
-      amount: 500,
-      currency: 'EUR',
-      description: 'Test',
-      metadata: { foo: 'bar' },
-    };
-    expect(minimal.description).toBeUndefined();
-    expect(full.metadata).toEqual({ foo: 'bar' });
+  describe('SettlementStatus', () => {
+    it('should accept all valid status values', () => {
+      const statuses: SettlementStatus['status'][] = ['pending', 'confirmed', 'failed'];
+      statuses.forEach((status) => {
+        const settlement: SettlementStatus = {
+          invoiceId: 'inv_123',
+          status,
+          txHash: status === 'pending' ? null : '0xabc',
+          chain: 'ethereum',
+          confirmedAt: status === 'confirmed' ? '2024-01-01' : null,
+          amount: 1000,
+          currency: 'USD',
+        };
+        expect(settlement.status).toBe(status);
+      });
+    });
+
+    it('should handle null txHash for pending', () => {
+      const settlement: SettlementStatus = {
+        invoiceId: 'inv_123',
+        status: 'pending',
+        txHash: null,
+        chain: 'polygon',
+        confirmedAt: null,
+        amount: 500,
+        currency: 'USD',
+      };
+      expect(settlement.txHash).toBeNull();
+      expect(settlement.confirmedAt).toBeNull();
+    });
   });
 
-  it('InvoiceFilter has optional pagination', () => {
-    const filter: InvoiceFilter = { status: 'pending', limit: 10, offset: 0 };
-    expect(filter.status).toBe('pending');
-    expect(filter.limit).toBe(10);
+  describe('WebhookEventType', () => {
+    it('should accept all valid event types', () => {
+      const eventTypes: WebhookEventType[] = [
+        'invoice.created',
+        'invoice.paid',
+        'invoice.settled',
+        'invoice.failed',
+        'settlement.confirmed',
+        'settlement.failed',
+      ];
+      eventTypes.forEach((type) => expect(type).toBeDefined());
+    });
   });
 
-  it('Settlement has correct structure', () => {
-    const settlement: Settlement = {
-      id: 'set_456',
-      invoiceId: 'inv_123',
-      txHash: '0xabc',
-      chain: 'ethereum',
-      amount: 1000,
-      confirmedAt: null,
-    };
-    expect(settlement.confirmedAt).toBeNull();
-  });
+  describe('ApiResponse', () => {
+    it('should create successful response', () => {
+      const response: ApiResponse<Invoice> = {
+        data: { id: '1', number: 'INV-001', amount: 100, currency: 'USD', status: 'pending', createdAt: '', updatedAt: '' },
+        success: true,
+      };
+      expect(response.success).toBe(true);
+      expect(response.error).toBeUndefined();
+    });
 
-  it('ApiError has required error properties', () => {
-    const error: ApiError = {
-      code: 'INVALID_AMOUNT',
-      message: 'Amount must be positive',
-      statusCode: 400,
-    };
-    expect(error.statusCode).toBe(400);
-  });
-
-  it('WebhookEvent data is unknown type', () => {
-    const event: WebhookEvent = {
-      id: 'evt_789',
-      type: 'invoice.created',
-      data: { invoiceId: 'inv_123' },
-      createdAt: '2024-01-01T00:00:00Z',
-    };
-    expect(event.data).toBeDefined();
+    it('should include error on failure', () => {
+      const response: ApiResponse<Invoice> = {
+        data: {} as Invoice,
+        success: false,
+        error: 'Not found',
+      };
+      expect(response.success).toBe(false);
+      expect(response.error).toBe('Not found');
+    });
   });
 });

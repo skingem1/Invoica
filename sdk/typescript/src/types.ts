@@ -1,48 +1,41 @@
 /**
- * Countable TypeScript SDK - Type Definitions
+ * Countable SDK Type Definitions
  */
+
+export interface GetSettlementParams {
+  invoiceId: string;
+}
+
+export interface SettlementStatus {
+  invoiceId: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  txHash: string | null;
+  chain: string;
+  confirmedAt: string | null;
+  amount: number;
+  currency: string;
+}
+
+export type WebhookEventType =
+  | 'invoice.created'
+  | 'invoice.paid'
+  | 'invoice.settled'
+  | 'invoice.failed'
+  | 'settlement.confirmed'
+  | 'settlement.failed';
 
 export interface Invoice {
   id: string;
+  number: string;
   amount: number;
   currency: string;
-  status: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   createdAt: string;
-  paidAt: string | null;
-  metadata: Record<string, string>;
+  updatedAt: string;
 }
 
-export interface CreateInvoiceParams {
-  amount: number;
-  currency: string;
-  description?: string;
-  metadata?: Record<string, string>;
-}
-
-export interface InvoiceFilter {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface Settlement {
-  id: string;
-  invoiceId: string;
-  txHash: string;
-  chain: string;
-  amount: number;
-  confirmedAt: string | null;
-}
-
-export interface ApiError {
-  code: string;
-  message: string;
-  statusCode: number;
-}
-
-export interface WebhookEvent {
-  id: string;
-  type: string;
-  data: unknown;
-  createdAt: string;
+export interface ApiResponse<T> {
+  data: T;
+  success: boolean;
+  error?: string;
 }
