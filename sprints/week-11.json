@@ -1,0 +1,343 @@
+{
+  "tasks": [
+    {
+      "id": "BE-090",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "context": "Add a dashboard stats endpoint at backend/src/api/dashboard-stats.ts. Import { prisma } from '../db/client'. Create a handler that queries real invoice data: const [total, pending, settled, revenue] = await Promise.all([ prisma.invoice.count(), prisma.invoice.count({ where: { status: 'PENDING' } }), prisma.invoice.count({ where: { status: { in: ['SETTLED', 'COMPLETED'] } } }), prisma.invoice.aggregate({ where: { status: { in: ['SETTLED', 'COMPLETED'] } }, _sum: { amount: true } }) ]). Return JSON: { totalInvoices: total, pending, settled, revenue: Number(revenue._sum.amount ?? 0) }. Wrap in try/catch, return 500 on error. Keep under 30 lines. Export async function getDashboardStats(req: Request, res: Response): Promise<void>.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/dashboard-stats.ts"
+        ],
+        "tests": [
+          "backend/tests/api/dashboard-stats.test.ts"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "backend/src/api/dashboard-stats.ts",
+          "backend/tests/api/dashboard-stats.test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 95,
+          "summary": "Excellent implementation that precisely follows the task specification. Clean, concise code with comprehensive test coverage and proper error handling.",
+          "issues": [],
+          "strengths": [
+            "Exact implementation matches the task spec requirements - correct imports, query structure, and response format",
+            "Proper error handling with try/catch and 500 status code as requested",
+            "Code is well under the 30-line limit (only 12 lines of actual code)",
+            "Comprehensive test coverage including happy path, error handling, and edge case (null revenue)",
+            "Clean TypeScript with proper types and no 'any' usage",
+            "Efficient use of Promise.all for concurrent database queries",
+            "Proper handling of null revenue case with nullish coalescing operator",
+            "Good test structure with proper mocking and assertions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "BE-091",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "context": "Add a recent activity endpoint at backend/src/api/recent-activity.ts. Import { prisma } from '../db/client'. Query the 10 most recent invoices: const invoices = await prisma.invoice.findMany({ take: 10, orderBy: { createdAt: 'desc' }, select: { id: true, invoiceNumber: true, status: true, amount: true, currency: true, customerName: true, createdAt: true, settledAt: true } }). Map each to: { id: invoice.id, type: invoice.status === 'SETTLED' || invoice.status === 'COMPLETED' ? 'payment' : 'invoice', title: invoice.status === 'SETTLED' ? 'Payment Received' : 'Invoice #INV-' + invoice.invoiceNumber, description: invoice.customerName + ' — ' + invoice.currency + ' ' + Number(invoice.amount), timestamp: invoice.createdAt.toISOString(), status: invoice.status === 'SETTLED' || invoice.status === 'COMPLETED' ? 'success' : invoice.status === 'PENDING' ? 'pending' : 'failed' }. Return as JSON array. Try/catch with 500. Keep under 35 lines. Export async function getRecentActivity(req: Request, res: Response): Promise<void>.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/recent-activity.ts"
+        ],
+        "tests": [
+          "backend/tests/api/recent-activity.test.ts"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "backend/src/api/recent-activity.ts",
+          "backend/tests/api/recent-activity.test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 95,
+          "summary": "Excellent implementation that precisely follows the task specification. Clean code with proper error handling and comprehensive tests.",
+          "issues": [],
+          "strengths": [
+            "Exact implementation of the specified Prisma query with correct take, orderBy, and select fields",
+            "Perfect mapping logic that matches the task specification exactly, including status-based type/title/status determination",
+            "Proper error handling with try/catch and 500 status response",
+            "Code is well under the 35-line limit (32 lines including comments)",
+            "Comprehensive test coverage including SETTLED, PENDING, empty result, and error scenarios",
+            "Clean TypeScript with proper types and no 'any' usage",
+            "Follows the exact function signature specified in the task",
+            "Good use of template literals and proper JSON response format"
+          ]
+        }
+      }
+    },
+    {
+      "id": "BE-092",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Update the API router at backend/src/api/router.ts to add the two new dashboard endpoints. Import { getDashboardStats } from './dashboard-stats' and { getRecentActivity } from './recent-activity'. Add two new routes BEFORE the existing routes: router.get('/v1/dashboard/stats', getDashboardStats); router.get('/v1/dashboard/activity', getRecentActivity);. Do NOT remove or change any existing routes. The existing file already imports and uses: health, invoices-list, invoices-get, invoices-create, settlements, webhooks-register, webhooks-get. Keep the same pattern. The file should stay under 30 lines. Just add the 2 new imports and 2 new router.get() lines.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/router.ts"
+        ],
+        "tests": [
+          "backend/tests/api/router.test.ts"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "backend/src/api/router.ts",
+          "backend/tests/api/router.test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 95,
+          "summary": "Excellent implementation that precisely follows the task specification. Clean code with proper imports, correct route ordering, and comprehensive tests.",
+          "issues": [],
+          "strengths": [
+            "Exact adherence to task spec - added 2 imports and 2 routes as requested",
+            "Correct route ordering - new dashboard routes placed BEFORE existing routes",
+            "All existing routes preserved without modification",
+            "File stays well under 30-line limit (20 lines total)",
+            "Comprehensive test coverage for both new routes and existing functionality",
+            "Proper mocking strategy in tests with clear separation of concerns",
+            "Clean TypeScript with proper imports and exports",
+            "Follows established project patterns consistently"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FE-030",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Extend the frontend API client at frontend/lib/api-client.ts. Add these new functions and types AFTER the existing fetchInvoiceById function. Do NOT modify any existing code — only ADD new exports at the end of the file. Add: 1) export interface DashboardStats { totalInvoices: number; pending: number; settled: number; revenue: number; }. 2) export interface RecentActivityItem { id: string; type: 'invoice' | 'payment'; title: string; description: string; timestamp: string; status: 'success' | 'pending' | 'failed'; }. 3) export async function fetchDashboardStats(): Promise<DashboardStats> { return apiGet<DashboardStats>('/v1/dashboard/stats'); }. 4) export async function fetchRecentActivity(): Promise<RecentActivityItem[]> { return apiGet<RecentActivityItem[]>('/v1/dashboard/activity'); }. 5) export async function fetchSettlement(invoiceId: string): Promise<{ invoiceId: string; status: string; txHash: string | null; chain: string; confirmedAt: string | null; amount: number; currency: string }> { return apiGet('/v1/settlements/' + invoiceId); }. Keep the additions under 30 lines. Do NOT rewrite or modify the existing functions (apiGet, apiPost, fetchInvoices, fetchInvoiceById).",
+      "deliverables": {
+        "code": [
+          "frontend/lib/api-client.ts"
+        ],
+        "tests": [
+          "frontend/tests/lib/api-client.test.ts"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "frontend/lib/api-client.ts",
+          "frontend/tests/lib/api-client.test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 92,
+          "summary": "Excellent implementation that precisely follows task requirements. All new functions and types added correctly after existing code without modifications. Clean TypeScript with proper error handling and comprehensive tests.",
+          "issues": [
+            {
+              "severity": "low",
+              "file": "frontend/lib/api-client.ts",
+              "description": "fetchSettlement uses string concatenation instead of template literal for URL construction (minor style inconsistency)"
+            }
+          ],
+          "strengths": [
+            "Perfect adherence to task spec - added exactly what was requested without modifying existing code",
+            "All 5 required exports implemented correctly with proper TypeScript types",
+            "Proper use of existing apiGet function for consistency",
+            "Comprehensive test coverage for all new functions including error cases",
+            "Clean type definitions with proper union types for status fields",
+            "Error handling preserved from existing pattern",
+            "Under 30 lines as requested (approximately 25 lines of additions)",
+            "Tests use proper mocking and cover both success and failure scenarios"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FE-031",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "context": "Replace the mock data in the dashboard page at frontend/app/page.tsx with real API calls. This is a COMPLETE REWRITE of the file. Use 'use client' directive. Import { useState, useEffect } from 'react'. Import { fetchDashboardStats, fetchRecentActivity, DashboardStats, RecentActivityItem } from '@/lib/api-client'. Import Link from 'next/link'. Import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react'. Use useState for stats (DashboardStats | null), activity (RecentActivityItem[]), and loading (boolean). Use useEffect to call both fetch functions on mount. Show a loading state while loading. Render 4 stat cards in a grid: Total Invoices (stats.totalInvoices), Pending (stats.pending), Settled (stats.settled), Revenue ('$' + stats.revenue.toLocaleString()). Use icons: FileText for total, Clock for pending, CheckCircle2 for settled, XCircle for overdue. Below the stats grid, render a 'Recent Activity' section with the activity items as a list showing title, description, timestamp, and a colored dot for status (green=success, amber=pending, red=failed). Use Tailwind CSS: bg-white rounded-xl shadow-sm p-6 for cards, grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 for the stats grid. Keep under 80 lines. Export default function DashboardPage().",
+      "deliverables": {
+        "code": [
+          "frontend/app/page.tsx"
+        ],
+        "tests": [
+          "frontend/tests/app/dashboard-page.test.tsx"
+        ]
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "frontend/app/page.tsx",
+          "frontend/tests/app/dashboard-page.test.tsx"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 75,
+          "summary": "Code is well-structured and mostly follows requirements, but has critical issues: incomplete activity rendering, incorrect grid layout (5 columns instead of 4), and adds overdue card not specified in requirements.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "frontend/app/page.tsx",
+              "description": "Activity item rendering is incomplete - the JSX is cut off mid-element and doesn't show title, description, timestamp, or status dot as required"
+            },
+            {
+              "severity": "high",
+              "file": "frontend/app/page.tsx",
+              "description": "Grid uses lg:grid-cols-5 instead of lg:grid-cols-4 as specified, and adds an 'Overdue' card with XCircle icon that wasn't requested"
+            },
+            {
+              "severity": "medium",
+              "file": "frontend/app/page.tsx",
+              "description": "Uses DollarSign icon for revenue instead of the specified icons (FileText for total, Clock for pending, CheckCircle2 for settled, XCircle for overdue)"
+            },
+            {
+              "severity": "low",
+              "file": "frontend/app/page.tsx",
+              "description": "File exceeds the 80-line limit specified in requirements"
+            }
+          ],
+          "strengths": [
+            "Correct use of 'use client' directive and proper imports",
+            "Good TypeScript typing with proper state management",
+            "Proper error handling with try/catch in Promise.all",
+            "Loading state implementation as requested",
+            "Correct Tailwind CSS classes for cards and styling",
+            "Comprehensive test coverage including edge cases",
+            "Good accessibility with proper semantic HTML structure"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FE-032",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a settlement status component at frontend/components/settlements/settlement-badge.tsx. This is a simple status badge component. Import React. Create interface SettlementBadgeProps { status: string; txHash?: string | null; chain?: string; confirmedAt?: string | null; }. The component renders: 1) A colored badge showing the status text: 'confirmed' → green bg (bg-emerald-100 text-emerald-700), 'pending' → amber bg (bg-amber-100 text-amber-700), anything else → gray bg. 2) If txHash is provided, show a truncated hash below the badge: txHash.slice(0, 6) + '...' + txHash.slice(-4) with text-xs text-gray-500. 3) If confirmedAt is provided, show the date: new Date(confirmedAt).toLocaleDateString() with text-xs text-gray-400. Use Tailwind CSS. Keep under 30 lines. Export function SettlementBadge({ status, txHash, chain, confirmedAt }: SettlementBadgeProps).",
+      "deliverables": {
+        "code": [
+          "frontend/components/settlements/settlement-badge.tsx"
+        ],
+        "tests": [
+          "frontend/tests/components/settlement-badge.test.tsx"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "frontend/components/settlements/settlement-badge.tsx",
+          "frontend/tests/components/settlement-badge.test.tsx"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 95,
+          "summary": "Excellent implementation that meets all requirements with clean code and comprehensive tests",
+          "issues": [
+            {
+              "severity": "low",
+              "file": "frontend/components/settlements/settlement-badge.tsx",
+              "description": "Chain parameter is accepted but not used - could be removed from interface or utilized"
+            }
+          ],
+          "strengths": [
+            "Perfect adherence to task specifications - all requirements implemented exactly as requested",
+            "Clean, readable TypeScript with proper interface definition",
+            "Correct Tailwind CSS classes for all status variants (confirmed=green, pending=amber, other=gray)",
+            "Proper conditional rendering for optional txHash and confirmedAt fields",
+            "Correct hash truncation logic (first 6 + last 4 characters)",
+            "Appropriate date formatting using toLocaleDateString()",
+            "Component stays well under 30-line limit (19 lines)",
+            "Comprehensive test coverage with all scenarios tested",
+            "Tests verify both styling classes and content rendering",
+            "Good test structure with descriptive test names",
+            "Proper import paths and React testing library usage"
+          ]
+        }
+      }
+    },
+    {
+      "id": "FE-033",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a settlements page at frontend/app/settlements/page.tsx. Use 'use client' directive. Import { useState, useEffect } from 'react'. Import { fetchInvoices, InvoiceListResponse } from '@/lib/api-client'. Import { fetchSettlement } from '@/lib/api-client'. Import { SettlementBadge } from '@/components/settlements/settlement-badge'. Import Link from 'next/link'. The page loads invoices on mount, then for each invoice with status 'settled' or 'completed', fetches settlement details. Use useState for invoices (array), settlements (Map<string, any>), and loading. Render a table with columns: Invoice #, Amount, Status, Settlement Status, Tx Hash, Confirmed. Each row shows the invoice data and the settlement badge component. Include a back link to dashboard. Use Tailwind: white card, rounded shadow, table with hover rows. Keep under 75 lines. Export default function SettlementsPage().",
+      "deliverables": {
+        "code": [
+          "frontend/app/settlements/page.tsx"
+        ],
+        "tests": [
+          "frontend/tests/app/settlements-page.test.tsx"
+        ]
+      },
+      "status": "done",
+      "output": {
+        "files": [
+          "frontend/app/settlements/page.tsx",
+          "frontend/tests/app/settlements-page.test.tsx"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 88,
+          "summary": "Well-implemented settlements page that meets all task requirements with good error handling, proper TypeScript types, and comprehensive tests. Minor issues with import organization and missing Next.js mocking.",
+          "issues": [
+            {
+              "severity": "low",
+              "file": "frontend/app/settlements/page.tsx",
+              "description": "Import statement combines fetchInvoices and fetchSettlement on same line as InvoiceListResponse type - could be split for better readability"
+            },
+            {
+              "severity": "low",
+              "file": "frontend/tests/app/settlements-page.test.tsx",
+              "description": "Missing jest.mock('next/link') which may cause test warnings in some environments"
+            },
+            {
+              "severity": "medium",
+              "file": "frontend/app/settlements/page.tsx",
+              "description": "Uses Map<string, any> in task spec but implements with array - though the array approach is actually better for this use case"
+            }
+          ],
+          "strengths": [
+            "Follows all task requirements exactly - correct imports, 'use client' directive, proper component structure",
+            "Excellent error handling with try/catch blocks and graceful fallbacks",
+            "Clean TypeScript implementation with proper interfaces and type safety",
+            "Efficient data loading - filters invoices before fetching settlements to avoid unnecessary API calls",
+            "Comprehensive test coverage including loading states, filtering logic, and error scenarios",
+            "Good UX with loading state, empty state handling, and hover effects",
+            "Proper Tailwind styling matching requirements - white card, rounded shadow, hover rows",
+            "Stays well under 75 line limit at ~70 lines",
+            "Handles edge cases like missing invoice numbers and settlement data gracefully"
+          ]
+        }
+      }
+    }
+  ]
+}

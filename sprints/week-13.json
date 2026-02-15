@@ -1,0 +1,124 @@
+{
+  "sprint": "week-13",
+  "theme": "Developer SDK & Documentation Foundation",
+  "start_date": "2026-02-15",
+  "tasks": [
+    {
+      "id": "SDK-060",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "context": "Build the Invoica TypeScript SDK client class that wraps all API endpoints. Create a new file at sdk/src/client.ts. The InvoicaClient class should: (1) Accept config {apiKey, baseUrl?, timeout?} in constructor. (2) Have methods: createInvoice(params), getInvoice(id), listInvoices(filters?), createSettlement(params), getSettlement(id), listSettlements(filters?), createApiKey(name), revokeApiKey(id), listApiKeys(), registerWebhook(url, events, secret), listWebhooks(), deleteWebhook(id). (3) Each method returns a typed Promise<T> using interfaces defined in sdk/src/types.ts. (4) Use fetch() internally with proper headers (Authorization: Bearer {apiKey}, Content-Type: application/json). (5) Handle errors with InvoicaApiError class (statusCode, message, requestId). (6) Export everything from sdk/src/index.ts. Keep it simple — no external dependencies.",
+      "deliverables": {
+        "code": [
+          "sdk/src/types.ts",
+          "sdk/src/client.ts",
+          "sdk/src/index.ts"
+        ],
+        "tests": [
+          "sdk/src/__tests__/client.test.ts"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SDK-061",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["SDK-060"],
+      "context": "Build the Invoica SDK authentication module at sdk/src/auth.ts. This module handles API key validation and request signing. (1) createAuthHeaders(apiKey): returns {Authorization, X-Request-Id, X-Timestamp} headers. (2) validateApiKey(key): validates format (must start with 'inv_' followed by 32 hex chars), returns boolean. (3) signRequest(apiKey, method, path, body?): creates HMAC-SHA256 signature for request integrity. Returns X-Signature header value. (4) ApiKeyError class extending InvoicaApiError for auth-specific failures. (5) Export all from the auth module. No external crypto dependencies — use Node.js built-in crypto module.",
+      "deliverables": {
+        "code": [
+          "sdk/src/auth.ts"
+        ],
+        "tests": [
+          "sdk/src/__tests__/auth.test.ts"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SDK-062",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["SDK-060"],
+      "context": "Build the Invoica SDK webhook verification helper at sdk/src/webhooks.ts. This module helps SDK consumers verify webhook signatures and parse events. (1) verifyWebhookSignature(payload: string, signature: string, secret: string): boolean — verifies HMAC-SHA256 signature. (2) parseWebhookEvent(payload: string): WebhookEvent — parses JSON payload into typed WebhookEvent object. (3) WebhookEvent type with fields: id, type (invoice.created | invoice.paid | settlement.completed | settlement.failed | apikey.revoked), data (generic object), timestamp, signature. (4) WebhookVerificationError class for invalid signatures. (5) constructEvent(payload, signature, secret): combined verify+parse convenience method that throws if signature invalid. Uses Node.js built-in crypto only.",
+      "deliverables": {
+        "code": [
+          "sdk/src/webhooks.ts"
+        ],
+        "tests": [
+          "sdk/src/__tests__/webhooks.test.ts"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FE-050",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "context": "Create a developer Getting Started page at frontend/app/docs/getting-started/page.tsx. This is a single React component (use client) that shows developers how to integrate Invoica SDK. Sections: (1) Install section with npm install command in a code block. (2) Quick Start with 3 code samples: initialize client, create invoice, verify webhook. (3) Authentication section explaining API key format and where to get keys (link to /api-keys). Use Tailwind CSS for styling. Keep the component under 80 lines — use simple <pre><code> blocks for code samples, no syntax highlighting library needed. Static content only, no API calls.",
+      "deliverables": {
+        "code": [
+          "frontend/app/docs/getting-started/page.tsx"
+        ],
+        "tests": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FE-051",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create an interactive API Explorer component at frontend/components/api-explorer.tsx. This is a single React component (use client) with useState. Features: (1) A dropdown to select an API endpoint from a hardcoded list: POST /v1/invoices, GET /v1/invoices/:id, POST /v1/settlements, GET /v1/health. (2) When an endpoint is selected, show a sample request body (JSON in a <pre> block) and a sample response (JSON in a <pre> block). (3) A 'Try It' button that shows an alert saying 'Connect your API key in Settings to try live requests'. Keep it under 75 lines. Use Tailwind CSS. Hardcoded sample data only — no actual API calls. Do NOT import any external libraries.",
+      "deliverables": {
+        "code": [
+          "frontend/components/api-explorer.tsx"
+        ],
+        "tests": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BE-110",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a health check and status endpoint at backend/src/routes/health.ts. This Express router provides: (1) GET /v1/health — returns JSON {status: 'ok', version: string (from package.json), uptime: number (process.uptime()), timestamp: string (ISO date), services: {database: 'ok'|'error', redis: 'ok'|'error'|'not_configured'}}. (2) Try to ping the database using Prisma.$queryRaw`SELECT 1` wrapped in try/catch. (3) Try Redis ping if REDIS_URL is set (skip with 'not_configured' if not). (4) Return HTTP 200 if core services ok, HTTP 503 if database is down. (5) Export the router. Keep it simple — no external health check libraries.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/health.test.ts"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "BE-111",
+      "agent": "security",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "context": "Create a rate limiting middleware at backend/src/middleware/rate-limiter.ts. This Express middleware provides per-API-key rate limiting. (1) Uses an in-memory Map to store request counts per API key (no Redis dependency). (2) Config: windowMs (default 60000 = 1 min), maxRequests (default 100). (3) Extracts API key from Authorization header (Bearer token) or x-api-key header. (4) If no API key found, uses IP address as fallback key. (5) Returns 429 Too Many Requests with JSON body {error: 'rate_limit_exceeded', retryAfter: number} when limit hit. (6) Adds X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset headers to every response. (7) Exports createRateLimiter(config?) factory function. (8) Cleanup: clear expired entries every 5 minutes with setInterval.",
+      "deliverables": {
+        "code": [
+          "backend/src/middleware/rate-limiter.ts"
+        ],
+        "tests": [
+          "backend/src/middleware/__tests__/rate-limiter.test.ts"
+        ]
+      },
+      "status": "pending"
+    }
+  ]
+}

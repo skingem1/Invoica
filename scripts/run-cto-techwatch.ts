@@ -1,0 +1,659 @@
+#!/usr/bin/env ts-node
+
+/**
+ * Invoica CTO Tech Watch Runner
+ *
+ * Standalone script that runs CTO intelligence gathering OUTSIDE of sprints.
+ * Monitors OpenClaw GitHub, ClawHub skills, and project learnings/bug patterns.
+ * Uses MiniMax M2.5 for analysis (same as CTO in orchestrator).
+ *
+ * Usage:
+ *   npx ts-node scripts/run-cto-techwatch.ts <watch-type> [additional-context]
+ *
+ * Watch types:
+ *   openclaw-watch         - Check OpenClaw GitHub for new releases, features, updates
+ *   clawhub-scan           - Scan ClawHub for relevant skills and MCP servers
+ *   learnings-review       - Analyze docs/learnings.md for patterns, propose improvements
+ *   verify-implementations - Check CEO-approved proposals were properly implemented
+ *   full-scan              - Run all four watches and produce a combined report
+ *
+ * Data Sources:
+ *   - OpenClaw GitHub releases API
+ *   - npm registry (openclaw package)
+ *   - docs/learnings.md (project learnings)
+ *   - reports/grok-feed/ (Grok AI X/Twitter intelligence on OpenClaw ecosystem)
+ *   - reports/cto/ceo-feedback/ (CEO decisions on previous proposals)
+ *   - reports/cto/approved-proposals.json (implementation tracking)
+ *
+ * Schedule: Daily 10AM CET via PM2 cron (ecosystem.config.js)
+ */
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { join } from 'path';
+import * as https from 'https';
+import * as http from 'http';
+import 'dotenv/config';
+
+// ===== Types =====
+
+type WatchType = 'openclaw-watch' | 'clawhub-scan' | 'learnings-review' | 'verify-implementations' | 'full-scan';
+
+const VALID_WATCHES: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations', 'full-scan'];
+
+interface LLMResponse {
+  choices: Array<{ message: { content: string } }>;
+  usage?: { total_tokens: number };
+  base_resp?: { status_code: number; status_msg: string };
+}
+
+interface TechWatchReport {
+  watchType: WatchType;
+  date: string;
+  findings: string;
+  recommendations: string[];
+  tokensUsed: number;
+  durationMs: number;
+}
+
+// ===== Colors =====
+
+const c = {
+  reset: '\x1b[0m', bold: '\x1b[1m',
+  red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
+  blue: '\x1b[34m', magenta: '\x1b[35m', cyan: '\x1b[36m', gray: '\x1b[90m',
+};
+
+function log(color: string, msg: string) {
+  console.log(color + msg + c.reset);
+}
+
+// ===== HTTP Helpers =====
+
+function httpPost(url: string, headers: Record<string, string>, body: string, timeoutMs: number = 300000): Promise<any> {
+  const parsed = new URL(url);
+  const isHttps = parsed.protocol === 'https:';
+  const lib = isHttps ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = lib.request({
+      hostname: parsed.hostname, port: parsed.port || (isHttps ? 443 : undefined),
+      path: parsed.pathname, method: 'POST',
+      headers: { ...headers, 'Content-Length': Buffer.byteLength(body).toString() },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk: string) => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error('Failed to parse LLM response: ' + data.substring(0, 500))); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('LLM request timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
+function httpGet(url: string, headers: Record<string, string> = {}, timeoutMs: number = 30000): Promise<any> {
+  const parsed = new URL(url);
+  const isHttps = parsed.protocol === 'https:';
+  const lib = isHttps ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = lib.request({
+      hostname: parsed.hostname, port: parsed.port || (isHttps ? 443 : undefined),
+      path: parsed.pathname + parsed.search, method: 'GET',
+      headers: { ...headers, 'User-Agent': 'Invoica-CTO-TechWatch/1.0' },
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk: string) => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve({ raw: data }); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('HTTP GET timeout: ' + url)); });
+    req.end();
+  });
+}
+
+async function callMiniMax(systemPrompt: string, userPrompt: string): Promise<LLMResponse> {
+  const apiKey = process.env.MINIMAX_API_KEY || '';
+  if (!apiKey) throw new Error('MINIMAX_API_KEY not set in .env');
+  const body = JSON.stringify({
+    model: 'MiniMax-M2.5',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 8000,
+  });
+  return httpPost('https://api.minimax.io/v1/chat/completions', {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + apiKey,
+  }, body, 120000);
+}
+
+// ===== Data Collectors =====
+
+class DataCollector {
+  private projectRoot: string;
+
+  constructor(projectRoot: string) {
+    this.projectRoot = projectRoot;
+  }
+
+  /** Read docs/learnings.md */
+  getLearnings(): string {
+    const path = join(this.projectRoot, 'docs/learnings.md');
+    if (!existsSync(path)) return '(no learnings file found)';
+    return readFileSync(path, 'utf-8');
+  }
+
+  /** Read the current OpenClaw version from package.json or system */
+  getCurrentOpenClawVersion(): string {
+    try {
+      const pkgPath = join(this.projectRoot, 'package.json');
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        if (pkg.dependencies?.openclaw) return pkg.dependencies.openclaw;
+      }
+    } catch { /* ignore */ }
+    return 'v2026.2.12'; // known from MEMORY.md
+  }
+
+  /** Get recent sprint results */
+  getSprintResults(): string {
+    const sprintsDir = join(this.projectRoot, 'sprints');
+    if (!existsSync(sprintsDir)) return '(no sprints directory)';
+    const files = readdirSync(sprintsDir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 3);
+    const sections: string[] = [];
+    for (const file of files) {
+      try {
+        const content = JSON.parse(readFileSync(join(sprintsDir, file), 'utf-8'));
+        const tasks = content.tasks || [];
+        const approved = tasks.filter((t: any) => t.status === 'approved').length;
+        const failed = tasks.filter((t: any) => t.status === 'failed').length;
+        sections.push(`**${file}**: ${approved}/${tasks.length} approved, ${failed} failed`);
+        // Include failed task details
+        for (const t of tasks.filter((t: any) => t.status === 'failed')) {
+          sections.push(`  - FAILED: ${t.id} — ${t.title} (${t.attempts || '?'} attempts)`);
+        }
+      } catch { sections.push(`**${file}**: (could not parse)`); }
+    }
+    return sections.join('\n');
+  }
+
+  /** List all agents */
+  getAgentList(): string {
+    const agentsDir = join(this.projectRoot, 'agents');
+    if (!existsSync(agentsDir)) return '(no agents directory)';
+    const dirs = readdirSync(agentsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+    const agents: string[] = [];
+    for (const dir of dirs) {
+      const yamlPath = join(agentsDir, dir.name, 'agent.yaml');
+      if (existsSync(yamlPath)) {
+        const content = readFileSync(yamlPath, 'utf-8');
+        const roleMatch = content.match(/role:\s*(.+)/);
+        const llmMatch = content.match(/llm:\s*(.+)/);
+        agents.push(`- **${dir.name}**: ${roleMatch?.[1] || 'unknown'} (${llmMatch?.[1] || 'unknown'})`);
+      }
+    }
+    return agents.join('\n');
+  }
+
+  /** Get recent daily reports */
+  getRecentDailyReports(count: number = 3): string {
+    const reportsDir = join(this.projectRoot, 'reports/daily');
+    if (!existsSync(reportsDir)) return '(no daily reports)';
+    const files = readdirSync(reportsDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, count);
+    const sections: string[] = [];
+    for (const file of files) {
+      const content = readFileSync(join(reportsDir, file), 'utf-8');
+      // Just include first 500 chars of each report
+      sections.push(`### ${file}\n${content.substring(0, 500)}...`);
+    }
+    return sections.join('\n\n');
+  }
+
+  /** Get existing CTO reports for context */
+  getRecentCTOReports(count: number = 3): string {
+    const reportsDir = join(this.projectRoot, 'reports/cto');
+    if (!existsSync(reportsDir)) return '(no previous CTO reports)';
+    const files = readdirSync(reportsDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, count);
+    if (files.length === 0) return '(no previous CTO reports)';
+    const sections: string[] = [];
+    for (const file of files) {
+      const content = readFileSync(join(reportsDir, file), 'utf-8');
+      sections.push(`### ${file}\n${content.substring(0, 800)}`);
+    }
+    return sections.join('\n\n');
+  }
+
+  /** Read Grok intelligence feed from reports/grok-feed/ */
+  getGrokFeed(count: number = 5): string {
+    const feedDir = join(this.projectRoot, 'reports/grok-feed');
+    if (!existsSync(feedDir)) return '(no Grok feed directory)';
+    const files = readdirSync(feedDir)
+      .filter(f => f.endsWith('.md') && f !== '.gitkeep')
+      .sort()
+      .reverse()
+      .slice(0, count);
+    if (files.length === 0) return '(no Grok reports available yet — user drops them into reports/grok-feed/)';
+    const sections: string[] = [];
+    let totalChars = 0;
+    for (const file of files) {
+      const content = readFileSync(join(feedDir, file), 'utf-8');
+      if (totalChars + content.length > 3000) {
+        sections.push(`### ${file}\n${content.substring(0, 3000 - totalChars)}... (truncated)`);
+        break;
+      }
+      sections.push(`### ${file}\n${content}`);
+      totalChars += content.length;
+    }
+    return sections.join('\n\n');
+  }
+
+  /** Read CEO feedback on previous CTO proposals */
+  getCEOFeedback(count: number = 3): string {
+    const feedbackDir = join(this.projectRoot, 'reports/cto/ceo-feedback');
+    if (!existsSync(feedbackDir)) return '(no CEO feedback yet)';
+    const files = readdirSync(feedbackDir)
+      .filter(f => f.endsWith('.json'))
+      .sort()
+      .reverse()
+      .slice(0, count);
+    if (files.length === 0) return '(no CEO feedback yet)';
+    const sections: string[] = [];
+    for (const file of files) {
+      try {
+        const content = readFileSync(join(feedbackDir, file), 'utf-8');
+        const feedback = JSON.parse(content);
+        const decisions = Array.isArray(feedback) ? feedback : (feedback.decisions || [feedback]);
+        for (const d of decisions) {
+          sections.push(`- **${d.proposal_id || 'unknown'}**: ${d.decision || 'unknown'} — ${d.reasoning || 'no reasoning'}`);
+        }
+      } catch { sections.push(`- ${file}: (could not parse)`); }
+    }
+    return sections.join('\n');
+  }
+
+  /** Read approved proposals tracker */
+  getApprovedProposals(): string {
+    const trackerPath = join(this.projectRoot, 'reports/cto/approved-proposals.json');
+    if (!existsSync(trackerPath)) return '(no approved proposals tracker)';
+    try {
+      const content = JSON.parse(readFileSync(trackerPath, 'utf-8'));
+      const proposals = content.proposals || [];
+      if (proposals.length === 0) return '(no approved proposals yet)';
+      return proposals.map((p: any) =>
+        `- **${p.id}**: ${p.title} — status: ${p.implementation_status || 'unknown'}${p.verification_notes ? ' (' + p.verification_notes + ')' : ''}`
+      ).join('\n');
+    } catch { return '(could not parse approved-proposals.json)'; }
+  }
+
+  /** Fetch OpenClaw GitHub releases */
+  async fetchOpenClawReleases(): Promise<string> {
+    try {
+      log(c.gray, '  Fetching OpenClaw GitHub releases...');
+      const data = await httpGet(
+        'https://api.github.com/repos/openclaw/openclaw/releases?per_page=5',
+        { Accept: 'application/vnd.github.v3+json' }
+      );
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((r: any) => `- **${r.tag_name}** (${r.published_at?.split('T')[0] || 'unknown'}): ${(r.body || 'No release notes').substring(0, 300)}`).join('\n');
+      }
+      if (data.message) return '(GitHub API: ' + data.message + ')';
+      return '(no releases found or API unavailable)';
+    } catch (err: any) {
+      log(c.yellow, '  ! GitHub API error: ' + err.message);
+      return '(GitHub API unavailable: ' + err.message + ')';
+    }
+  }
+
+  /** Fetch OpenClaw npm package info */
+  async fetchOpenClawNpmInfo(): Promise<string> {
+    try {
+      log(c.gray, '  Fetching OpenClaw npm package info...');
+      const data = await httpGet('https://registry.npmjs.org/openclaw/latest');
+      if (data.version) {
+        return `Latest npm version: ${data.version}\nDescription: ${data.description || 'N/A'}`;
+      }
+      return '(npm package info unavailable)';
+    } catch (err: any) {
+      return '(npm registry unavailable: ' + err.message + ')';
+    }
+  }
+}
+
+// ===== CTO Tech Watch Runner =====
+
+class CTOTechWatch {
+  private projectRoot: string;
+  private reportsDir: string;
+  private collector: DataCollector;
+  private ctoPrompt: string;
+
+  constructor() {
+    this.projectRoot = join(__dirname, '..');
+    this.reportsDir = join(this.projectRoot, 'reports/cto');
+    mkdirSync(this.reportsDir, { recursive: true });
+    this.collector = new DataCollector(this.projectRoot);
+
+    // Load CTO system prompt
+    const promptPath = join(this.projectRoot, 'agents/cto/prompt.md');
+    this.ctoPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are the CTO of Invoica.';
+
+    log(c.cyan, '\n' + '='.repeat(60));
+    log(c.cyan, '  Invoica CTO Tech Watch (MiniMax M2.5)');
+    log(c.cyan, '='.repeat(60));
+  }
+
+  async run(watchType: WatchType, additionalContext?: string): Promise<string> {
+    const startTime = Date.now();
+    log(c.blue, '\n[cto-watch] Starting: ' + watchType);
+
+    if (watchType === 'full-scan') {
+      return this.runFullScan(additionalContext);
+    }
+
+    // Build context + task-specific prompt
+    const { systemPrompt, userPrompt } = await this.buildPrompts(watchType, additionalContext);
+    log(c.gray, '  System prompt: ' + systemPrompt.length + ' chars');
+    log(c.gray, '  User prompt: ' + userPrompt.length + ' chars');
+
+    // Call MiniMax
+    log(c.blue, '[cto-watch] Calling MiniMax M2.5...');
+    const response = await callMiniMax(systemPrompt, userPrompt);
+    const content = response.choices?.[0]?.message?.content || '';
+    const tokens = response.usage?.total_tokens || 0;
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    if (!content) {
+      log(c.red, '  ! Empty response from MiniMax');
+      throw new Error('Empty response from CTO analysis');
+    }
+
+    log(c.green, '  Analysis complete (' + elapsed + 's, ' + tokens + ' tokens)');
+
+    // Save report
+    const reportPath = this.saveReport(watchType, content);
+    this.updateLatestReport(watchType, reportPath);
+
+    log(c.green, '[cto-watch] Report saved: ' + reportPath);
+    return reportPath;
+  }
+
+  private async runFullScan(additionalContext?: string): Promise<string> {
+    log(c.blue, '\n[cto-watch] Running full scan (all four watches)...\n');
+    const reports: string[] = [];
+    const types: WatchType[] = ['openclaw-watch', 'clawhub-scan', 'learnings-review', 'verify-implementations'];
+
+    for (const watchType of types) {
+      try {
+        const reportPath = await this.run(watchType, additionalContext);
+        const content = readFileSync(reportPath, 'utf-8');
+        reports.push('## ' + watchType.toUpperCase() + '\n\n' + content);
+        log(c.green, '  ✓ ' + watchType + ' complete\n');
+      } catch (err: any) {
+        log(c.yellow, '  ! ' + watchType + ' failed: ' + err.message);
+        reports.push('## ' + watchType.toUpperCase() + '\n\n(Failed: ' + err.message + ')');
+      }
+    }
+
+    // Combine into full report
+    const combined = '# CTO Full Tech Watch — ' + new Date().toISOString().split('T')[0] + '\n\n' + reports.join('\n\n---\n\n');
+    const reportPath = this.saveReport('full-scan', combined);
+    this.updateLatestReport('full-scan', reportPath);
+
+    log(c.green, '\n[cto-watch] Full scan complete: ' + reportPath);
+    return reportPath;
+  }
+
+  private async buildPrompts(watchType: WatchType, additionalContext?: string): Promise<{ systemPrompt: string; userPrompt: string }> {
+    const today = new Date().toISOString().split('T')[0];
+    const currentVersion = this.collector.getCurrentOpenClawVersion();
+
+    // Common project context
+    const projectContext = [
+      '## Current Project State',
+      '- **Date**: ' + today,
+      '- **OpenClaw version**: ' + currentVersion,
+      '- **Agents**: ' + this.collector.getAgentList(),
+      '',
+      '## Recent Sprint Results',
+      this.collector.getSprintResults(),
+      '',
+      '## Previous CTO Reports',
+      this.collector.getRecentCTOReports(2),
+      '',
+      '## Grok Intelligence Feed (OpenClaw Community Signals from X/Twitter)',
+      '(Grok AI monitors X/Twitter for posts about new tools, skills, and features for OpenClaw agents)',
+      this.collector.getGrokFeed(5),
+      '',
+      '## Previous CEO Feedback on CTO Proposals',
+      this.collector.getCEOFeedback(3),
+      '',
+      '## Approved Proposals — Implementation Status',
+      this.collector.getApprovedProposals(),
+    ].join('\n');
+
+    const prompts: Record<Exclude<WatchType, 'full-scan'>, { system: string; user: string }> = {
+      'verify-implementations': {
+        system: this.ctoPrompt,
+        user: [
+          '# CTO Task: Verify Implementation of Approved Proposals',
+          '',
+          'You are running OUTSIDE of a sprint. Check that CEO-approved proposals have been properly implemented.',
+          '',
+          projectContext,
+          '',
+          '## Your Task',
+          'Review the approved proposals listed above and verify their implementation status.',
+          '',
+          'For each proposal with status "pending" or "in_progress":',
+          '1. **Check implementation_steps**: Were all steps completed?',
+          '2. **Look for evidence**: Check if referenced files/configs were changed (based on sprint results and learnings)',
+          '3. **Assess quality**: Was the implementation done correctly or just superficially?',
+          '4. **Update status**: Set to "verified" (done correctly), "partial" (some steps done), or "not_started"',
+          '',
+          'Output a JSON object:',
+          '```json',
+          '{',
+          '  "verifications": [',
+          '    {',
+          '      "proposal_id": "CTO-YYYYMMDD-NNN",',
+          '      "previous_status": "pending",',
+          '      "new_status": "verified | partial | not_started",',
+          '      "evidence": "What you found that confirms/denies implementation",',
+          '      "notes": "Any issues or follow-up needed"',
+          '    }',
+          '  ],',
+          '  "summary": "Overall implementation verification status"',
+          '}',
+          '```',
+          '',
+          'If there are no pending proposals, report that all is clear.',
+          additionalContext ? '\n## Additional Context\n' + additionalContext : '',
+        ].join('\n'),
+      },
+
+      'openclaw-watch': {
+        system: this.ctoPrompt,
+        user: [
+          '# CTO Task: OpenClaw Ecosystem Watch',
+          '',
+          'You are running OUTSIDE of a sprint. Your job is to check for OpenClaw/ClawHub updates that could benefit Invoica.',
+          '',
+          projectContext,
+          '',
+          '## OpenClaw GitHub Releases',
+          await this.collector.fetchOpenClawReleases(),
+          '',
+          '## OpenClaw npm Info',
+          await this.collector.fetchOpenClawNpmInfo(),
+          '',
+          '## Your Task',
+          'Analyze the OpenClaw ecosystem data above and report:',
+          '1. **Version Status**: Are we on the latest? Any critical updates we\'re missing?',
+          '2. **New Features**: Any new capabilities (models, routing, gateway features) that could improve our pipeline?',
+          '3. **Cost Optimizations**: Any pricing changes, caching features, or batch APIs that could reduce our costs?',
+          '4. **Security Advisories**: Any patches or security updates we need to apply?',
+          '5. **Breaking Changes**: Anything that would break our current v2026.2.12 setup if we upgraded?',
+          '',
+          'Output a structured markdown report. If GitHub API is unavailable, note that and recommend checking manually.',
+          'Include specific version numbers and actionable recommendations.',
+          additionalContext ? '\n## Additional Context\n' + additionalContext : '',
+        ].join('\n'),
+      },
+
+      'clawhub-scan': {
+        system: this.ctoPrompt,
+        user: [
+          '# CTO Task: ClawHub Skill Discovery Scan',
+          '',
+          'You are running OUTSIDE of a sprint. Scan for ClawHub skills that could improve Invoica.',
+          '',
+          projectContext,
+          '',
+          '## Your Task',
+          'Based on our current agent architecture and recent sprint failures, recommend:',
+          '',
+          '1. **Skills to Look For**: What types of ClawHub skills would help with our recurring failures?',
+          '   - Based on sprint data: which task types keep failing?',
+          '   - Are there skills for: code formatting, test generation, TypeScript validation?',
+          '',
+          '2. **MCP Server Integrations**: Any MCP servers for services we might integrate?',
+          '   - Payment processors, blockchain APIs, invoice management',
+          '   - Developer tools: linting, formatting, testing frameworks',
+          '',
+          '3. **Security Assessment Framework**: For any recommended skill, outline:',
+          '   - What it does and why we need it',
+          '   - Security review checklist (network calls, file access, credentials)',
+          '   - Risk level (low/medium/high)',
+          '   - Integration effort estimate',
+          '',
+          '4. **Agent Architecture Gaps**: Based on sprint data, are there capability gaps?',
+          '   - Do we need a test-runner agent?',
+          '   - Do we need a code-formatter agent?',
+          '   - Do we need a pre-submission validator?',
+          '',
+          'IMPORTANT: Any ClawHub skill recommendation MUST include security review as the first implementation step.',
+          'Output a structured markdown report with clear, actionable recommendations.',
+          additionalContext ? '\n## Additional Context\n' + additionalContext : '',
+        ].join('\n'),
+      },
+
+      'learnings-review': {
+        system: this.ctoPrompt,
+        user: [
+          '# CTO Task: Learnings & Bug Pattern Analysis',
+          '',
+          'You are running OUTSIDE of a sprint. Review our project learnings and bug patterns.',
+          '',
+          projectContext,
+          '',
+          '## docs/learnings.md',
+          this.collector.getLearnings(),
+          '',
+          '## Recent Daily Reports',
+          this.collector.getRecentDailyReports(3),
+          '',
+          '## Your Task',
+          'Analyze the learnings file and daily reports to identify:',
+          '',
+          '1. **Recurring Failure Patterns**:',
+          '   - What types of tasks consistently fail? (e.g., complex frontend, Prisma migrations)',
+          '   - What are the root causes? (truncation, overengineering, supervisor contradictions)',
+          '   - Quantify: how many sprints have been affected by each pattern?',
+          '',
+          '2. **Process Improvement Proposals**:',
+          '   - Based on patterns found, what changes would prevent these failures?',
+          '   - Propose concrete orchestrator/prompt changes (not vague "improve quality")',
+          '   - Estimate impact: "This would save X rejections per sprint"',
+          '',
+          '3. **Supervisor Performance Analysis**:',
+          '   - Is the supervisor adding value or causing more problems?',
+          '   - Track: false positives (rejecting good code), false negatives (approving bad code)',
+          '   - Recommendation: keep, modify, or replace?',
+          '',
+          '4. **Task Scoping Recommendations**:',
+          '   - Which task types should be decomposed into smaller pieces?',
+          '   - Maximum recommended complexity per task (LOC, number of features)',
+          '   - Template improvements for task definitions',
+          '',
+          'Output as structured proposals following the CTO proposal JSON format from your prompt.',
+          'Wrap the JSON array in a markdown code block.',
+          additionalContext ? '\n## Additional Context\n' + additionalContext : '',
+        ].join('\n'),
+      },
+    };
+
+    const selected = prompts[watchType as Exclude<WatchType, 'full-scan'>];
+    return { systemPrompt: selected.system, userPrompt: selected.user };
+  }
+
+  private saveReport(watchType: WatchType, content: string): string {
+    const date = new Date().toISOString().split('T')[0];
+    const filename = watchType + '-' + date + '.md';
+    const filepath = join(this.reportsDir, filename);
+    writeFileSync(filepath, content);
+    return filepath;
+  }
+
+  private updateLatestReport(watchType: WatchType, reportPath: string): void {
+    const latestPath = join(this.reportsDir, 'latest-' + watchType + '.md');
+    const content = readFileSync(reportPath, 'utf-8');
+    writeFileSync(latestPath, content);
+    log(c.gray, '  Updated latest pointer: latest-' + watchType + '.md');
+  }
+}
+
+// ===== CLI Entry Point =====
+
+async function main() {
+  const watchType = process.argv[2] as WatchType;
+  const additionalContext = process.argv.slice(3).join(' ') || undefined;
+
+  if (!watchType || !VALID_WATCHES.includes(watchType)) {
+    console.log('Usage: npx ts-node scripts/run-cto-techwatch.ts <watch-type> [context]');
+    console.log('');
+    console.log('Watch types:');
+    console.log('  openclaw-watch         Check OpenClaw GitHub for new releases & features');
+    console.log('  clawhub-scan           Scan for relevant ClawHub skills and MCP servers');
+    console.log('  learnings-review       Analyze docs/learnings.md for patterns & improvements');
+    console.log('  verify-implementations Check CEO-approved proposals were properly implemented');
+    console.log('  full-scan              Run all four watches combined');
+    console.log('');
+    console.log('Schedule: Daily 10AM CET (9 UTC) via PM2 cron — full-scan');
+    console.log('');
+    console.log('Data Sources:');
+    console.log('  reports/grok-feed/               Grok AI X/Twitter intelligence');
+    console.log('  reports/cto/ceo-feedback/         CEO decisions on proposals');
+    console.log('  reports/cto/approved-proposals.json  Implementation tracker');
+    console.log('');
+    console.log('Examples:');
+    console.log('  npx ts-node scripts/run-cto-techwatch.ts openclaw-watch');
+    console.log('  npx ts-node scripts/run-cto-techwatch.ts learnings-review "Focus on FE truncation issues"');
+    console.log('  npx ts-node scripts/run-cto-techwatch.ts full-scan');
+    process.exit(1);
+  }
+
+  try {
+    const runner = new CTOTechWatch();
+    const reportPath = await runner.run(watchType, additionalContext);
+
+    log(c.green, '\n' + '='.repeat(60));
+    log(c.green, '  CTO Tech Watch complete: ' + watchType);
+    log(c.green, '  Report: ' + reportPath);
+    log(c.green, '='.repeat(60) + '\n');
+
+    process.exit(0);
+  } catch (error: any) {
+    log(c.red, '\n[cto-watch] FAILED: ' + error.message);
+    if (error.stack) log(c.gray, error.stack);
+    process.exit(1);
+  }
+}
+
+main();

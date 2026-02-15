@@ -1,6 +1,6 @@
-# Countable — Project Learnings & Key Insights
+# Invoica — Project Learnings & Key Insights
 
-This file captures hard-won lessons from building and operating the 9-agent orchestrator.
+This file captures hard-won lessons from building and operating the 13-agent orchestrator.
 **All agents (especially Skills) must read this before creating new skills, agents, or tasks.**
 
 ---
@@ -469,5 +469,116 @@ SDK-050: 5 attempts × ~$0.13 = ~$0.65 wasted.
 
 ---
 
+## 18. Week 10 — Supervisor Contradiction Crisis (Worst Sprint)
+
+### Results: 6/7 + 1 manual fix (31 rejections, ~$4.50, ~37 min)
+
+The supervisor contradicted itself within the SAME task's retry loop. FE-031 (dashboard) scored 75/100 repeatedly because:
+- Attempt N: "Missing overdue invoices card"
+- Attempt N+1: "Adds overdue card that was not requested in spec"
+
+This is a **moving goalposts** pattern — the supervisor adds requirements during review that weren't in the original task spec, then rejects the agent for implementing those exact requirements.
+
+### SupervisorPerformanceTracker (New — Phase 4b)
+Built a performance tracker that runs after every sprint:
+- Detects contradictions (flip-flops between consecutive reviews)
+- Detects hallucinated requirements (issues not in task spec)
+- Grades supervisor A-F with KEEP/WARN/TERMINATE recommendation
+- Week 10: Grade C, 1 contradiction, CEO issued WARN
+
+---
+
+## 19. Week 11 — Markdown Fence Bug (File Corruption)
+
+### Results: 6/7 + 1 manual fix (13 rejections, ~$2.64, ~24 min)
+
+Discovered that MiniMax sometimes wraps responses in markdown fences:
+```
+```tsx
+actual code here
+```
+```
+
+When the orchestrator's code block extraction fails, the "raw content" fallback writes these fences literally to disk, producing invalid TypeScript. All 6 frontend files from Week 11 had `\`\`\`tsx` at the start.
+
+### Fix Applied
+Added fence-stripping to the orchestrator's raw content fallback path:
+```typescript
+if (rawContent.startsWith('```')) {
+  rawContent = rawContent.replace(/^```\w*\n/, '').replace(/\n```\s*$/, '');
+}
+```
+
+---
+
+## 20. Week 12 — API Foundations (Truncation Returns)
+
+### Results: 3/6 + 3 manual fixes (31 rejections, ~49 min)
+| Task | Attempts | Final Score | Result | Root Cause |
+|------|----------|-------------|--------|------------|
+| BE-100 (settlement route) | 1 | 95 | ✅ APPROVED | Simple route addition |
+| BE-101 (API key endpoints) | 1 | 88 | ✅ APPROVED | CRUD endpoints, well-scoped |
+| BE-102 (webhook Prisma) | 10 | 25-45 | ❌ FAILED | Overengineered migration, supervisor hallucinated |
+| FE-040 (API key client) | 2 | 92 | ✅ APPROVED | Client functions, clean |
+| FE-041 (API Keys page) | 10 | 35-45 | ❌ FAILED | **Truncation** — page too complex for one MiniMax call |
+| FE-042 (nav sidebar) | 10 | 25-65 | ❌ FAILED | Supervisor contradictions (use client vs server component) |
+
+### Key Patterns
+1. **FE-041 truncation**: The API Keys page needs create modal + table + status badges + actions — too much for MiniMax's token limit. Every attempt was cut off mid-file. **Should have been 2-3 separate tasks.**
+2. **FE-042 contradictions**: Supervisor said "add 'use client'" then "layout shouldn't be client component" — classic goalposts problem. **Fix: extract sidebar into separate client component, keep layout as server component.**
+3. **BE-102 overengineering**: MiniMax added unnecessary complexity to the Prisma migration. Supervisor also hallucinated ("test file not requested" when tests ARE in deliverables).
+
+### Orchestrator Bugs Found & Fixed This Week
+1. **Missing default status**: Tasks without `status` field → `filter(t => t.status === 'pending')` returned empty → 0 tasks executed. Fixed by defaulting to 'pending'.
+2. **Wrong field names**: Tasks used `description` instead of `context`, `depends_on` instead of `dependencies`. Fixed in sprint JSON format.
+3. **Flat deliverables**: Some task formats use flat `deliverables: string[]` instead of `{code, tests}`. Added support for both.
+
+### Manual Fixes Applied
+- **BE-102**: Added `WebhookRegistration` model to Prisma schema, created `WebhookRepository` class with Prisma, updated `dispatch()` to use repository
+- **FE-041**: Created complete API Keys page with create modal, table, status badges, revoke/rotate actions
+- **FE-042**: Extracted sidebar into `components/sidebar.tsx` (client component), kept layout as server component, added Dashboard/Settlements/API Keys nav
+
+### Sprint Stats Updated
+| Sprint | Approved | Rejected | Cost | Time | Notes |
+|--------|----------|----------|------|------|-------|
+| Week 3 | 3/3 | 9 | ~$1.73 | ~5 min | First working sprint |
+| Week 4 | 4/4 | 0 | ~$0.36 | ~4 min | Truncation fix |
+| Week 5 | 3/5 | 22 | ~$3.42 | ~10 min | Source truncation failures |
+| Week 5b | 5/5 | 7 | ~$1.73 | ~11 min | Decomposition validated |
+| Week 6 | 7/7 | ~8 | ~$1.86 | ~9 min | SDK + webhook events |
+| Week 7 | 6/7+1 | 18 | ~$3.29 | ~22 min | BUG-001 manual fix |
+| Week 8 | 7/7 | 0 | ~$1.03 | ~6 min | Perfect sprint |
+| Week 9 | 6/7+1 | 19 | ~$3.42 | ~21 min | Supervisor hallucination |
+| Week 10 | 6/7+1 | 31 | ~$4.50 | ~37 min | Supervisor contradictions |
+| Week 11 | 6/7+1 | 13 | ~$2.64 | ~24 min | Markdown fence bug |
+| Week 12 | 3/6+3 | 31 | ~$4.50 | ~49 min | API foundations, truncation returns |
+
+---
+
+## 21. CTO Tech Watch — Standalone Intelligence Gathering (NEW)
+
+### Purpose
+The CTO now runs **outside of sprints** to proactively monitor:
+- OpenClaw GitHub releases and new features
+- ClawHub skill registry for useful skills and MCP servers
+- Project learnings and bug patterns for process improvements
+
+### Runner: `scripts/run-cto-techwatch.ts`
+```
+npx ts-node scripts/run-cto-techwatch.ts <watch-type>
+```
+Watch types: `openclaw-watch`, `clawhub-scan`, `learnings-review`, `full-scan`
+
+### Schedule
+- `openclaw-watch`: Weekly Monday 7 AM (before first sprint)
+- `clawhub-scan`: Weekly Wednesday 7 AM
+- `learnings-review`: After every sprint completion
+- `full-scan`: Bi-weekly Friday 7 AM
+
+### Integration
+Reports are saved to `reports/cto/` with `latest-*` pointers. The orchestrator loads them in Phase 3 alongside CMO reports, so the CEO sees tech insights during sprint reviews.
+
+---
+
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 8 perfect sprint, Week 9 supervisor hallucination analysis*
+*Updated by: Claude — Week 10/11/12 analysis, CTO tech-watch feature*

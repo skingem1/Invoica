@@ -455,7 +455,7 @@ class CTOAgent {
 
   constructor() {
     const promptPath = './agents/cto/prompt.md';
-    this.systemPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are the CTO of Countable.';
+    this.systemPrompt = existsSync(promptPath) ? readFileSync(promptPath, 'utf-8') : 'You are the CTO of Invoica.';
     this.dataCollector = new CTODataCollector();
     log(c.cyan, '+ Loaded CTO agent (MiniMax M2.5 — data-driven)');
   }
@@ -465,7 +465,7 @@ class CTOAgent {
     const projectContext = this.dataCollector.collect();
     log(c.cyan, `  Context collected: ${projectContext.length} chars`);
 
-    const userPrompt = `You are the CTO of Countable. Analyze the REAL project data below and identify improvements.
+    const userPrompt = `You are the CTO of Invoica. Analyze the REAL project data below and identify improvements.
 
 ${projectContext}
 
@@ -625,6 +625,116 @@ function loadCMOReports(): string {
   return sections.length > 0
     ? '## CMO Reports (Manus AI)\n\n' + sections.join('\n\n---\n\n')
     : '';
+}
+
+// ===== CTO Tech Watch Report Loader (reads reports produced by standalone run-cto-techwatch.ts) =====
+
+function loadCTOTechWatchReports(): string {
+  const reportsDir = './reports/cto';
+  const sections: string[] = [];
+
+  try {
+    // Load latest OpenClaw watch
+    const openclawWatch = reportsDir + '/latest-openclaw-watch.md';
+    if (existsSync(openclawWatch)) {
+      const content = readFileSync(openclawWatch, 'utf-8');
+      sections.push('### CTO: OpenClaw Ecosystem Watch\n' + content.substring(0, 2000));
+    }
+
+    // Load latest ClawHub scan
+    const clawhubScan = reportsDir + '/latest-clawhub-scan.md';
+    if (existsSync(clawhubScan)) {
+      const content = readFileSync(clawhubScan, 'utf-8');
+      sections.push('### CTO: ClawHub Skill Scan\n' + content.substring(0, 2000));
+    }
+
+    // Load latest learnings review
+    const learningsReview = reportsDir + '/latest-learnings-review.md';
+    if (existsSync(learningsReview)) {
+      const content = readFileSync(learningsReview, 'utf-8');
+      sections.push('### CTO: Learnings & Bug Pattern Analysis\n' + content.substring(0, 2000));
+    }
+  } catch { /* CTO tech-watch reports not available yet — graceful degradation */ }
+
+  return sections.length > 0
+    ? '## CTO Tech Watch Reports (Standalone)\n\n' + sections.join('\n\n---\n\n')
+    : '';
+}
+
+// ===== Grok Feed Loader (reads Grok AI X/Twitter intelligence) =====
+
+function loadGrokFeed(): string {
+  const feedDir = './reports/grok-feed';
+  if (!existsSync(feedDir)) return '';
+  try {
+    const files = readdirSync(feedDir)
+      .filter(f => f.endsWith('.md') && f !== '.gitkeep')
+      .sort()
+      .reverse()
+      .slice(0, 3);
+    if (files.length === 0) return '';
+    const sections: string[] = [];
+    for (const file of files) {
+      const content = readFileSync(feedDir + '/' + file, 'utf-8');
+      sections.push(`### Grok Feed: ${file}\n${content.substring(0, 1500)}`);
+    }
+    return '## Grok Intelligence Feed (X/Twitter — OpenClaw Ecosystem)\n\n' + sections.join('\n\n---\n\n');
+  } catch { return ''; }
+}
+
+// ===== CEO Decision Persistence (saves CEO decisions for CTO feedback loop) =====
+
+function persistCEODecisions(ctoDecisions: string, ctoReport: CTOReport): void {
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1. Save raw CEO feedback to ceo-feedback directory
+  const feedbackDir = './reports/cto/ceo-feedback';
+  mkdirSync(feedbackDir, { recursive: true });
+  try {
+    // Parse decisions from CEO response
+    const jsonMatch = ctoDecisions.match(/\[[\s\S]*\]/);
+    const decisions = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    writeFileSync(`${feedbackDir}/${today}.json`, JSON.stringify({ date: today, decisions }, null, 2));
+    log(c.green, `  ✓ CEO feedback saved: ${feedbackDir}/${today}.json`);
+
+    // 2. Update approved-proposals.json with newly approved proposals
+    const trackerPath = './reports/cto/approved-proposals.json';
+    let tracker: { proposals: any[]; last_updated: string } = { proposals: [], last_updated: today };
+    if (existsSync(trackerPath)) {
+      try { tracker = JSON.parse(readFileSync(trackerPath, 'utf-8')); } catch { /* start fresh */ }
+    }
+
+    for (const decision of decisions) {
+      if (decision.decision === 'APPROVED') {
+        const proposal = ctoReport.proposals.find(p => p.id === decision.proposal_id);
+        if (proposal) {
+          const existing = tracker.proposals.find((p: any) => p.id === proposal.id);
+          if (!existing) {
+            tracker.proposals.push({
+              id: proposal.id,
+              title: proposal.title,
+              category: proposal.category,
+              description: proposal.description,
+              implementation_steps: proposal.implementation_steps,
+              approved_date: today,
+              ceo_conditions: decision.conditions || [],
+              priority: decision.priority || 'next_sprint',
+              implementation_status: 'pending',
+              verification_notes: '',
+            });
+            log(c.green, `  ✓ Approved proposal tracked: ${proposal.id} — ${proposal.title}`);
+          }
+        }
+      }
+    }
+    tracker.last_updated = today;
+    writeFileSync(trackerPath, JSON.stringify(tracker, null, 2));
+    log(c.green, `  ✓ Approved proposals tracker updated (${tracker.proposals.length} total)`);
+  } catch (error: any) {
+    log(c.yellow, `  ! Failed to persist CEO decisions: ${error.message}`);
+    writeFileSync(`${feedbackDir}/${today}.txt`, ctoDecisions);
+    log(c.yellow, `  Saved raw CEO response as text fallback`);
+  }
 }
 
 // ===== MiniMax Coding Agent (ONE FILE PER API CALL) =====
@@ -918,10 +1028,31 @@ class Orchestrator {
         log(c.gray, '  No CMO reports available yet');
       }
 
+      // Load CTO tech-watch reports (produced independently by run-cto-techwatch.ts)
+      const ctoTechWatch = loadCTOTechWatchReports();
+      if (ctoTechWatch) {
+        log(c.cyan, '  CTO tech-watch reports found — will include in CEO review');
+        cmoReports = cmoReports ? cmoReports + '\n\n' + ctoTechWatch : ctoTechWatch;
+      } else {
+        log(c.gray, '  No CTO tech-watch reports available yet');
+      }
+
+      // Load Grok intelligence feed (Grok AI monitors X/Twitter for OpenClaw news)
+      const grokFeed = loadGrokFeed();
+      if (grokFeed) {
+        log(c.magenta, '  Grok intelligence feed found — will include in CEO review');
+        cmoReports = cmoReports ? cmoReports + '\n\n' + grokFeed : grokFeed;
+      } else {
+        log(c.gray, '  No Grok feed reports available');
+      }
+
       // 5. CEO reviews CTO proposals + CMO reports
       if (ctoReport.proposals.length > 0 || cmoReports) {
         log(c.magenta, '\n--- Phase 4: CEO Reviews CTO Proposals + CMO Reports ---');
         ctoDecisions = await this.ceo.reviewCTOProposals(ctoReport);
+
+        // Persist CEO decisions for CTO feedback loop + approved proposals tracking
+        persistCEODecisions(ctoDecisions, ctoReport);
 
         // Handle approved new_agent proposals
         const agentCreator = new AgentCreator();
@@ -953,8 +1084,12 @@ class Orchestrator {
     // 7. CEO generates daily report
     log(c.magenta, '\n--- Phase 6: Daily Report Generation ---');
     const ctoReportStr = `Summary: ${ctoReport.summary}\nProposals: ${ctoReport.proposals.length}\n${ctoReport.proposals.map(p => `- [${p.category}] ${p.title} (${p.risk_level})`).join('\n')}`;
-    const cmoSection = cmoReports ? '\n\n## CMO Activity (Manus AI)\n' + cmoReports.substring(0, 2000) : '\n\nCMO: No reports available this cycle.';
-    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection, ctoDecisions);
+    const grokSection = loadGrokFeed();
+    const cmoSection = cmoReports
+      ? '\n\n## CMO Activity (Manus AI)\n' + cmoReports.substring(0, 2000)
+      : '\n\nCMO: No reports available this cycle.';
+    const grokForReport = grokSection ? '\n\n## Grok Intelligence Feed\nGrok AI reports available — included in CTO/CEO analysis.' : '\n\nGrok: No feed reports this cycle.';
+    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection + grokForReport, ctoDecisions);
 
     // 8. Save updated sprint state
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -972,7 +1107,7 @@ class Orchestrator {
     log(c.cyan,  `  CTO proposals: ${ctoReport.proposals.length}`);
     log(c.magenta, `  CMO reports: ${cmoReports ? 'loaded' : 'none'}`);
     log(c.blue,  `  Total time: ${elapsed}s`);
-    log(c.gray,  `  Pipeline: CEO → MiniMax code → Claude review → CTO analyze → CMO reports → CEO approve → Daily report`);
+    log(c.gray,  `  Pipeline: CEO → MiniMax code → Claude review → CTO analyze → CMO/Grok reports → CEO approve → Daily report`);
   }
 }
 

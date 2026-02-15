@@ -46,3 +46,23 @@ model Invoice {
   @@index([customerEmail])
   @@index([invoiceNumber])
 }
+
+/// Webhook registration for event notifications
+model WebhookRegistration {
+  /// Unique identifier
+  id        String   @id @default(uuid())
+  /// Target URL to deliver events to
+  url       String
+  /// List of event types to subscribe to
+  events    String[]
+  /// Secret used for HMAC signature verification
+  secret    String
+  /// Whether this registration is active
+  isActive  Boolean  @default(true)
+  /// Timestamp when registered
+  createdAt DateTime @default(now())
+  /// Timestamp when last updated
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
