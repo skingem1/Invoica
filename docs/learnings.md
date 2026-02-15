@@ -739,8 +739,68 @@ BE-144 (payments) was identical in concept to BE-143 (merchants) — both mock h
 |--------|----------|----------|------|------|-------|
 | Week 15 | 9/9 | 0 | ~$1.30 | ~5 min | 4th perfect sprint |
 | Week 16 | 7/9+2 | 20 | ~$3.51 | ~12 min | Mock endpoint contradiction |
+| Week 17 | 8/9+1 | 30 | ~$6.32 | ~29 min | First dual supervisor sprint |
+
+---
+
+## 26. Dual Supervisor System — Week 17 (Claude + OpenAI Codex o4-mini)
+
+### Architecture
+Week 17 introduced a second code reviewer: OpenAI Codex (o4-mini) running in parallel with Claude Sonnet. Both supervisors review every code submission independently via `Promise.all`. Three consensus paths:
+1. **Both APPROVED** → average scores, merge feedback
+2. **Both REJECTED** → minimum score, merge all issues
+3. **Conflict** → escalate to CEO for final APPROVE/REJECT decision
+
+### OpenAI o-series API Differences (Critical)
+The o4-mini model has different API requirements than standard OpenAI models:
+- Use `max_completion_tokens` instead of `max_tokens` (fails with error otherwise)
+- Use `developer` role instead of `system` role in messages
+- Do NOT pass `temperature` parameter (not supported)
+- Detection: `model.startsWith('o')` identifies reasoning models
+
+### CEO Escalation Patterns (13 conflicts in Week 17)
+- **CEO sided with Claude 12/13 times** (92%)
+- **CEO sided with Codex 1/13 times** (8%) — BE-153 mock endpoint where Claude was too strict
+- Primary conflict pattern: **Codex approves truncated code** that Claude correctly identifies as incomplete
+- Secondary pattern: **Claude over-rejects mock endpoints** demanding production patterns on throwaway code
+
+### Codex Strengths and Weaknesses
+**Strengths:**
+- Very fast reviews (3-10s vs Claude's 5-14s)
+- Good at identifying code quality patterns and best practices
+- More lenient on intentionally simple code (mock endpoints)
+- Cheaper than Claude reviews
+
+**Weaknesses:**
+- **Consistently misses truncation** — approves files that are cut off mid-line, mid-tag, or missing closing braces
+- Focuses on "what's present" rather than "what's missing" — if the navItems array looks correct, it approves even though the component JSX is truncated
+- Less strict on security vulnerabilities (approved CORS with `*` + credentials)
+
+### Claude Strengths and Weaknesses
+**Strengths:**
+- **Excellent at detecting truncation** — catches every instance of incomplete files
+- Strong security awareness (CORS vuln, credential handling)
+- Good at identifying scope creep and overengineering
+- Reliable "quality gate" for production readiness
+
+**Weaknesses:**
+- **Over-rejects mock endpoints** — demands error handling, TypeScript interfaces, tests on intentionally simple hardcoded data
+- Inconsistent on mock tasks — rejects for "too simple" then rejects for "overengineered" when MiniMax adds complexity
+- Creates an oscillation loop where MiniMax can't satisfy contradictory feedback
+
+### Key Metrics
+- 36 total review cycles, 13 conflicts (36% conflict rate)
+- Tasks that eventually passed: avg 3.7 attempts (up from ~2.1 in single-supervisor)
+- Cost increase: ~$1.08 for Codex reviews + ~$0.39 for CEO escalations = ~$1.47 extra
+- Time increase: minimal due to parallel reviews (Promise.all)
+
+### Prevention for Future Sprints
+1. **SVG-heavy sidebar modifications exceed MiniMax token limit** — always fix manually or split into "add items to array" (data only) vs "render component" tasks
+2. **Mock endpoint specs need stronger "intentionally simple" framing** — add "Do NOT add validation, error handling, try-catch, or database operations" AND "This is a MOCK — simple is correct"
+3. **CEO escalation is effective** — the CEO has good judgment balancing code quality vs. spec compliance
+4. **Codex is a good secondary reviewer but should not be trusted on completeness** — Claude remains the primary quality gate
 
 ---
 
 *Last updated: 2026-02-15*
-*Updated by: Claude — Week 16 Missing Imports resolved, all router.ts dependencies now exist*
+*Updated by: Claude — Week 17 Dual Supervisor system operational, FE-093 manually fixed*
