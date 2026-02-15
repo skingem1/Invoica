@@ -1,25 +1,26 @@
-// Countable SDK - TypeScript Client
-// This is the public API surface for the Countable SDK
+/**
+ * Countable SDK - TypeScript Client
+ * @packageVersion 1.0.0
+ */
 
 export { CountableClient, CountableClientConfig } from './client';
-export { 
-  CountableError, 
-  AuthenticationError, 
-  ValidationError, 
-  RateLimitError, 
-  NotFoundError, 
-  ServerError 
-} from './errors';
+
 export type {
+  Invoice,
+  InvoiceCreateInput,
+  InvoiceUpdateInput,
+  InvoiceListResponse,
+  Settlement,
+  SettlementListResponse,
   ApiKey,
-  CreateApiKeyParams,
+  ApiKeyCreateResponse,
   ApiKeyListResponse,
-  ApiKeyUpdateParams,
-  WebhookRegistrationConfig,
-  WebhookRegistration,
-  WebhookListResponse,
-  WebhookRegistrationParams,
-  WebhookEvent,
-  WebhookEventListResponse,
   DeleteResponse,
+  PaginationParams,
+  ListResponse,
+  ErrorResponse,
 } from './types';
+
+export { CountableError, ValidationError, AuthenticationError, RateLimitError, NotFoundError } from './errors';
+
+export { version } from './version';
