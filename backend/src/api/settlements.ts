@@ -1,35 +1,25 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
-
-const invoiceIdSchema = z.string().min(1, 'invoiceId is required');
-
-interface SettlementResponse {
-  invoiceId: string;
-  status: 'pending' | 'confirmed' | 'failed';
-  txHash: string | null;
-  chain: string;
-  confirmedAt: string | null;
-  amount: number;
-  currency: string;
-}
+import { prisma } from '../db/client';
 
 export async function getSettlement(req: Request, res: Response): Promise<void> {
-  const validation = invoiceIdSchema.safeParse(req.params.invoiceId);
-  if (!validation.success) {
-    res.status(400).json({ error: validation.error.errors[0].message });
+  const { invoiceId } = req.params;
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
+  if (!invoice) {
+    res.status(404).json({ error: 'Invoice not found' });
     return;
   }
 
-  const invoiceId = validation.data;
-  const settlement: SettlementResponse = {
-    invoiceId,
-    status: 'pending',
-    txHash: null,
-    chain: 'ethereum',
-    confirmedAt: null,
-    amount: 0,
-    currency: 'USD',
-  };
+  const status = invoice.status === 'SETTLED' || invoice.status === 'COMPLETED' ? 'confirmed' : 'pending';
+  const paymentDetails = invoice.paymentDetails as Record<string, unknown> | null;
 
-  res.status(200).json(settlement);
+  res.json({
+    invoiceId: invoice.id,
+    status,
+    txHash: paymentDetails?.txHash ?? null,
+    chain: paymentDetails?.chain ?? 'ethereum',
+    confirmedAt: invoice.settledAt?.toISOString() ?? null,
+    amount: Number(invoice.amount),
+    currency: invoice.currency,
+  });
 }
