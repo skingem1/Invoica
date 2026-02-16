@@ -1,0 +1,152 @@
+{
+  "tasks": [
+    {
+      "id": "SDK-101b",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create an SDK request builder utility at sdk/typescript/src/request-builder.ts. This helps construct API requests. Export: (1) interface RequestConfig { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; path: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; headers?: Record<string, string>; }. (2) function buildUrl(baseUrl: string, path: string, query?: Record<string, string | number | boolean | undefined>): string — creates new URL(baseUrl + path), iterates non-undefined query entries, calls url.searchParams.set(key, String(value)), returns url.toString(). (3) function buildHeaders(apiKey: string, extra?: Record<string, string>): Record<string, string> — returns { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'User-Agent': 'countable-sdk/1.0.0', ...extra }. Export the interface and both functions. Do NOT export anything else. Do NOT add input validation. Do NOT add a third function. Keep it minimal.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/request-builder.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create SDK request builder (RequestConfig interface, buildUrl, buildHeaders) at sdk/typescript/src/request-builder.ts. ~25 lines.",
+      "constraints": "NEW file only. Export exactly 1 interface and 2 functions. No input validation. No third function. Use native URL and URLSearchParams. No external dependencies. Keep under 30 lines."
+    },
+    {
+      "id": "SDK-103",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a version module for the SDK at sdk/typescript/src/version.ts. This module exports the SDK version string. Export: (1) const version: string = '1.0.0'. (2) const sdkUserAgent: string = 'countable-sdk-typescript/1.0.0'. (3) function isCompatibleApiVersion(serverVersion: string): boolean — parse the major version from serverVersion (split on '.', take first element, parseInt), return true if it equals 1. That is the entire file. Do NOT add anything else.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/version.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create SDK version module with version string, user agent, and API version check at sdk/typescript/src/version.ts. ~10 lines.",
+      "constraints": "NEW file only. Export exactly 2 constants and 1 function. No external dependencies. Keep under 15 lines."
+    },
+    {
+      "id": "BE-190",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a Zod validation schemas module for API key operations at backend/src/validators/api-key-schemas.ts. Import { z } from 'zod'. Export these schemas: (1) createApiKeySchema — z.object with: name: z.string().min(1).max(100), expiresInDays: z.number().int().positive().max(365).optional(), scopes: z.array(z.enum(['invoices:read', 'invoices:write', 'settlements:read', 'webhooks:manage', 'api-keys:manage'])).optional(). (2) apiKeyQuerySchema — z.object with: limit: z.coerce.number().int().min(1).max(100).default(10), offset: z.coerce.number().int().min(0).default(0), status: z.enum(['active', 'revoked', 'expired']).optional(). (3) rotateApiKeySchema — z.object with: expiresInDays: z.number().int().positive().max(365).optional(). Export inferred types: CreateApiKeyInput, ApiKeyQuery, RotateApiKeyInput.",
+      "deliverables": {
+        "code": [
+          "backend/src/validators/api-key-schemas.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create Zod validation schemas for API key create, query, and rotate at backend/src/validators/api-key-schemas.ts. ~25 lines.",
+      "constraints": "NEW file only. Only dependency is 'zod'. Export 3 schemas and 3 inferred types. Keep under 35 lines."
+    },
+    {
+      "id": "BE-191",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create a correlation ID utility at backend/src/utils/correlation-id.ts. This module manages request correlation IDs for distributed tracing. Export: (1) const CORRELATION_HEADER = 'x-correlation-id' as const. (2) function generateCorrelationId(): string — return 'cid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8). (3) function extractCorrelationId(headers: Record<string, string | string[] | undefined>): string — get value from headers[CORRELATION_HEADER], if it is a string return it, if it is an array return the first element, otherwise call generateCorrelationId(). (4) interface CorrelationContext { correlationId: string; parentId?: string; spanId?: string; }. (5) function createContext(correlationId: string, parentId?: string): CorrelationContext — return { correlationId, parentId, spanId: generateCorrelationId() }. No external dependencies.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/correlation-id.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create correlation ID utility for distributed tracing at backend/src/utils/correlation-id.ts. ~25 lines.",
+      "constraints": "NEW file only. No external dependencies. Export 1 const, 3 functions, and 1 interface. Keep under 30 lines."
+    },
+    {
+      "id": "BE-192",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create a pagination utility at backend/src/utils/pagination.ts. This module provides helpers for consistent API pagination. Export: (1) interface PaginationParams { limit: number; offset: number; }. (2) interface PaginatedResult<T> { data: T[]; total: number; limit: number; offset: number; hasMore: boolean; }. (3) function parsePagination(query: { limit?: string | number; offset?: string | number }, defaults?: { limit?: number; maxLimit?: number }): PaginationParams — parse limit and offset from query, clamp limit between 1 and (defaults?.maxLimit || 100), default limit to (defaults?.limit || 10), default offset to 0. (4) function paginate<T>(items: T[], total: number, params: PaginationParams): PaginatedResult<T> — return { data: items, total, limit: params.limit, offset: params.offset, hasMore: params.offset + params.limit < total }. No external dependencies.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/pagination.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create pagination utility (parsePagination, paginate) at backend/src/utils/pagination.ts. ~30 lines.",
+      "constraints": "NEW file only. No external dependencies. Export 2 interfaces and 2 functions. Keep under 35 lines."
+    },
+    {
+      "id": "FE-130",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a custom React hook for debounced values at frontend/hooks/use-debounce.ts. This hook delays updating a value until the user stops typing. Import { useState, useEffect } from 'react'. Export: (1) function useDebounce<T>(value: T, delayMs: number = 300): T — uses useState to store debouncedValue initialized to value, uses useEffect that sets a timer with setTimeout(delayMs) to update debouncedValue to value, returns cleanup function that calls clearTimeout. Returns debouncedValue. The effect dependencies are [value, delayMs]. That is the entire hook. No other functions or exports.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-debounce.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create useDebounce<T> React hook for input debouncing at frontend/hooks/use-debounce.ts. ~15 lines.",
+      "constraints": "NEW file only. Import only from 'react'. Export exactly 1 function. No 'use client' directive needed. Keep under 20 lines."
+    },
+    {
+      "id": "FE-131",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "context": "Create a custom React hook for local storage persistence at frontend/hooks/use-local-storage.ts. This hook syncs state with localStorage. Import { useState, useEffect } from 'react'. Export: (1) function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] — useState initializer function: try to get item from localStorage with key, JSON.parse it, return parsed value or initialValue on error. The setter function: if value is a function, call it with current state, then localStorage.setItem(key, JSON.stringify(newValue)) and update state. useEffect with [key, storedValue] deps that calls localStorage.setItem(key, JSON.stringify(storedValue)). Return [storedValue, setValue] tuple.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-local-storage.ts"
+        ],
+        "tests": []
+      },
+      "description": "Create useLocalStorage<T> React hook for persistent state at frontend/hooks/use-local-storage.ts. ~25 lines.",
+      "constraints": "NEW file only. Import only from 'react'. Export exactly 1 function. No 'use client' directive needed. Keep under 30 lines."
+    },
+    {
+      "id": "FE-132",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create a tooltip component at frontend/components/ui/tooltip.tsx. Add 'use client' at the top. Import React, { useState } from 'react'. Export interface TooltipProps { children: React.ReactNode; content: string; position?: 'top' | 'bottom' | 'left' | 'right'; }. Export function Tooltip({ children, content, position = 'top' }: TooltipProps). Use useState<boolean>(false) for isVisible. Outer span: relative inline-flex. Has onMouseEnter setting isVisible=true, onMouseLeave setting isVisible=false. Inner children rendered directly. Conditionally render tooltip div when isVisible. Position classes: top = 'bottom-full left-1/2 -translate-x-1/2 mb-2', bottom = 'top-full left-1/2 -translate-x-1/2 mt-2', left = 'right-full top-1/2 -translate-y-1/2 mr-2', right = 'left-full top-1/2 -translate-y-1/2 ml-2'. Tooltip div classes: absolute z-50 px-2 py-1 text-xs font-medium text-white bg-slate-900 rounded whitespace-nowrap. Use a positionClasses Record mapping.",
+      "deliverables": {
+        "code": [
+          "frontend/components/ui/tooltip.tsx"
+        ],
+        "tests": []
+      },
+      "description": "Create reusable Tooltip component with position variants at frontend/components/ui/tooltip.tsx. ~30 lines.",
+      "constraints": "NEW file only. 'use client' directive. Tailwind CSS only. Export interface and component. Keep under 35 lines."
+    },
+    {
+      "id": "FE-133",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "context": "Create a search input component at frontend/components/ui/search-input.tsx. Add 'use client' at the top. Import React from 'react'. Export interface SearchInputProps { value: string; onChange: (value: string) => void; placeholder?: string; className?: string; }. Export function SearchInput({ value, onChange, placeholder = 'Search...', className = '' }: SearchInputProps). Render a div with relative class. Inside, render an SVG search icon (magnifying glass) positioned absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4. The SVG uses: viewBox='0 0 20 20', fill='currentColor', single path d='M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z'. Render an input with: type='text', value, onChange={(e) => onChange(e.target.value)}, placeholder, className='w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent ' + className.",
+      "deliverables": {
+        "code": [
+          "frontend/components/ui/search-input.tsx"
+        ],
+        "tests": []
+      },
+      "description": "Create SearchInput component with icon at frontend/components/ui/search-input.tsx. ~25 lines.",
+      "constraints": "NEW file only. 'use client' directive. Tailwind CSS only. Export interface and component. Keep under 30 lines."
+    }
+  ],
+  "sprint": "week-21",
+  "theme": "SDK Fix + Backend Utilities + Frontend Hooks & UI Components",
+  "created": "2026-02-16",
+  "summary": "9 tasks: SDK-101b (request builder retry, simplified spec), SDK-103 (version module), BE-190/191/192 (api-key schemas, correlation ID, pagination), FE-130/131/132/133 (useDebounce, useLocalStorage, Tooltip, SearchInput). All new files, all targets <35 lines. Zero edit-existing tasks. SDK-101b fixes the spec contradiction from Week 20."
+}

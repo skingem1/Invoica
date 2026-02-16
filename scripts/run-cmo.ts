@@ -69,9 +69,11 @@ class CMORunner {
     }
     this.cmoPrompt = readFileSync(promptPath, 'utf-8');
 
-    // Ensure reports directory exists
+    // Ensure reports directories exist
     this.reportsDir = join(this.projectRoot, 'reports/cmo');
     mkdirSync(this.reportsDir, { recursive: true });
+    mkdirSync(join(this.reportsDir, 'ceo-feedback'), { recursive: true });
+    mkdirSync(join(this.reportsDir, 'proposals'), { recursive: true });
 
     log(c.magenta, '\n' + '='.repeat(60));
     log(c.magenta, '  Invoica CMO Agent (Manus AI)');
@@ -79,12 +81,14 @@ class CMORunner {
   }
 
   async run(taskType: CMOTaskType, additionalContext?: string): Promise<string> {
-    log(c.cyan, '\n[cmo] Starting task: ' + taskType);
+    // Smart scheduling: Monday market-watch becomes strategy-report
+    const actualTask = this.resolveTask(taskType);
+    log(c.cyan, '\n[cmo] Starting task: ' + actualTask + (actualTask !== taskType ? ` (scheduled as ${taskType})` : ''));
     const startTime = Date.now();
 
     // 1. Build the full prompt
-    const taskPrompt = this.buildTaskPrompt(taskType, additionalContext);
-    const fullPrompt = this.cmoPrompt + '\n\n---\n\n## Current Task: ' + taskType + '\n\n' + taskPrompt;
+    const taskPrompt = this.buildTaskPrompt(actualTask, additionalContext);
+    const fullPrompt = this.cmoPrompt + '\n\n---\n\n## Current Task: ' + actualTask + '\n\n' + taskPrompt;
 
     log(c.gray, '  Prompt length: ' + fullPrompt.length + ' chars');
 
@@ -93,11 +97,18 @@ class CMORunner {
     const result = await this.client.executeTask({ prompt: fullPrompt });
 
     // 3. Save report
-    const reportPath = this.saveReport(taskType, result.output);
+    const reportPath = this.saveReport(actualTask, result.output);
     log(c.green, '[cmo] Report saved: ' + reportPath);
 
+    // 3b. Brand review also updates docs/brand-guidelines.md
+    if (actualTask === 'brand-review') {
+      const brandPath = join(this.projectRoot, 'docs/brand-guidelines.md');
+      writeFileSync(brandPath, result.output);
+      log(c.green, '  ✓ Brand guidelines updated: docs/brand-guidelines.md');
+    }
+
     // 4. Update latest pointer
-    this.updateLatestReport(taskType, reportPath);
+    this.updateLatestReport(actualTask, reportPath);
 
     // 5. Log metrics
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -108,6 +119,26 @@ class CMORunner {
     log(c.gray, '  Output length: ' + result.output.length + ' chars');
 
     return reportPath;
+  }
+
+  /**
+   * Smart task resolution: auto-scheduling and first-run detection.
+   */
+  private resolveTask(task: CMOTaskType): CMOTaskType {
+    if (task === 'market-watch') {
+      const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
+      if (dayOfWeek === 1) {
+        log(c.cyan, '  (Monday — running weekly strategy report instead of daily market watch)');
+        return 'strategy-report';
+      }
+      // First run: no brand guidelines? Start with brand review
+      const brandExists = existsSync(join(this.projectRoot, 'docs/brand-guidelines.md'));
+      if (!brandExists) {
+        log(c.cyan, '  (First run — no brand guidelines exist, starting with brand review)');
+        return 'brand-review';
+      }
+    }
+    return task;
   }
 
   private buildTaskPrompt(taskType: CMOTaskType, additionalContext?: string): string {
@@ -296,6 +327,18 @@ class CMORunner {
    */
   private saveReport(taskType: CMOTaskType, content: string): string {
     const date = new Date().toISOString().split('T')[0];
+
+    // Product proposals go to proposals/ directory with PROP-NNN numbering
+    if (taskType === 'product-proposal') {
+      const proposalsDir = join(this.reportsDir, 'proposals');
+      mkdirSync(proposalsDir, { recursive: true });
+      const existingProposals = readdirSync(proposalsDir).filter(f => f.startsWith('PROP-')).length;
+      const propNum = String(existingProposals + 1).padStart(3, '0');
+      const propPath = join(proposalsDir, `PROP-${propNum}-${date}.md`);
+      writeFileSync(propPath, content);
+      return propPath;
+    }
+
     const filename = taskType + '-' + date + '.md';
     const filepath = join(this.reportsDir, filename);
     writeFileSync(filepath, content);
