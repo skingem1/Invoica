@@ -2,44 +2,49 @@ import { createAuthHeaders, validateApiKey, signRequest, ApiKeyError } from '../
 
 describe('auth', () => {
   describe('createAuthHeaders', () => {
-    it('returns headers with Bearer token, Request-Id, and Timestamp', () => {
-      const headers = createAuthHeaders('inv_1234567890abcdef1234567890abcdef');
-      expect(headers.Authorization).toBe('Bearer inv_1234567890abcdef1234567890abcdef');
-      expect(headers['X-Request-Id']).toBeDefined();
-      expect(headers['X-Timestamp']).toBeDefined();
+    it('returns Authorization with Bearer prefix, valid UUID, ISO timestamp, and 3 keys', () => {
+      const headers = createAuthHeaders('test-key');
+      expect(headers['Authorization']).toBe('Bearer test-key');
+      expect(headers['X-Request-Id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
+      expect(headers['X-Timestamp']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(Object.keys(headers)).toHaveLength(3);
     });
   });
 
   describe('validateApiKey', () => {
-    it('returns true for valid key format', () => {
-      expect(validateApiKey('inv_1234567890abcdef1234567890abcdef')).toBe(true);
+    it('returns true for valid inv_ prefixed 32 hex char key', () => {
+      expect(validateApiKey('inv_0123456789abcdef0123456789abcdef')).toBe(true);
     });
 
-    it('returns false for invalid key format', () => {
-      expect(validateApiKey('invalid')).toBe(false);
-      expect(validateApiKey('inv_')).toBe(false);
-      expect(validateApiKey('INV_1234567890abcdef1234567890abcdef')).toBe(false);
+    it('returns false for missing/wrong prefix, too short, uppercase, empty', () => {
+      expect(validateApiKey('0123456789abcdef0123456789abcdef')).toBe(false);
+      expect(validateApiKey('key_0123456789abcdef0123456789abcdef')).toBe(false);
+      expect(validateApiKey('inv_0123')).toBe(false);
+      expect(validateApiKey('inv_0123456789ABCDEF0123456789abcdef')).toBe(false);
+      expect(validateApiKey('')).toBe(false);
     });
   });
 
   describe('signRequest', () => {
-    it('generates HMAC-SHA256 signature', () => {
-      const signature = signRequest('secret', 'POST', '/api/invoices', '{}');
-      expect(signature).toMatch(/^[a-f0-9]{64}$/);
+    it('returns 64-char hex string (SHA-256)', () => {
+      expect(signRequest('key', 'GET', '/path')).toMatch(/^[a-f0-9]{64}$/);
     });
 
-    it('handles missing body as empty string', () => {
-      const sig1 = signRequest('secret', 'GET', '/api/test');
-      const sig2 = signRequest('secret', 'GET', '/api/test', '');
-      expect(sig1).toBe(sig2);
+    it('is deterministic for same inputs', () => {
+      expect(signRequest('key', 'GET', '/path')).toBe(signRequest('key', 'GET', '/path'));
+    });
+
+    it('differs with body vs without body', () => {
+      expect(signRequest('key', 'POST', '/path')).not.toBe(signRequest('key', 'POST', '/path', '{"a":1}'));
     });
   });
 
   describe('ApiKeyError', () => {
-    it('creates error with correct name and message', () => {
-      const error = new ApiKeyError('Invalid key');
-      expect(error.name).toBe('ApiKeyError');
-      expect(error.message).toBe('Invalid key');
+    it('has correct name, instanceof Error, and message', () => {
+      const err = new ApiKeyError('invalid key');
+      expect(err.name).toBe('ApiKeyError');
+      expect(err instanceof Error).toBe(true);
+      expect(err.message).toBe('invalid key');
     });
   });
 });
