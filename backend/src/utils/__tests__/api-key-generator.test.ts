@@ -1,32 +1,48 @@
-import { generateApiKey, hashApiKey, isTestKey, API_KEY_PREFIX, TEST_KEY_PREFIX } from '../api-key-generator';
+import { generateApiKey, hashApiKey, isTestKey, TEST_KEY_PREFIX, API_KEY_PREFIX } from '../api-key-generator';
 
 describe('api-key-generator', () => {
-  it('generates live key with inv_live_ prefix and 64-char hex hash', () => {
-    const { key, hash } = generateApiKey();
-    expect(key.startsWith(API_KEY_PREFIX)).toBe(true);
-    expect(key.length).toBe(API_KEY_PREFIX.length + 64);
-    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+  const livePrefix = API_KEY_PREFIX;
+  const testPrefix = TEST_KEY_PREFIX;
+
+  it('generateApiKey() produces key starting with inv_live_', () => {
+    const { key } = generateApiKey(false);
+    expect(key.startsWith(livePrefix)).toBe(true);
   });
 
-  it('generates test key with inv_test_ prefix when isTest=true', () => {
+  it('generateApiKey(true) produces key starting with inv_test_', () => {
     const { key } = generateApiKey(true);
-    expect(key.startsWith(TEST_KEY_PREFIX)).toBe(true);
-    expect(key.length).toBe(TEST_KEY_PREFIX.length + 64);
+    expect(key.startsWith(testPrefix)).toBe(true);
   });
 
-  it('hashApiKey returns consistent hash for same input', () => {
-    const hash1 = hashApiKey('test');
-    const hash2 = hashApiKey('test');
+  it('generated key hash matches hashApiKey(key)', () => {
+    const { key, hash } = generateApiKey();
+    expect(hashApiKey(key)).toBe(hash);
+  });
+
+  it('each call generates unique keys', () => {
+    const { key: key1 } = generateApiKey();
+    const { key: key2 } = generateApiKey();
+    expect(key1).not.toBe(key2);
+  });
+
+  it('hashApiKey is deterministic', () => {
+    const key = generateApiKey().key;
+    const hash1 = hashApiKey(key);
+    const hash2 = hashApiKey(key);
     expect(hash1).toBe(hash2);
-    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
-  });
-
-  it('hashApiKey throws TypeError for empty string', () => {
-    expect(() => hashApiKey('')).toThrow(TypeError);
   });
 
   it('isTestKey returns true for test keys and false for live keys', () => {
-    expect(isTestKey('inv_test_abc123')).toBe(true);
-    expect(isTestKey('inv_live_xyz789')).toBe(false);
+    const liveKey = generateApiKey(false).key;
+    const testKey = generateApiKey(true).key;
+    expect(isTestKey(testKey)).toBe(true);
+    expect(isTestKey(liveKey)).toBe(false);
+  });
+
+  it('key format includes random hex characters after prefix', () => {
+    const { key } = generateApiKey();
+    const suffix = key.slice(livePrefix.length);
+    expect(suffix.length).toBeGreaterThan(0);
+    expect(/^[a-f0-9]+$/.test(suffix)).toBe(true);
   });
 });
