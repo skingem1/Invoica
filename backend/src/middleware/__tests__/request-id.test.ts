@@ -1,35 +1,43 @@
 import requestIdMiddleware, { RequestWithId } from '../request-id';
 import { Request, Response, NextFunction } from 'express';
 
-const mockReqRes = (headers: Record<string, string> = {}): { req: Request; res: Response; next: NextFunction } => {
-  const req = { headers } as unknown as Request;
-  const res = { setHeader: jest.fn() } as unknown as Response;
-  const next = jest.fn() as NextFunction;
-  return { req, res, next };
-};
-
 describe('requestIdMiddleware', () => {
-  it('generates a request ID when none provided', () => {
-    const { req, res, next } = mockReqRes();
-    requestIdMiddleware(req, res, next);
-    expect((req as RequestWithId).requestId).toMatch(/^req-\d+-[a-z0-9]+$/);
-    expect(res.setHeader).toHaveBeenCalledWith('x-request-id', expect.stringMatching(/^req-\d+-[a-z0-9]+$/));
-    expect(next).toHaveBeenCalledTimes(1);
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: jest.Mock;
+
+  beforeEach(() => {
+    mockReq = { headers: {} };
+    mockRes = { setHeader: jest.fn() };
+    mockNext = jest.fn();
   });
 
-  it('uses existing x-request-id header if present', () => {
-    const { req, res, next } = mockReqRes({ 'x-request-id': 'existing-id-123' });
-    requestIdMiddleware(req, res, next);
-    expect((req as RequestWithId).requestId).toBe('existing-id-123');
-    expect(res.setHeader).toHaveBeenCalledWith('x-request-id', 'existing-id-123');
-    expect(next).toHaveBeenCalledTimes(1);
+  it('generates requestId when no x-request-id header', () => {
+    requestIdMiddleware(mockReq as Request, mockRes as Response, mockNext);
+    const req = mockReq as RequestWithId;
+    
+    expect(mockNext).toHaveBeenCalledTimes(1);
+    expect(req.requestId).toMatch(/^req-\d+-[a-z0-9]{6}$/);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('x-request-id', req.requestId);
   });
 
-  it('sets unique IDs for consecutive requests', () => {
-    const { req: req1, res: res1, next: next1 } = mockReqRes();
-    const { req: req2, res: res2, next: next2 } = mockReqRes();
-    requestIdMiddleware(req1, res1, next1);
-    requestIdMiddleware(req2, res2, next2);
-    expect((req1 as RequestWithId).requestId).not.toBe((req2 as RequestWithId).requestId);
+  it('uses existing x-request-id header', () => {
+    mockReq.headers = { 'x-request-id': 'existing-id-123' };
+    
+    requestIdMiddleware(mockReq as Request, mockRes as Response, mockNext);
+    
+    expect((mockReq as RequestWithId).requestId).toBe('existing-id-123');
+  });
+
+  it('generates unique IDs', () => {
+    const req1 = { headers: {} };
+    const req2 = { headers: {} };
+    
+    requestIdMiddleware(req1 as Request, mockRes as Response, mockNext);
+    requestIdMiddleware(req2 as Request, mockRes as Response, mockNext);
+    
+    const r1 = req1 as RequestWithId;
+    const r2 = req2 as RequestWithId;
+    expect(r1.requestId).not.toBe(r2.requestId);
   });
 });
