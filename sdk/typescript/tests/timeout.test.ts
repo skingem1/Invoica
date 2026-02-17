@@ -1,19 +1,41 @@
-import { withTimeout, TimeoutError } from '../src/timeout';
+import { TimeoutError, withTimeout, createAbortSignal } from '../src/timeout';
+
+describe('TimeoutError', () => {
+  it('should have correct message, name, timeoutMs, and be an Error', () => {
+    const error = new TimeoutError(5000);
+    expect(error.message).toBe('Request timed out after 5000ms');
+    expect(error.name).toBe('TimeoutError');
+    expect(error.timeoutMs).toBe(5000);
+    expect(error instanceof Error).toBe(true);
+  });
+});
 
 describe('withTimeout', () => {
-  it('resolves if promise finishes before timeout', async () => {
-    const result = await withTimeout(Promise.resolve('ok'), 1000);
-    expect(result).toBe('ok');
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('should resolve when promise resolves before timeout', async () => {
+    jest.useRealTimers();
+    await expect(withTimeout(Promise.resolve('ok'), 1000)).resolves.toBe('ok');
   });
 
-  it('throws TimeoutError if promise exceeds timeout', async () => {
-    const slow = new Promise((resolve) => setTimeout(resolve, 5000));
-    await expect(withTimeout(slow, 50)).rejects.toThrow(TimeoutError);
+  it('should reject with TimeoutError when promise is slow', async () => {
+    const neverResolve = new Promise(() => {});
+    const promise = withTimeout(neverResolve, 500);
+    jest.advanceTimersByTime(500);
+    await expect(promise).rejects.toThrow('Request timed out after 500ms');
   });
 
-  it('TimeoutError includes timeout duration', () => {
-    const err = new TimeoutError(3000);
-    expect(err.timeoutMs).toBe(3000);
-    expect(err.message).toContain('3000');
+  it('should reject with original error when promise rejects before timeout', async () => {
+    jest.useRealTimers();
+    await expect(withTimeout(Promise.reject(new Error('fail')), 1000)).rejects.toThrow('fail');
+  });
+});
+
+describe('createAbortSignal', () => {
+  it('should return an AbortSignal that is not aborted initially', () => {
+    const signal = createAbortSignal(5000);
+    expect(signal instanceof AbortSignal).toBe(true);
+    expect(signal.aborted).toBe(false);
   });
 });
