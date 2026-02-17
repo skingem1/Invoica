@@ -1,43 +1,55 @@
-import { apiVersionMiddleware, getApiVersion, ApiVersionRequest } from '../api-version';
-import { Request, Response, NextFunction } from 'express';
-
-const mockReqRes = (headers: Record<string, string> = {}) => {
-  const req = { get: (h: string) => headers[h], headers } as unknown as Request;
-  const res = { setHeader: jest.fn(), status: jest.fn().mockReturnThis(), json: jest.fn() } as unknown as Response;
-  const next = jest.fn() as NextFunction;
-  return { req, res, next };
-};
+import { Request } from 'express';
+import { apiVersionMiddleware, getApiVersion } from '../api-version';
 
 describe('apiVersionMiddleware', () => {
-  const middleware = apiVersionMiddleware(['v1', 'v2']);
+  const mockNext = jest.fn();
+  const mockJson = jest.fn();
+  const mockStatus = jest.fn().mockReturnValue({ json: mockJson });
+  const mockSetHeader = jest.fn();
+  const mockRes = { status: mockStatus, setHeader: mockSetHeader } as any;
 
-  it('defaults to latest version when no header provided', () => {
-    const { req, res, next } = mockReqRes();
-    middleware(req, res, next);
-    expect((req as ApiVersionRequest).apiVersion).toBe('v2');
-    expect(res.setHeader).toHaveBeenCalledWith('X-API-Version', 'v2');
-    expect(next).toHaveBeenCalledTimes(1);
+  beforeEach(() => jest.clearAllMocks());
+
+  it('supports valid version from header', () => {
+    const req = { get: jest.fn().mockReturnValue('v1') } as any;
+    const middleware = apiVersionMiddleware(['v1', 'v2']);
+    middleware(req, mockRes, mockNext);
+    expect(mockNext).toHaveBeenCalled();
+    expect(req.apiVersion).toBe('v1');
+    expect(mockSetHeader).toHaveBeenCalledWith('X-API-Version', 'v1');
   });
 
-  it('accepts supported version from header', () => {
-    const { req, res, next } = mockReqRes({ 'X-API-Version': 'v1' });
-    middleware(req, res, next);
-    expect((req as ApiVersionRequest).apiVersion).toBe('v1');
-    expect(next).toHaveBeenCalledTimes(1);
+  it('defaults to last supported version when no header', () => {
+    const req = { get: jest.fn().mockReturnValue(undefined) } as any;
+    const middleware = apiVersionMiddleware(['v1', 'v2']);
+    middleware(req, mockRes, mockNext);
+    expect(req.apiVersion).toBe('v2');
+    expect(mockSetHeader).toHaveBeenCalledWith('X-API-Version', 'v2');
   });
 
-  it('rejects unsupported version with 400', () => {
-    const { req, res, next } = mockReqRes({ 'X-API-Version': 'v99' });
-    middleware(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.objectContaining({ code: 'UNSUPPORTED_VERSION' }) }));
-    expect(next).not.toHaveBeenCalled();
+  it('rejects unsupported version with error details', () => {
+    const req = { get: jest.fn().mockReturnValue('v3') } as any;
+    const middleware = apiVersionMiddleware(['v1', 'v2']);
+    middleware(req, mockRes, mockNext);
+    expect(mockStatus).toHaveBeenCalledWith(400);
+    const errorCall = mockJson.mock.calls[0][0];
+    expect(errorCall.error.code).toBe('UNSUPPORTED_VERSION');
+    expect(errorCall.error.message).toContain('v3');
+    expect(errorCall.error.message).toContain('v1');
+    expect(errorCall.error.message).toContain('v2');
+    expect(mockNext).not.toHaveBeenCalled();
+    expect(mockSetHeader).toHaveBeenCalledWith('X-API-Version', 'v3');
   });
 });
 
 describe('getApiVersion', () => {
-  it('returns v1 as default for plain request', () => {
-    const req = {} as Request;
+  it('returns apiVersion from request if set', () => {
+    const req = { apiVersion: 'v2' } as any;
+    expect(getApiVersion(req)).toBe('v2');
+  });
+
+  it('returns v1 as default fallback', () => {
+    const req = {} as any;
     expect(getApiVersion(req)).toBe('v1');
   });
 });
