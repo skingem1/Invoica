@@ -1,22 +1,28 @@
 import { version, sdkUserAgent, isCompatibleApiVersion } from '../src/version';
 
 describe('version', () => {
-  it('exports a semver version string', () => {
-    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+  it('should export version 1.0.0', () => {
+    expect(version).toBe('1.0.0');
   });
 
-  it('exports sdkUserAgent containing version', () => {
-    expect(sdkUserAgent).toContain(version);
-    expect(sdkUserAgent).toContain('countable-sdk-typescript');
+  it('should export correct sdkUserAgent', () => {
+    expect(sdkUserAgent).toBe('countable-sdk-typescript/1.0.0');
   });
+});
 
-  it('isCompatibleApiVersion returns true for v1', () => {
+describe('isCompatibleApiVersion', () => {
+  it('should return true for 1.0.0', () => {
     expect(isCompatibleApiVersion('1.0.0')).toBe(true);
-    expect(isCompatibleApiVersion('1.5.2')).toBe(true);
   });
 
-  it('isCompatibleApiVersion returns false for v2+', () => {
+  it('should return true for same major version', () => {
+    expect(isCompatibleApiVersion('1.2.3')).toBe(true);
+    expect(isCompatibleApiVersion('1.99.0')).toBe(true);
+  });
+
+  it('should return false for different major version', () => {
     expect(isCompatibleApiVersion('2.0.0')).toBe(false);
+    expect(isCompatibleApiVersion('0.9.0')).toBe(false);
     expect(isCompatibleApiVersion('3.1.0')).toBe(false);
   });
 });
