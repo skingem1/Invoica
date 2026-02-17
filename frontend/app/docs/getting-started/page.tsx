@@ -1,65 +1,44 @@
-```tsx
-"use client";
+import { Metadata } from 'next';
 
-import Link from "next/link";
+export const metadata: Metadata = {
+  title: 'Getting Started - Invoica',
+  description: 'Get started with Invoica SDK',
+};
 
-export default function GettingStarted() {
+export default function GettingStartedPage() {
   return (
-    <div className="max-w-4xl mx-auto py-12 px-6">
-      <h1 className="text-3xl font-bold mb-8">Getting Started</h1>
+    <div className="max-w-3xl prose">
+      <h1 className="text-3xl font-bold mb-6">Getting Started</h1>
 
-      <section className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4">Install</h2>
-        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-          <code>npm install @countable/invoica-sdk</code>
-        </pre>
-      </section>
-
-      <section className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4">Quick Start</h2>
-
-        <h3 className="text-xl font-medium mb-3">Initialize Client</h3>
-        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-6">
-          <code>{`import { InvoicaClient } from '@countable/invoica-sdk';
-
-const client = new InvoicaClient({
-  apiKey: 'inv_live_xxxxx'
-});`}</code>
-        </pre>
-
-        <h3 className="text-xl font-medium mb-3">Create Invoice</h3>
-        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-6">
-          <code>{`const invoice = await client.invoices.create({
-  customer_email: 'customer@example.com',
-  line_items: [{ description: 'Service', amount: 5000 }]
-});`}</code>
-        </pre>
-
-        <h3 className="text-xl font-medium mb-3">Verify Webhook</h3>
-        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-          <code>{`const payload = await client.webhooks.verify(
-  request.headers,
-  request.body
-);`}</code>
-        </pre>
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Installation</h2>
+        <p className="text-gray-600 mb-4">
+          Install the Invoica SDK using npm: npm install @invoica/sdk
+        </p>
       </section>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4">Authentication</h2>
+        <h2 className="text-xl font-semibold mb-3">Quick Setup</h2>
         <p className="text-gray-600 mb-4">
-          The SDK uses API key authentication. Keys follow the format:{" "}
-          <code className="bg-gray-100 px-2 py-1 rounded">inv_live_xxxxx</code> or{" "}
-          <code className="bg-gray-100 px-2 py-1 rounded">inv_test_xxxxx</code>.
+          Import InvoicaClient and create an instance with your API key to authenticate requests.
         </p>
-        <p className="text-gray-600">
-          Get your API keys from the{" "}
-          <Link href="/api-keys" className="text-blue-600 hover:underline">
-            API Keys
-          </Link>{" "}
-          page.
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Create Your First Invoice</h2>
+        <p className="text-gray-600 mb-4">
+          Use client.invoices.create() with amount, currency, and description parameters to generate an invoice.
         </p>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Next Steps</h2>
+        <ul className="list-disc pl-6 text-gray-600 mb-4">
+          <li>Read the API Reference</li>
+          <li>Set up Webhooks</li>
+          <li>Configure Authentication</li>
+        </ul>
       </section>
     </div>
   );
 }
-```
