@@ -8,7 +8,7 @@ description: >
   (like Invoica) unless explicitly authorized by CMO + CEO.
 llm: anthropic/claude-sonnet-4
 fallback_llm: anthropic/claude-sonnet-4
-tools: [web_research, file_generation, image_generation, social_media_api]
+tools: [web_research, file_generation, image_generation, social_media_api, grok_x_api]
 working_directory: ./
 reports_to: cmo
 context_files:

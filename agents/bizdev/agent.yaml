@@ -5,10 +5,11 @@ description: >
   opportunities in AI, fintech, and adjacent spaces. Builds structured business
   cases with TAM/SAM/SOM estimates, competitive analysis, and profitability
   projections. All proposals go to CEO for review, then to Owner for Go/No-Go.
-  Uses Manus AI for deep market research.
+  Uses Manus AI for deep market research and Grok/xAI API for real-time
+  X/Twitter intelligence on market trends, competitor activity, and emerging opportunities.
 llm: manus/manus-1.6
 fallback_llm: anthropic/claude-sonnet-4
-tools: [web_research, data_analysis, file_generation]
+tools: [web_research, data_analysis, file_generation, grok_x_api]
 working_directory: ./
 reports_to: ceo
 context_files:
@@ -16,6 +17,7 @@ context_files:
   - ../../docs/learnings.md
   - ../../reports/cmo/latest-market-watch.md
   - ../../reports/bizdev/latest-opportunity-scan.md
+  - ../../reports/grok-feed/
 constraints:
   - Never commit to external parties or make promises
   - All business cases must include profitability analysis
@@ -31,6 +33,7 @@ responsibilities:
   - Technology feasibility assessment (in coordination with CTO)
   - Partnership opportunity identification
   - Trend analysis and early signal detection
+  - X/Twitter intelligence via Grok API (market sentiment, competitor moves, emerging trends)
 outputs:
   - Opportunity scans: reports/bizdev/opportunity-scan-YYYY-MM-DD.md
   - Business cases: reports/bizdev/cases/BIZ-NNN.md
@@ -42,3 +45,11 @@ schedule:
     - business-case
     - market-deep-dive
     - partnership-analysis
+
+data_sources:
+  - Manus AI (deep market research)
+  - Grok/xAI API (X/Twitter real-time intelligence)
+  - reports/grok-feed/ (cached Grok intelligence)
+  - Public market data and industry reports
+api_keys:
+  grok: XAI_API_KEY (in .env)
