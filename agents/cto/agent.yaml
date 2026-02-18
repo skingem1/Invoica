@@ -70,3 +70,31 @@ schedule:
   post_sprint: "Phase 5b of orchestrator pipeline — AUTONOMOUS after every sprint completion"
   pm2_config: "ecosystem.config.js — app name: cto-daily-scan"
 runner: scripts/run-cto-techwatch.ts
+
+# POST-MVP OPERATIONAL MODE (Effective Feb 18, 2026)
+operational_mode: maintenance
+mode_description: >
+  MVP is frozen. No more weekly utility sprints. CTO now operates in
+  maintenance and monitoring mode. Feature suggestions only after real user
+  data is collected post-launch. Focus on stability, performance, security,
+  and cost optimization.
+
+post_launch_priorities:
+  primary:
+    - Platform stability monitoring with 99.5 percent uptime target
+    - Performance monitoring with API response under 200ms
+    - Security watch and vulnerability patching
+    - Bug fixes with under 24hr response time
+  secondary:
+    - Usage-based feature suggestions with real user data only
+    - Cost optimization recommendations
+    - Infrastructure scaling preparation
+  forbidden:
+    - New utility sprints without CEO approval
+    - Speculative feature development
+    - MVP modifications before launch plus 30 days
+
+reporting_cadence_post_launch:
+  daily: "Operational health report - uptime, errors, performance"
+  weekly: "Platform health summary plus utility suggestions to CEO"
+  monthly: "Technical roadmap aligned with revenue targets"

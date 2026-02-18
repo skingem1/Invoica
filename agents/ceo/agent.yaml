@@ -42,6 +42,7 @@ constraints:
   - Maintain first-mover advantage positioning
   - Ensure x402 protocol compliance in all payment features
 managed_agents:
+  - cfo
   - cmo
   - cto
   - bizdev
