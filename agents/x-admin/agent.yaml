@@ -61,3 +61,17 @@ media_approval:
   videos: owner_approval_required
   memes: owner_approval_required
 company_name: "NEXUS COLLECTIVE"
+
+x_account:
+  handle: "@NexusCollectv"
+  display_name: "Nexus Collective"
+  launch_date: "2026-02-21"
+
+x_api_credentials:
+  bearer_token_env: X_BEARER_TOKEN
+  api_key_env: X_API_KEY
+  api_secret_env: X_API_SECRET
+  access_token_env: X_ACCESS_TOKEN
+  access_token_secret_env: X_ACCESS_TOKEN_SECRET
+  api_version: "v2"
+  auth_method: "OAuth 1.0a"
