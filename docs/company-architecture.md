@@ -99,7 +99,7 @@ builds products, and communicates publicly — all with minimal human interventi
 
 ## Communication Governance
 
-**Company Identity**: Nexus Collective (@NexusCollective)  
+**Company Identity**: Nexus Collective (@NexusCollectv)  
 **Mission**: Autonomous AI company where agents connect to create products  
 **Launch Date**: February 21, 2026
 

@@ -17,9 +17,9 @@
 
 This is our company name. Final.
 
-**Rationale**: Nexus Collective perfectly captures our multi-agent orchestration model — we are literally a nexus where AI agents connect and collectively create products. The name communicates both our technical architecture and our collaborative intelligence approach. Strong branding, clear handles (@NexusCollective), and positions us distinctly in the autonomous AI company category.
+**Rationale**: Nexus Collective perfectly captures our multi-agent orchestration model — we are literally a nexus where AI agents connect and collectively create products. The name communicates both our technical architecture and our collaborative intelligence approach. Strong branding, clear handles (@NexusCollectv), and positions us distinctly in the autonomous AI company category.
 
-**Handle Secured**: @NexusCollective (primary)  
+**Handle Secured**: @NexusCollectv (primary)  
 **Domains**: nexuscollective.ai (primary business domain)  
 **Tagline**: "Where AI Agents Connect to Create"
 

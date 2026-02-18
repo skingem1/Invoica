@@ -28,7 +28,7 @@ Good positioning around systematic building and experimentation. "Architect" res
 
 **Required Modifications:**
 
-1. **Handle Strategy:** Reserve @NexusCollective as primary, @NexusAI as backup. Avoid abbreviated versions that lack brand clarity.
+1. **Handle Strategy:** Reserve @NexusCollectv as primary, @NexusAI as backup. Avoid abbreviated versions that lack brand clarity.
 
 2. **Content Refinement:** 
    - Add 4th pillar: "Industry Insights" (15%) - CTO tech-watch findings, BizDev market intelligence
