@@ -1,0 +1,139 @@
+{
+  "tasks": [
+    {
+      "id": "SDK-266",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/truncate.ts \u2014 string truncation utilities.\n\nSTRICT: Max 35 lines. Pure functions. No dependencies. Full JSDoc.\n\nExport these functions:\n\n1. truncate(str: string, maxLength: number, suffix?: string): string\n   - Truncate string to maxLength including suffix\n   - Default suffix is '...'\n   - If str.length <= maxLength, return str unchanged\n   - Example: truncate('Hello World', 8) => 'Hello...'\n   - Example: truncate('Hi', 10) => 'Hi'\n\n2. truncateMiddle(str: string, maxLength: number, separator?: string): string\n   - Keep start and end, truncate middle\n   - Default separator is '...'\n   - Split evenly: ceil for start, floor for end\n   - Example: truncateMiddle('abcdefghij', 7) => 'ab...ij'\n\n3. truncateWords(str: string, maxWords: number, suffix?: string): string\n   - Truncate to N words\n   - Default suffix is '...'\n   - Split on whitespace, take first N words, rejoin with space + suffix\n   - Example: truncateWords('one two three four', 2) => 'one two...'\n   - If word count <= maxWords, return unchanged\n\nExport: truncate, truncateMiddle, truncateWords\nKeep under 35 lines. Concise JSDoc (1 line per function).",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/truncate.ts"
+        ]
+      },
+      "description": "String truncation utilities"
+    },
+    {
+      "id": "SDK-267",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/truncate.test.ts \u2014 tests for truncate.ts.\n\nImport: { truncate, truncateMiddle, truncateWords } from '../truncate'\n\nTest cases (describe 'truncate'):\n1. truncate('Hello World', 8) => 'Hello...'\n2. truncate('Hi', 10) => 'Hi' (no truncation needed)\n3. truncate('Hello World', 8, '\u2026') => 'Hello W\u2026'\n4. truncate('', 5) => ''\n5. truncateMiddle('abcdefghij', 7) => 'ab...ij'\n6. truncateMiddle('abcdefghij', 7, '~') => 'abc~hij'\n7. truncateMiddle('abc', 10) => 'abc' (no truncation)\n8. truncateWords('one two three four', 2) => 'one two...'\n9. truncateWords('one two three four', 2, '\u2026') => 'one two\u2026'\n10. truncateWords('hello', 5) => 'hello' (no truncation)\n11. truncateWords('a b c', 0) => '...'\n\nKeep tests 1-2 lines each. Max 35 lines total. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/truncate.test.ts"
+        ]
+      },
+      "description": "Tests for truncate utilities"
+    },
+    {
+      "id": "SDK-268",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/color-convert.ts \u2014 color format conversion utilities.\n\nSTRICT: Max 45 lines. Pure functions. No dependencies. Full JSDoc.\n\nType to export:\ntype RGB = { r: number; g: number; b: number }\ntype HSL = { h: number; s: number; l: number }\n\nExport these functions:\n\n1. hexToRgb(hex: string): RGB | null\n   - Parse '#RGB', '#RRGGBB' formats (with or without #)\n   - 3-char shorthand: '#F00' => {r:255,g:0,b:0}\n   - Return null for invalid input\n   - Example: hexToRgb('#FF8800') => {r:255,g:136,b:0}\n\n2. rgbToHex(r: number, g: number, b: number): string\n   - Convert RGB values (0-255) to '#RRGGBB' format\n   - Clamp values to 0-255 range\n   - Example: rgbToHex(255, 136, 0) => '#ff8800'\n\n3. rgbToHsl(r: number, g: number, b: number): HSL\n   - Convert RGB (0-255) to HSL (h:0-360, s:0-100, l:0-100)\n   - Standard RGB to HSL algorithm\n   - Round h, s, l to integers\n\n4. hslToRgb(h: number, s: number, l: number): RGB\n   - Convert HSL (h:0-360, s:0-100, l:0-100) to RGB (0-255)\n   - Standard HSL to RGB algorithm\n   - Round r, g, b to integers\n\nExport: RGB, HSL, hexToRgb, rgbToHex, rgbToHsl, hslToRgb\nKeep under 45 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/color-convert.ts"
+        ]
+      },
+      "description": "Color format conversion utilities"
+    },
+    {
+      "id": "SDK-269",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/color-convert.test.ts \u2014 tests for color-convert.ts.\n\nImport: { hexToRgb, rgbToHex, rgbToHsl, hslToRgb } from '../color-convert'\n\nTest cases (describe 'color-convert'):\n1. hexToRgb('#FF0000') => {r:255,g:0,b:0}\n2. hexToRgb('#F00') => {r:255,g:0,b:0} (shorthand)\n3. hexToRgb('00FF00') => {r:0,g:255,b:0} (no hash)\n4. hexToRgb('invalid') => null\n5. hexToRgb('#GGG') => null\n6. rgbToHex(255, 0, 0) => '#ff0000'\n7. rgbToHex(0, 255, 0) => '#00ff00'\n8. rgbToHex(300, -10, 128) => '#ff0080' (clamped)\n9. rgbToHsl(255, 0, 0) => {h:0,s:100,l:50} (pure red)\n10. rgbToHsl(0, 0, 0) => {h:0,s:0,l:0} (black)\n11. rgbToHsl(255, 255, 255) => {h:0,s:0,l:100} (white)\n12. hslToRgb(0, 100, 50) => {r:255,g:0,b:0} (red)\n13. hslToRgb(120, 100, 50) => {r:0,g:255,b:0} (green)\n14. hslToRgb(0, 0, 50) => {r:128,g:128,b:128} (gray)\n\nKeep tests 1-2 lines each. Max 40 lines total. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/color-convert.test.ts"
+        ]
+      },
+      "description": "Tests for color-convert utilities"
+    },
+    {
+      "id": "FE-473",
+      "agent": "frontend",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/components/__tests__/ProgressBar.test.tsx \u2014 tests for ProgressBar.tsx.\n\nImport: import { render, screen } from '@testing-library/react'\nImport: import { ProgressBar } from '../ProgressBar'\n\nTest cases (describe 'ProgressBar'):\n1. 'renders with default props' \u2014 render(<ProgressBar value={50} />), expect role=\"progressbar\" in document\n2. 'displays correct percentage' \u2014 render(<ProgressBar value={75} />), expect aria-valuenow=\"75\"\n3. 'clamps value to 0-100' \u2014 render(<ProgressBar value={150} />), expect aria-valuenow not to exceed 100\n4. 'shows label when showLabel is true' \u2014 render(<ProgressBar value={60} showLabel />), expect \"60%\" text in document\n5. 'hides label by default' \u2014 render(<ProgressBar value={60} />), expect \"60%\" NOT in document\n6. 'applies size class' \u2014 render(<ProgressBar value={50} size=\"lg\" />), container should have element with class 'progress-bar-lg'\n7. 'applies color class' \u2014 render(<ProgressBar value={50} color=\"green\" />), container should have element with class 'progress-bar-green'\n8. 'applies animated class when animated' \u2014 render(<ProgressBar value={50} animated />), container should have element with class 'progress-bar-animated'\n9. 'calculates percentage with custom max' \u2014 render(<ProgressBar value={25} max={50} />), expect aria-valuenow=\"50\"\n10. 'applies custom className' \u2014 render(<ProgressBar value={50} className=\"custom\" />), container should have element with class 'custom'\n\nMax 45 lines. Use Jest + React Testing Library. Each test 2-3 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/components/__tests__/ProgressBar.test.tsx"
+        ]
+      },
+      "description": "Tests for ProgressBar component"
+    },
+    {
+      "id": "FE-474",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/use-throttle.ts \u2014 React hook for throttling values.\n\nSTRICT: Max 25 lines. React 18+. Full JSDoc. Named export only.\n\nExport: export function useThrottle<T>(value: T, limit: number): T\n\nBehavior:\n- Returns a throttled version of value that only updates at most once per `limit` milliseconds\n- Uses useRef to track last update time and last value\n- Uses useState for the throttled value\n- Uses useEffect to handle updates:\n  - If enough time has passed since last update (>= limit ms), update immediately\n  - Otherwise, set a timeout to update after remaining time\n  - Clear timeout on cleanup\n- First value is set immediately (no initial delay)\n\nImplementation pattern:\n1. const [throttledValue, setThrottledValue] = useState(value)\n2. const lastUpdated = useRef(Date.now())\n3. useEffect watching value and limit:\n   - Calculate time since last update\n   - If >= limit: update now, record time\n   - Else: setTimeout for remaining time, return cleanup\n\nKeep under 25 lines. Clean, minimal hook.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-throttle.ts"
+        ]
+      },
+      "description": "React hook for throttling values"
+    },
+    {
+      "id": "FE-475",
+      "agent": "frontend",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/__tests__/use-throttle.test.ts \u2014 tests for use-throttle.ts.\n\nImport: { renderHook, act } from '@testing-library/react'\nImport: { useThrottle } from '../use-throttle'\n\nUse jest.useFakeTimers() in beforeEach, jest.useRealTimers() in afterEach.\n\nTest cases (describe 'useThrottle'):\n1. 'returns initial value immediately' \u2014 render with value='hello', limit=500, expect result.current === 'hello'\n2. 'throttles rapid updates' \u2014 render with value=1, limit=500, rerender with value=2, expect result.current still 1 (throttled), advance 500ms, expect result.current === 2\n3. 'updates immediately after limit expires' \u2014 render with value=1, limit=200, advance 200ms, rerender with value=2, expect result.current === 2 (enough time passed)\n4. 'works with different types' \u2014 render with value={a:1}, limit=100, rerender with value={a:2}, advance 100ms, expect result.current to deep equal {a:2}\n5. 'cleans up timeout on unmount' \u2014 render with value=1, limit=500, rerender with value=2, unmount, advance 500ms, no errors thrown\n\nMax 45 lines. Use jest.advanceTimersByTime(). Keep tests concise.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/__tests__/use-throttle.test.ts"
+        ]
+      },
+      "description": "Tests for use-throttle hook"
+    },
+    {
+      "id": "FE-476",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/components/Skeleton.tsx \u2014 a skeleton loading placeholder component.\n\nSTRICT: Max 40 lines. React 18+. Full JSDoc. Named export only.\n\nProps interface (export it):\ninterface SkeletonProps {\n  width?: string | number;     // CSS width (default '100%')\n  height?: string | number;    // CSS height (default '1rem')\n  variant?: 'text' | 'circular' | 'rectangular';  // shape variant\n  animation?: 'pulse' | 'wave' | 'none';          // animation type\n  className?: string;\n  count?: number;              // number of skeleton lines (default 1)\n  gap?: string | number;       // gap between lines (default '0.5rem')\n}\n\nRender structure:\n- If count > 1, wrap in <div class=\"skeleton-group\" style={{display:'flex',flexDirection:'column',gap}}>\n- Each skeleton: <div class=\"skeleton skeleton-{variant} skeleton-{animation}\" style={{width, height, borderRadius}} aria-hidden=\"true\" />\n- variant='text': borderRadius='4px'\n- variant='circular': borderRadius='50%', width and height should be equal\n- variant='rectangular': borderRadius='0'\n- Default: variant='text', animation='pulse', count=1\n\nExport: SkeletonProps, Skeleton\nKeep under 40 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/components/Skeleton.tsx"
+        ]
+      },
+      "description": "Skeleton loading placeholder component"
+    },
+    {
+      "id": "SDK-270",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/pluralize.ts \u2014 simple English pluralization utility.\n\nSTRICT: Max 35 lines. Pure functions. No dependencies. Full JSDoc.\n\nExport these functions:\n\n1. pluralize(count: number, singular: string, plural?: string): string\n   - Return singular form if count === 1, plural form otherwise\n   - If plural not provided, add 's' to singular\n   - Example: pluralize(1, 'item') => 'item'\n   - Example: pluralize(5, 'item') => 'items'\n   - Example: pluralize(0, 'child', 'children') => 'children'\n   - Example: pluralize(2, 'mouse', 'mice') => 'mice'\n\n2. pluralizeWithCount(count: number, singular: string, plural?: string): string\n   - Same as pluralize but prepends the count\n   - Example: pluralizeWithCount(1, 'item') => '1 item'\n   - Example: pluralizeWithCount(5, 'item') => '5 items'\n   - Example: pluralizeWithCount(0, 'child', 'children') => '0 children'\n\n3. autoPluralize(singular: string): string\n   - Basic English plural rules (no irregular words):\n   - Ends with 's', 'sh', 'ch', 'x', 'z' => add 'es'\n   - Ends with consonant + 'y' => replace 'y' with 'ies'\n   - Otherwise => add 's'\n   - Example: autoPluralize('box') => 'boxes'\n   - Example: autoPluralize('city') => 'cities'\n   - Example: autoPluralize('cat') => 'cats'\n\nExport: pluralize, pluralizeWithCount, autoPluralize\nKeep under 35 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/pluralize.ts"
+        ]
+      },
+      "description": "Simple English pluralization utilities"
+    }
+  ]
+}
