@@ -1,0 +1,139 @@
+{
+  "tasks": [
+    {
+      "id": "FE-483",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/components/Divider.tsx \u2014 a horizontal/vertical divider component.\n\nIMPORTANT: This task failed in Week 65 due to label rendering complexity + 30-line limit.\nLine limit RELAXED to 45 lines.\n\nSTRICT: Max 45 lines. React 18+. Full JSDoc on interface and component. Named export only.\n\nProps interface (MUST export):\n/** Props for Divider component */\nexport interface DividerProps {\n  /** Orientation (default: 'horizontal') */\n  orientation?: 'horizontal' | 'vertical';\n  /** Label text centered in the divider */\n  label?: string;\n  /** Additional CSS class */\n  className?: string;\n  /** Line color (default: '#e5e7eb') */\n  color?: string;\n  /** Line thickness in px (default: 1) */\n  thickness?: number;\n  /** Margin in px (default: 16) */\n  spacing?: number;\n}\n\nCRITICAL REQUIREMENTS \u2014 follow exactly:\n\nWITHOUT label:\n- Render: <div role=\"separator\" aria-orientation={orientation} className={`divider divider-${orientation} ${className||''}`} style={style} />\n- Horizontal style: { borderTop: `${thickness}px solid ${color}`, margin: `${spacing}px 0` }\n- Vertical style: { borderLeft: `${thickness}px solid ${color}`, margin: `0 ${spacing}px`, alignSelf: 'stretch' }\n\nWITH label:\n- Render: <div role=\"separator\" aria-orientation={orientation} className={`divider divider-${orientation} ${className||''}`} style={wrapperStyle}>\n    <div style={lineStyle} />\n    <span className=\"divider-label\">{label}</span>\n    <div style={lineStyle} />\n  </div>\n- Wrapper style: { display: 'flex', alignItems: 'center', gap: '8px', margin: `${spacing}px 0` } for horizontal\n- Wrapper style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: `0 ${spacing}px`, alignSelf: 'stretch' } for vertical\n- Line style horizontal: { flex: 1, borderTop: `${thickness}px solid ${color}` }\n- Line style vertical: { flex: 1, borderLeft: `${thickness}px solid ${color}` }\n- Use <div> elements for lines, NOT <hr> elements\n\nDefaults: orientation='horizontal', color='#e5e7eb', thickness=1, spacing=16\n\nExport: DividerProps, Divider",
+      "deliverables": {
+        "code": [
+          "frontend/components/Divider.tsx"
+        ]
+      },
+      "description": "Divider component (reattempt with relaxed line limit)"
+    },
+    {
+      "id": "SDK-283",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/debounce.ts \u2014 debounce and throttle function utilities.\n\nSTRICT: Max 30 lines. Pure functions. No dependencies. Full JSDoc with @param and @returns.\n\nExport these functions:\n\n1. debounce<T extends (...args: any[]) => any>(fn: T, delay: number): T & { cancel: () => void }\n   - Return a debounced version of fn that delays invocation until delay ms after last call\n   - Uses setTimeout/clearTimeout internally\n   - Attach a cancel() method to clear pending timeout\n   - Cast return as T & { cancel: () => void }\n\n2. throttle<T extends (...args: any[]) => any>(fn: T, limit: number): T & { cancel: () => void }\n   - Return a throttled version of fn that executes at most once per limit ms\n   - On first call: execute immediately, record timestamp\n   - On subsequent calls: if enough time passed, execute; otherwise ignore\n   - Attach a cancel() method (clears inProgress flag)\n\nImplementation hints:\n- debounce: let timer: ReturnType<typeof setTimeout>; const debounced = (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay) }; debounced.cancel = () => clearTimeout(timer)\n- throttle: let lastCall = 0; const throttled = (...args) => { const now = Date.now(); if (now - lastCall >= limit) { lastCall = now; fn(...args) } }; throttled.cancel = () => { lastCall = 0 }\n\nExport: debounce, throttle\nKeep under 30 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/debounce.ts"
+        ]
+      },
+      "description": "Debounce and throttle function utilities"
+    },
+    {
+      "id": "SDK-284",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/debounce.test.ts \u2014 tests for debounce.ts.\n\nImport: { debounce, throttle } from '../debounce'\n\nUse jest.useFakeTimers() in beforeEach, jest.useRealTimers() in afterEach.\n\nTest cases (describe 'debounce and throttle'):\n1. 'debounce delays execution' \u2014 const fn = jest.fn(); const d = debounce(fn, 100); d(); expect(fn).not.toHaveBeenCalled(); jest.advanceTimersByTime(100); expect(fn).toHaveBeenCalledTimes(1)\n2. 'debounce resets timer on repeated calls' \u2014 const fn = jest.fn(); const d = debounce(fn, 100); d(); jest.advanceTimersByTime(50); d(); jest.advanceTimersByTime(100); expect(fn).toHaveBeenCalledTimes(1)\n3. 'debounce cancel prevents execution' \u2014 const fn = jest.fn(); const d = debounce(fn, 100); d(); d.cancel(); jest.advanceTimersByTime(200); expect(fn).not.toHaveBeenCalled()\n4. 'debounce passes arguments' \u2014 const fn = jest.fn(); const d = debounce(fn, 50); d('a', 'b'); jest.advanceTimersByTime(50); expect(fn).toHaveBeenCalledWith('a', 'b')\n5. 'throttle executes immediately on first call' \u2014 const fn = jest.fn(); const t = throttle(fn, 100); t(); expect(fn).toHaveBeenCalledTimes(1)\n6. 'throttle blocks calls within limit' \u2014 const fn = jest.fn(); const t = throttle(fn, 100); t(); t(); t(); expect(fn).toHaveBeenCalledTimes(1)\n7. 'throttle allows call after limit' \u2014 const fn = jest.fn(); const t = throttle(fn, 100); t(); jest.advanceTimersByTime(100); t(); expect(fn).toHaveBeenCalledTimes(2)\n\nMax 35 lines. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/debounce.test.ts"
+        ]
+      },
+      "description": "Tests for debounce and throttle"
+    },
+    {
+      "id": "SDK-285",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/path-utils.ts \u2014 file path manipulation utilities.\n\nSTRICT: Max 30 lines. Pure functions. No dependencies (no 'path' module). Full JSDoc.\n\nExport these functions:\n\n1. basename(path: string): string\n   - Return last segment of path after last '/' or '\\'\n   - Example: basename('/foo/bar/baz.txt') => 'baz.txt'\n   - Example: basename('C:\\Users\\file.ts') => 'file.ts'\n\n2. dirname(path: string): string\n   - Return directory portion (everything before last '/' or '\\')\n   - Example: dirname('/foo/bar/baz.txt') => '/foo/bar'\n   - If no separator found, return '.'\n\n3. extname(path: string): string\n   - Return file extension including the dot\n   - Example: extname('file.txt') => '.txt'\n   - Example: extname('file') => ''\n   - Example: extname('.gitignore') => '' (leading dot is not extension)\n   - Find last dot in basename only; if dot is at position 0, return ''\n\n4. join(...segments: string[]): string\n   - Join path segments with '/'\n   - Remove duplicate slashes\n   - Example: join('foo', 'bar', 'baz') => 'foo/bar/baz'\n   - Example: join('/foo/', '/bar') => '/foo/bar'\n\nExport: basename, dirname, extname, join\nKeep under 30 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/path-utils.ts"
+        ]
+      },
+      "description": "File path manipulation utilities"
+    },
+    {
+      "id": "SDK-286",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/path-utils.test.ts \u2014 tests for path-utils.ts.\n\nImport: { basename, dirname, extname, join } from '../path-utils'\n\nTest cases (describe 'path-utils'):\n1. basename('/foo/bar/baz.txt') => 'baz.txt'\n2. basename('C:\\\\Users\\\\file.ts') => 'file.ts'\n3. basename('file.txt') => 'file.txt'\n4. dirname('/foo/bar/baz.txt') => '/foo/bar'\n5. dirname('file.txt') => '.'\n6. dirname('/foo') => ''  (or '/')\n7. extname('file.txt') => '.txt'\n8. extname('file.tar.gz') => '.gz'\n9. extname('file') => ''\n10. extname('.gitignore') => ''\n11. join('foo', 'bar', 'baz') => 'foo/bar/baz'\n12. join('/foo/', '/bar') => '/foo/bar'\n13. join('a', '', 'b') => 'a/b'\n\nKeep tests 1-2 lines each. Max 35 lines total. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/path-utils.test.ts"
+        ]
+      },
+      "description": "Tests for path-utils"
+    },
+    {
+      "id": "FE-484",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/use-event-listener.ts \u2014 React hook for DOM event listeners.\n\nSTRICT: Max 25 lines. React 18+. Full JSDoc. Named export only.\n\nExport: export function useEventListener<K extends keyof WindowEventMap>(eventName: K, handler: (event: WindowEventMap[K]) => void, element?: HTMLElement | Window | null, options?: boolean | AddEventListenerOptions): void\n\nBehavior:\n- Attaches an event listener to the given element (default: window)\n- Uses useRef to store the handler (avoids stale closures)\n- useEffect #1: update handler ref when handler changes\n- useEffect #2: watching [eventName, element, options]:\n  - If element is null/undefined and no default, return\n  - const target = element || window\n  - target.addEventListener(eventName, savedHandler.current, options)\n  - cleanup: target.removeEventListener(eventName, savedHandler.current, options)\n\nImplementation:\nconst savedHandler = useRef(handler);\nuseEffect(() => { savedHandler.current = handler; }, [handler]);\nuseEffect(() => {\n  const target = element ?? window;\n  const listener = (e: Event) => savedHandler.current(e as WindowEventMap[K]);\n  target.addEventListener(eventName, listener, options);\n  return () => target.removeEventListener(eventName, listener, options);\n}, [eventName, element, options]);\n\nKeep under 25 lines.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-event-listener.ts"
+        ]
+      },
+      "description": "React hook for DOM event listeners"
+    },
+    {
+      "id": "FE-485",
+      "agent": "frontend",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/__tests__/use-event-listener.test.ts \u2014 tests for use-event-listener.ts.\n\nImport: { renderHook } from '@testing-library/react'\nImport: { useEventListener } from '../use-event-listener'\n\nTest cases (describe 'useEventListener'):\n1. 'attaches event listener to window by default' \u2014 const handler = jest.fn(); renderHook(() => useEventListener('click', handler)); window.dispatchEvent(new Event('click')); expect(handler).toHaveBeenCalledTimes(1)\n2. 'removes listener on unmount' \u2014 const handler = jest.fn(); const { unmount } = renderHook(() => useEventListener('click', handler)); unmount(); window.dispatchEvent(new Event('click')); expect(handler).not.toHaveBeenCalled()\n3. 'attaches to custom element' \u2014 const div = document.createElement('div'); const handler = jest.fn(); renderHook(() => useEventListener('click', handler, div)); div.dispatchEvent(new Event('click')); expect(handler).toHaveBeenCalled()\n4. 'uses latest handler' \u2014 const handler1 = jest.fn(); const handler2 = jest.fn(); const { rerender } = renderHook(({h}) => useEventListener('click', h), {initialProps: {h: handler1}}); rerender({h: handler2}); window.dispatchEvent(new Event('click')); expect(handler2).toHaveBeenCalled(); expect(handler1).not.toHaveBeenCalled()\n5. 'handles null element gracefully' \u2014 expect(() => renderHook(() => useEventListener('click', jest.fn(), null))).not.toThrow()\n\nMax 30 lines. Use Jest + React Testing Library.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/__tests__/use-event-listener.test.ts"
+        ]
+      },
+      "description": "Tests for use-event-listener hook"
+    },
+    {
+      "id": "SDK-287",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/string-case.ts \u2014 string case conversion utilities.\n\nSTRICT: Max 30 lines. Pure functions. No dependencies. Full JSDoc.\n\nExport these functions:\n\n1. camelCase(str: string): string\n   - Convert string to camelCase\n   - Split on non-alphanumeric chars, spaces, hyphens, underscores\n   - First word lowercase, subsequent words capitalized\n   - Example: camelCase('hello-world') => 'helloWorld'\n   - Example: camelCase('foo_bar_baz') => 'fooBarBaz'\n\n2. snakeCase(str: string): string\n   - Convert to snake_case\n   - Insert underscore before capitals, split on non-alphanum, join with _\n   - Example: snakeCase('helloWorld') => 'hello_world'\n   - Example: snakeCase('FOO-BAR') => 'foo_bar'\n\n3. kebabCase(str: string): string\n   - Convert to kebab-case (same logic as snake_case but with hyphens)\n   - Example: kebabCase('helloWorld') => 'hello-world'\n\n4. pascalCase(str: string): string\n   - Convert to PascalCase (like camelCase but first word also capitalized)\n   - Example: pascalCase('hello-world') => 'HelloWorld'\n\nHelper: split string by inserting separator before uppercase letters, then split on /[^a-zA-Z0-9]+/\n\nconst words = (s: string): string[] => s.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[^a-zA-Z0-9]+/).filter(Boolean).map(w => w.toLowerCase());\n\nExport: camelCase, snakeCase, kebabCase, pascalCase\nKeep under 30 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/string-case.ts"
+        ]
+      },
+      "description": "String case conversion utilities"
+    },
+    {
+      "id": "SDK-288",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/string-case.test.ts \u2014 tests for string-case.ts.\n\nImport: { camelCase, snakeCase, kebabCase, pascalCase } from '../string-case'\n\nTest cases (describe 'string-case'):\n1. camelCase('hello-world') => 'helloWorld'\n2. camelCase('foo_bar_baz') => 'fooBarBaz'\n3. camelCase('Hello World') => 'helloWorld'\n4. snakeCase('helloWorld') => 'hello_world'\n5. snakeCase('FOO-BAR') => 'foo_bar'\n6. snakeCase('hello world') => 'hello_world'\n7. kebabCase('helloWorld') => 'hello-world'\n8. kebabCase('foo_bar') => 'foo-bar'\n9. kebabCase('Hello World') => 'hello-world'\n10. pascalCase('hello-world') => 'HelloWorld'\n11. pascalCase('foo_bar') => 'FooBar'\n12. pascalCase('hello') => 'Hello'\n13. camelCase('') => ''\n14. snakeCase('already_snake') => 'already_snake'\n\nKeep tests 1-2 lines each. Max 30 lines total. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/string-case.test.ts"
+        ]
+      },
+      "description": "Tests for string-case"
+    }
+  ]
+}
