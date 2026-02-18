@@ -384,6 +384,26 @@ class DataCollector {
     }
   }
 }
+  /** Fetch Conway-Research GitHub repos (strategic developer to watch) */
+  async fetchConwayResearchRepos(): Promise<string> {
+    try {
+      log(c.gray, '  Fetching Conway-Research GitHub repos...');
+      const data = await httpGet(
+        'https://api.github.com/users/Conway-Research/repos?sort=updated&per_page=10',
+        { Accept: 'application/vnd.github.v3+json' }
+      );
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((r: any) =>
+          `- **${r.name}** (${r.language || 'unknown'}, ★${r.stargazers_count || 0}, updated: ${r.updated_at?.split('T')[0] || 'unknown'}): ${(r.description || 'No description').substring(0, 200)}`
+        ).join('\n');
+      }
+      if (data.message) return '(GitHub API: ' + data.message + ')';
+      return '(no repos found)';
+    } catch (err: any) {
+      log(c.yellow, '  ! Conway-Research GitHub error: ' + err.message);
+      return '(GitHub API unavailable: ' + err.message + ')';
+    }
+  }
 
 // ===== CTO Tech Watch Runner =====
 
@@ -552,6 +572,9 @@ class CTOTechWatch {
           '## OpenClaw npm Info',
           await this.collector.fetchOpenClawNpmInfo(),
           '',
+          '## Conway-Research GitHub (Strategic Developer Watch)',
+          await this.collector.fetchConwayResearchRepos(),
+          '',
           '## Your Task',
           'Analyze the OpenClaw ecosystem data above and report:',
           '1. **Version Status**: Are we on the latest? Any critical updates we\'re missing?',
@@ -559,6 +582,7 @@ class CTOTechWatch {
           '3. **Cost Optimizations**: Any pricing changes, caching features, or batch APIs that could reduce our costs?',
           '4. **Security Advisories**: Any patches or security updates we need to apply?',
           '5. **Breaking Changes**: Anything that would break our current v2026.2.12 setup if we upgraded?',
+          '6. **Conway-Research Watch**: Review repos from Conway-Research — any tools, libraries, or patterns relevant to our agentic finance platform? Flag anything worth adopting or learning from.',
           '',
           'Output a structured markdown report. If GitHub API is unavailable, note that and recommend checking manually.',
           'Include specific version numbers and actionable recommendations.',
