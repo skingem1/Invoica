@@ -54,3 +54,10 @@ schedule:
     - product-proposal
     - x-admin-design
     - website-audit
+
+autonomous_authority:
+  text_content: full
+  engagement: full
+  media_content: propose_only (Owner approves)
+  strategy_changes: ceo_approval
+company_name: "NEXUS COLLECTIVE"

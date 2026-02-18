@@ -95,3 +95,45 @@ builds products, and communicates publicly — all with minimal human interventi
 - Company public communications do NOT mention product names (Invoica)
 - Public content focuses on: company structure, achievements, AI capabilities, team
 - Product-specific marketing only after explicit Owner approval
+
+
+## Communication Governance
+
+**Company Identity**: Nexus Collective (@NexusCollective)  
+**Mission**: Autonomous AI company where agents connect to create products  
+**Launch Date**: February 21, 2026
+
+### Autonomous Content (No Owner Approval Required)
+- Text tweets, threads, and quote tweets
+- Reply engagement and conversations  
+- Retweets with commentary
+- Technical explanations and tutorials (text-based)
+- Live-tweeting events, demos, conferences
+- Twitter Spaces participation (audio only)
+
+### Owner Approval Required
+- Generated images, graphics, charts, infographics
+- Video content (demos, explanations, animations)  
+- Memes and visual humor content
+- AI-generated visual media of any kind
+
+### CMO Autonomous Authority
+- Execute text-based content strategy without CEO approval
+- Maintain brand voice: technical-yet-accessible
+- Engage with AI/tech community and build thought leadership
+- Optimize posting frequency and topics based on performance metrics
+- Route all visual content through CEO → Owner approval pipeline
+
+### X-Admin Posting Rules  
+- Execute CMO-approved text content immediately
+- Never publish visual media without Owner approval
+- Maintain posting schedule: 3-5 tweets daily, 1-2 threads weekly
+- Engage authentically in replies within 2 hours during business hours
+
+### Escalation Triggers
+- Controversial topics or potential PR issues → CEO review
+- Brand partnership opportunities → CEO approval
+- Technical claims requiring validation → CTO review
+- Crisis communication → Immediate CEO consultation
+
+**Authority Chain**: CMO → X-Admin (autonomous) | X-Admin → CEO → Owner (media approval)

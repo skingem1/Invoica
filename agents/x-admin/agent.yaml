@@ -52,3 +52,12 @@ schedule:
     - draft-content
     - trend-monitor
     - engagement-reply
+
+media_approval:
+  text_posts: autonomous
+  threads: autonomous
+  replies: autonomous
+  images: owner_approval_required
+  videos: owner_approval_required
+  memes: owner_approval_required
+company_name: "NEXUS COLLECTIVE"
