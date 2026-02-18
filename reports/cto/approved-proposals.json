@@ -235,7 +235,70 @@
       "priority": "next_sprint",
       "implementation_status": "in_progress",
       "verification_notes": "STARTED 2026-02-15. sidebar.tsx split: 114 lines → sidebar.tsx (53 lines) + sidebar-nav-items.ts (75 lines data). Week 19 sprint tasks all target files <65 lines. api-keys/page.tsx split deferred — no api-keys tasks in Week 19."
+    },
+    {
+      "id": "CTO-20260219-001",
+      "title": "Investigate SDK-200 quality gate failure - score 15 auto-approved",
+      "category": "tooling",
+      "description": "SDK-200 (query string utilities) received a score of 15 but was auto-approved. This is a critical quality gate failure - tasks with scores below 60 should require manual review. Investigate: (1) was score calculation correct, (2) did supervisor properly evaluate, (3) is auto-approval threshold misconfigured",
+      "implementation_steps": [
+        "Review SDK-200 supervisor review output to confirm score calculation",
+        "Check orchestrator logs for auto-approval decision for SDK-200",
+        "Verify auto-approval threshold configuration (likely should be >60)",
+        "If score 15 is correct, implement code review to fix the query string utilities"
+      ],
+      "approved_date": "2026-02-18",
+      "ceo_conditions": [
+        "Investigation must be completed within 24 hours",
+        "If SDK-200 code is actually broken, create hotfix task immediately",
+        "Document findings in quality-gate-failure-analysis.md",
+        "Verify all other recent low-scoring tasks weren't incorrectly approved"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260219-002",
+      "title": "Add minimum score gate before auto-approval",
+      "category": "process_change",
+      "description": "Current auto-approval allows tasks with scores as low as 15 to pass. Based on learnings.md showing that scores below 90 typically indicate truncation or missing functionality, implement a minimum score threshold (e.g., 80) below which tasks require manual review regardless of other factors.",
+      "implementation_steps": [
+        "1. Check orchestrator code for auto-approval logic in supervisor.ts or orchestrator.ts",
+        "2. Identify where score threshold is defined (if exists)",
+        "3. Add minimum score gate: auto-approve only if score >= 80 AND no critical issues",
+        "4. Document threshold rationale in learnings.md"
+      ],
+      "approved_date": "2026-02-18",
+      "ceo_conditions": [
+        "Set minimum threshold at 80 (not lower)",
+        "Include override mechanism for emergency fixes with CEO approval",
+        "Test threshold logic before deployment"
+      ],
+      "priority": "immediate",
+      "implementation_status": "pending",
+      "verification_notes": ""
+    },
+    {
+      "id": "CTO-20260219-003",
+      "title": "Monitor for score-15 pattern in future sprints",
+      "category": "tooling",
+      "description": "Add sprint retrospective to flag any task scoring below 50 as anomaly requiring investigation. SDK-200 is the first observed case of a sub-20 score auto-approving. This pattern may indicate a systematic issue with specific task types or MiniMax failure modes.",
+      "implementation_steps": [
+        "1. Add score<50 alert in sprint-retrospective agent prompt",
+        "2. Create checklist item: 'Investigate any score below 50'",
+        "3. Track historical low scores in metrics for trend analysis"
+      ],
+      "approved_date": "2026-02-18",
+      "ceo_conditions": [
+        "Set alert threshold at score < 50 (not just retrospective)",
+        "Include task type and agent in anomaly report",
+        "Track monthly trend of low scores"
+      ],
+      "priority": "next_sprint",
+      "implementation_status": "pending",
+      "verification_notes": ""
     }
   ],
-  "last_updated": "2026-02-16"
+  "last_updated": "2026-02-18"
 }
