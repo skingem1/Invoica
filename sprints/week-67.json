@@ -1,0 +1,139 @@
+{
+  "tasks": [
+    {
+      "id": "SDK-289",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/clipboard.ts \u2014 clipboard text utilities.\n\nSTRICT: Max 25 lines. No external dependencies. Full JSDoc with @param and @returns.\n\nExport these functions:\n\n1. copyToClipboard(text: string): Promise<boolean>\n   - Use navigator.clipboard.writeText(text)\n   - Return true on success, false on error (catch and return false)\n\n2. readFromClipboard(): Promise<string>\n   - Use navigator.clipboard.readText()\n   - Return text on success, empty string on error\n\n3. copyFallback(text: string): boolean\n   - Synchronous fallback using document.execCommand('copy')\n   - Create a textarea element, set value to text\n   - Append to document.body, select(), execCommand('copy')\n   - Remove element, return true\n   - Catch errors and return false\n\nExport: copyToClipboard, readFromClipboard, copyFallback\nKeep under 25 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/clipboard.ts"
+        ]
+      },
+      "description": "Clipboard text utilities"
+    },
+    {
+      "id": "SDK-290",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/clipboard.test.ts \u2014 tests for clipboard.ts.\n\nImport: { copyToClipboard, readFromClipboard, copyFallback } from '../clipboard'\n\nMock navigator.clipboard in beforeEach:\nObject.assign(navigator, { clipboard: { writeText: jest.fn(), readText: jest.fn() } });\n\nAlso mock document.execCommand as jest.fn().\n\nTest cases (describe 'clipboard'):\n1. 'copyToClipboard resolves true on success' \u2014 (navigator.clipboard.writeText as jest.Mock).mockResolvedValue(undefined); expect(await copyToClipboard('hello')).toBe(true)\n2. 'copyToClipboard resolves false on error' \u2014 (navigator.clipboard.writeText as jest.Mock).mockRejectedValue(new Error('denied')); expect(await copyToClipboard('hello')).toBe(false)\n3. 'readFromClipboard returns text' \u2014 (navigator.clipboard.readText as jest.Mock).mockResolvedValue('hello'); expect(await readFromClipboard()).toBe('hello')\n4. 'readFromClipboard returns empty string on error' \u2014 (navigator.clipboard.readText as jest.Mock).mockRejectedValue(new Error()); expect(await readFromClipboard()).toBe('')\n5. 'copyFallback creates textarea and copies' \u2014 (document.execCommand as jest.Mock).mockReturnValue(true); expect(copyFallback('test')).toBe(true); expect(document.execCommand).toHaveBeenCalledWith('copy')\n6. 'copyFallback returns false on error' \u2014 (document.execCommand as jest.Mock).mockImplementation(() => { throw new Error() }); expect(copyFallback('test')).toBe(false)\n\nMax 30 lines. Use Jest expect().",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/clipboard.test.ts"
+        ]
+      },
+      "description": "Tests for clipboard utilities"
+    },
+    {
+      "id": "SDK-291",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/timer.ts \u2014 timer and stopwatch utilities.\n\nSTRICT: Max 35 lines. No external dependencies. Full JSDoc with @param and @returns.\n\nTypes and functions to export:\n\nexport interface Timer {\n  start: () => void;\n  stop: () => void;\n  reset: () => void;\n  elapsed: () => number;\n  isRunning: () => boolean;\n}\n\n1. createTimer(): Timer\n   - Internal state: startTime (number|null), accumulated (number), running (boolean)\n   - start(): if not running, set startTime = Date.now(), running = true\n   - stop(): if running, accumulated += Date.now() - startTime!, running = false\n   - reset(): accumulated = 0, startTime = null, running = false\n   - elapsed(): return accumulated + (running ? Date.now() - startTime! : 0)\n   - isRunning(): return running\n\n2. sleep(ms: number): Promise<void>\n   - Return new Promise(resolve => setTimeout(resolve, ms))\n\n3. measure<T>(fn: () => T): { result: T; duration: number }\n   - const start = performance.now() (or Date.now())\n   - const result = fn()\n   - return { result, duration: Date.now() - start }\n\nExport: Timer, createTimer, sleep, measure\nKeep under 35 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/timer.ts"
+        ]
+      },
+      "description": "Timer and stopwatch utilities"
+    },
+    {
+      "id": "SDK-292",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/__tests__/timer.test.ts \u2014 tests for timer.ts.\n\nImport: { createTimer, sleep, measure } from '../timer'\n\nTest cases (describe 'timer'):\n1. 'timer starts at 0 elapsed' \u2014 const t = createTimer(); expect(t.elapsed()).toBe(0)\n2. 'timer isRunning is false initially' \u2014 const t = createTimer(); expect(t.isRunning()).toBe(false)\n3. 'timer tracks elapsed time' \u2014 const t = createTimer(); t.start(); await sleep(50); t.stop(); expect(t.elapsed()).toBeGreaterThanOrEqual(40)\n4. 'timer reset clears elapsed' \u2014 const t = createTimer(); t.start(); await sleep(20); t.stop(); t.reset(); expect(t.elapsed()).toBe(0)\n5. 'timer accumulates across start/stop' \u2014 const t = createTimer(); t.start(); await sleep(30); t.stop(); const e1 = t.elapsed(); t.start(); await sleep(30); t.stop(); expect(t.elapsed()).toBeGreaterThan(e1)\n6. 'sleep resolves after delay' \u2014 const start = Date.now(); await sleep(50); expect(Date.now() - start).toBeGreaterThanOrEqual(40)\n7. 'measure returns result and duration' \u2014 const { result, duration } = measure(() => 42); expect(result).toBe(42); expect(duration).toBeGreaterThanOrEqual(0)\n\nMax 30 lines. Use Jest expect(). Mark async tests with async/await.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/__tests__/timer.test.ts"
+        ]
+      },
+      "description": "Tests for timer utilities"
+    },
+    {
+      "id": "FE-486",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/use-key-press.ts \u2014 React hook for detecting key presses.\n\nSTRICT: Max 20 lines. React 18+. Full JSDoc. Named export only.\n\nExport: export function useKeyPress(targetKey: string): boolean\n\nBehavior:\n- Returns true when the specified key is currently pressed, false otherwise\n- Uses useState<boolean>(false) for pressed state\n- Uses useEffect with two handlers:\n  - downHandler = (e: KeyboardEvent) => { if (e.key === targetKey) setPressed(true) }\n  - upHandler = (e: KeyboardEvent) => { if (e.key === targetKey) setPressed(false) }\n- Attach both to window via addEventListener('keydown', downHandler) and addEventListener('keyup', upHandler)\n- Cleanup: removeEventListener for both\n- Dependency array: [targetKey]\n- Return pressed state\n\nKeep under 20 lines. Simple, clean hook.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/use-key-press.ts"
+        ]
+      },
+      "description": "React hook for detecting key presses"
+    },
+    {
+      "id": "FE-487",
+      "agent": "frontend",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/hooks/__tests__/use-key-press.test.ts \u2014 tests for use-key-press.ts.\n\nImport: { renderHook, act } from '@testing-library/react'\nImport: { useKeyPress } from '../use-key-press'\n\nTest cases (describe 'useKeyPress'):\n1. 'returns false initially' \u2014 const { result } = renderHook(() => useKeyPress('Enter')); expect(result.current).toBe(false)\n2. 'returns true when key is pressed' \u2014 const { result } = renderHook(() => useKeyPress('Enter')); act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) }); expect(result.current).toBe(true)\n3. 'returns false when key is released' \u2014 const { result } = renderHook(() => useKeyPress('Enter')); act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })) }); act(() => { window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' })) }); expect(result.current).toBe(false)\n4. 'ignores other keys' \u2014 const { result } = renderHook(() => useKeyPress('Enter')); act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) }); expect(result.current).toBe(false)\n5. 'cleans up on unmount' \u2014 const spy = jest.spyOn(window, 'removeEventListener'); const { unmount } = renderHook(() => useKeyPress('a')); unmount(); expect(spy).toHaveBeenCalled(); spy.mockRestore()\n\nMax 25 lines. Use Jest + React Testing Library.",
+      "deliverables": {
+        "code": [
+          "frontend/hooks/__tests__/use-key-press.test.ts"
+        ]
+      },
+      "description": "Tests for use-key-press hook"
+    },
+    {
+      "id": "FE-488",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/components/Tag.tsx \u2014 a tag/chip component for labels.\n\nSTRICT: Max 35 lines. React 18+. Full JSDoc on interface and component. Named export only.\n\nProps interface (MUST export):\n/** Props for Tag component */\nexport interface TagProps {\n  /** Tag label text */\n  label: string;\n  /** Color variant */\n  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger';\n  /** Size */\n  size?: 'sm' | 'md' | 'lg';\n  /** Show remove button */\n  removable?: boolean;\n  /** Called when remove button clicked */\n  onRemove?: () => void;\n  /** Additional CSS class */\n  className?: string;\n}\n\nRender:\n<span className={`tag tag-${variant} tag-${size} ${className || ''}`} role=\"status\">\n  {label}\n  {removable && (\n    <button className=\"tag-remove\" onClick={onRemove} aria-label={`Remove ${label}`} type=\"button\">\n      \u00d7\n    </button>\n  )}\n</span>\n\nDefaults: variant='default', size='md', removable=false\n\nExport: TagProps, Tag",
+      "deliverables": {
+        "code": [
+          "frontend/components/Tag.tsx"
+        ]
+      },
+      "description": "Tag/chip label component"
+    },
+    {
+      "id": "FE-489",
+      "agent": "frontend",
+      "type": "test",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create frontend/components/__tests__/Tag.test.tsx \u2014 tests for Tag.tsx.\n\nImport: import { render, screen, fireEvent } from '@testing-library/react'\nImport: import { Tag } from '../Tag'\n\nTest cases (describe 'Tag'):\n1. 'renders label text' \u2014 render(<Tag label=\"Hello\" />); expect(screen.getByText('Hello')).toBeInTheDocument()\n2. 'has default variant class' \u2014 render(<Tag label=\"T\" />); expect container to have element with class 'tag-default'\n3. 'applies variant class' \u2014 render(<Tag label=\"T\" variant=\"success\" />); expect element with class 'tag-success'\n4. 'applies size class' \u2014 render(<Tag label=\"T\" size=\"sm\" />); expect element with class 'tag-sm'\n5. 'has role status' \u2014 render(<Tag label=\"T\" />); expect(screen.getByRole('status')).toBeInTheDocument()\n6. 'does not show remove button by default' \u2014 render(<Tag label=\"T\" />); expect(screen.queryByRole('button')).not.toBeInTheDocument()\n7. 'shows remove button when removable' \u2014 render(<Tag label=\"T\" removable />); expect(screen.getByRole('button')).toBeInTheDocument()\n8. 'calls onRemove when remove clicked' \u2014 const fn = jest.fn(); render(<Tag label=\"T\" removable onRemove={fn} />); fireEvent.click(screen.getByRole('button')); expect(fn).toHaveBeenCalledTimes(1)\n9. 'remove button has aria-label' \u2014 render(<Tag label=\"Hello\" removable />); expect(screen.getByLabelText('Remove Hello')).toBeInTheDocument()\n10. 'applies custom className' \u2014 render(<Tag label=\"T\" className=\"custom\" />); expect element with class 'custom'\n\nMax 35 lines. Use Jest + React Testing Library.",
+      "deliverables": {
+        "code": [
+          "frontend/components/__tests__/Tag.test.tsx"
+        ]
+      },
+      "description": "Tests for Tag component"
+    },
+    {
+      "id": "SDK-293",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [],
+      "context": "Create sdk/typescript/src/format-number.ts \u2014 number formatting utilities.\n\nSTRICT: Max 30 lines. Pure functions. No external dependencies. Full JSDoc with @param and @returns.\n\nExport these functions:\n\n1. formatNumber(value: number, locale?: string): string\n   - Format number with locale-specific separators\n   - Default locale: 'en-US'\n   - Use value.toLocaleString(locale)\n   - Example: formatNumber(1234567) => '1,234,567'\n\n2. formatCurrency(value: number, currency?: string, locale?: string): string\n   - Format as currency string\n   - Default currency: 'USD', default locale: 'en-US'\n   - Use value.toLocaleString(locale, { style: 'currency', currency })\n   - Example: formatCurrency(1234.5) => '$1,234.50'\n\n3. formatPercent(value: number, decimals?: number): string\n   - Format as percentage string\n   - Default decimals: 0\n   - Use (value / 100).toLocaleString('en-US', { style: 'percent', minimumFractionDigits: decimals, maximumFractionDigits: decimals })\n   - Example: formatPercent(75.5, 1) => '75.5%'\n\n4. abbreviateNumber(value: number): string\n   - Abbreviate large numbers: K, M, B, T\n   - >= 1e12: (value/1e12).toFixed(1) + 'T'\n   - >= 1e9: (value/1e9).toFixed(1) + 'B'\n   - >= 1e6: (value/1e6).toFixed(1) + 'M'\n   - >= 1e3: (value/1e3).toFixed(1) + 'K'\n   - Otherwise: value.toString()\n   - Remove trailing '.0': replace('.0K' with 'K'), etc.\n\nExport: formatNumber, formatCurrency, formatPercent, abbreviateNumber\nKeep under 30 lines.",
+      "deliverables": {
+        "code": [
+          "sdk/typescript/src/format-number.ts"
+        ]
+      },
+      "description": "Number formatting utilities"
+    }
+  ]
+}
