@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 
 export type LoadingSpinnerSize = 'sm' | 'md' | 'lg';
@@ -26,4 +25,3 @@ export function LoadingSpinner({
     />
   );
 }
-```

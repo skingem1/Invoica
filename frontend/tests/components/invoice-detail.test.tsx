@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { InvoiceDetail } from '../../../components/invoices/invoice-detail';
@@ -50,4 +49,3 @@ describe('InvoiceDetail', () => {
     expect(screen.getByText(/Jan/)).toBeInTheDocument();
   });
 });
-```

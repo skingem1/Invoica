@@ -1,4 +1,3 @@
-```tsx
 export default function SandboxPage() {
   return (
     <div className="max-w-2xl">
@@ -35,4 +34,3 @@ export default function SandboxPage() {
     </div>
   );
 }
-```

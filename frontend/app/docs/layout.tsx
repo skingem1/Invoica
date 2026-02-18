@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
@@ -20,4 +19,3 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
     </div>
   );
 }
-```

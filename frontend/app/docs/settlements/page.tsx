@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 
 export default function SettlementsApiPage() {
@@ -45,4 +44,3 @@ export default function SettlementsApiPage() {
     </div>
   );
 }
-```

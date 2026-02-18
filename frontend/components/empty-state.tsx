@@ -1,4 +1,3 @@
-```tsx
 'use client';
 
 import React from 'react';
@@ -16,4 +15,3 @@ export function EmptyState({ title, description, actionLabel, onAction }: { titl
     </div>
   );
 }
-```

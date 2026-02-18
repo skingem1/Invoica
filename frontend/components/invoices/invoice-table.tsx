@@ -1,4 +1,3 @@
-```tsx
 'use client';
 
 import React from 'react';
@@ -51,4 +50,3 @@ export function InvoiceTable({ invoices, isLoading }: InvoiceTableProps): JSX.El
     </table>
   );
 }
-```

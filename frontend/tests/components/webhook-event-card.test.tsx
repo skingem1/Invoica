@@ -1,4 +1,3 @@
-```tsx
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import WebhookEventCard from "@/components/dashboard/webhook-event-card";
@@ -84,4 +83,3 @@ describe("WebhookEventCard", () => {
     expect(screen.getByText("2 days ago")).toBeInTheDocument();
   });
 });
-```

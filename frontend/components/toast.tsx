@@ -1,4 +1,3 @@
-```tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -27,4 +26,3 @@ export function useToast() {
   const hideToast = () => setToast(null);
   return { toast, showToast, hideToast };
 }
-```

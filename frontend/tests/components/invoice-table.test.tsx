@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { InvoiceTable, InvoiceRow } from '../../components/invoices/invoice-table';
@@ -44,4 +43,3 @@ describe('InvoiceTable', () => {
     expect(screen.queryByText('INV-001')).not.toBeInTheDocument();
   });
 });
-```

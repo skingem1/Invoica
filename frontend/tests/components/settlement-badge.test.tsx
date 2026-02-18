@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { SettlementBadge } from '@/components/settlements/settlement-badge';
@@ -35,4 +34,3 @@ describe('SettlementBadge', () => {
     expect(screen.queryByText(/\d+\/\d+\/\d+/)).not.toBeInTheDocument();
   });
 });
-```

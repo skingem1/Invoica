@@ -1,4 +1,3 @@
-```tsx
 export default function SdkReferencePage() {
   return (
     <div className="max-w-4xl mx-auto py-10 px-6">
@@ -93,4 +92,3 @@ export default function SdkReferencePage() {
     </div>
   );
 }
-```

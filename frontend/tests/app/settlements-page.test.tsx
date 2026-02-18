@@ -1,4 +1,3 @@
-```tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import SettlementsPage from '@/app/settlements/page';
 import { fetchInvoices, fetchSettlement } from '@/lib/api-client';
@@ -56,4 +55,3 @@ describe('SettlementsPage', () => {
     await waitFor(() => expect(screen.getByText('INV-001')).toBeInTheDocument());
   });
 });
-```

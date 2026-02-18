@@ -1,4 +1,3 @@
-```tsx
 import React from "react";
 
 interface Agent {
@@ -67,4 +66,3 @@ export default function AgentsPage() {
     </div>
   );
 }
-```

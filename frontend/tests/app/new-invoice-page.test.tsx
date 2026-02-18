@@ -1,4 +1,3 @@
-```tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NewInvoicePage from '@/app/invoices/new/page';
 
@@ -49,4 +48,3 @@ describe('NewInvoicePage', () => {
     await waitFor(() => expect(screen.getByText(/Failed to create invoice/)).toBeInTheDocument());
   });
 });
-```

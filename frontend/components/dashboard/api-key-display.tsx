@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import React, { useState } from "react";
@@ -39,4 +38,3 @@ export default function ApiKeyDisplay({ apiKey, label = "API Key", onRevoke }: A
     </div>
   );
 }
-```

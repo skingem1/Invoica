@@ -1,4 +1,3 @@
-```tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import InvoicesPage from '@/app/invoices/page';
@@ -48,4 +47,3 @@ describe('InvoicesPage', () => {
     expect(link).toHaveAttribute('href', '/invoices/new');
   });
 });
-```

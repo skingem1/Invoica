@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 
 interface SettlementBadgeProps {
@@ -33,4 +32,3 @@ export function SettlementBadge({ status, txHash, chain, confirmedAt }: Settleme
     </div>
   );
 }
-```
