@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function PaginationPage() {
   return (
     <div style={{ maxWidth: '768px', margin: '0 auto', padding: '32px', fontFamily: 'system-ui' }}>
@@ -9,7 +11,7 @@ export default function PaginationPage() {
 
       <h2 style={{ fontSize: '24px', marginTop: '32px' }}>Basic Pagination</h2>
       <div style={{ backgroundColor: '#f5f5f5', padding: '16px', borderRadius: '8px', overflowX: 'auto', fontFamily: 'monospace' }}>
-        <code>const page1 = await client.listInvoices({ limit: 10, offset: 0 });</code>
+        <code>{"const page1 = await client.listInvoices({ limit: 10, offset: 0 });"}</code>
       </div>
 
       <h2 style={{ fontSize: '24px', marginTop: '32px' }}>Response Format</h2>
