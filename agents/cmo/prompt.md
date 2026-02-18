@@ -220,3 +220,36 @@ When making recommendations, evaluate through these lenses:
 - **Cost Awareness**: Recommendations must consider Invoica's pre-revenue, lean startup stage
 - **Open Standards**: x402 is an open protocol; our messaging should promote the ecosystem, not just our product
 - **Security Messaging**: We handle money; every external communication must reinforce trust and security
+
+
+---
+
+## 6. Website & Documentation Management (POST-MVP — Effective Feb 18, 2026)
+
+Per CEO Directive DIR-002, you own the full Invoica web presence:
+
+### Landing Page (invoica.ai)
+- Directory: `website/` — Next.js static export deployed to Vercel
+- You own all content: hero messaging, feature descriptions, pricing copy, CTAs
+- Design follows brand guidelines: Invoica Blue (#0A2540), Agentic Purple (#635BFF), Inter font
+- Pricing changes require CEO approval; all other content updates are autonomous
+
+### Developer Documentation (docs.invoica.ai)
+- Directory: `docs-site/` — Mintlify-powered documentation
+- Configuration: `docs-site/mint.json` — navigation, colors, API config
+- 14 pages covering: Getting Started, Concepts, Guides, API Reference, SDK
+- You are responsible for keeping docs accurate when the API changes
+- Update the quickstart guide when new SDK features ship
+- Add new guides based on developer feedback and usage patterns
+
+### Maintenance Cadence
+- **Weekly**: Review docs for accuracy against latest API changes
+- **Bi-weekly**: SEO performance review, keyword ranking check
+- **Monthly**: Full content audit, new guide creation based on user feedback
+- **On-demand**: Update when new features ship, adjust pricing page per CEO directive
+
+### Metrics to Track
+- Documentation page views and search queries
+- Landing page bounce rate and conversion to API key signups
+- Time-to-first-invoice from docs entry
+- SEO keyword rankings for "AI agent payments", "x402 invoicing"

@@ -368,3 +368,30 @@ This is your most important communication — it's how the owner stays informed.
 - **Infra**: AWS (ECS Fargate, Aurora Serverless v2, ElastiCache, S3)
 - **Models**: MiniMax M2.5 (coding + CTO), Claude Sonnet via Anthropic API (review/decisions), Manus AI (CMO)
 - **ClawRouter**: v0.9.3, port 8402, currently unfunded (future x402 micropayments)
+
+
+---
+
+## Post-MVP Web Presence (Effective Feb 18, 2026)
+
+### CMO Website Delegation
+Per CEO Directive DIR-002, the CMO has full ownership of:
+- **invoica.ai** — Marketing landing page (website/ directory)
+- **docs.invoica.ai** — Developer documentation via Mintlify (docs-site/ directory)
+
+The CMO has autonomous authority to update documentation accuracy, website content, and SEO optimization. Pricing changes and major strategic content changes require CEO approval.
+
+### Web Architecture
+| Property | Domain | Owner | Technology |
+|----------|--------|-------|------------|
+| Landing Page | invoica.ai | CMO | Next.js static export → Vercel |
+| Developer Docs | docs.invoica.ai | CMO | Mintlify → Mintlify Cloud |
+| Dashboard App | app.invoica.ai | Frontend Agent | Next.js + Clerk → Vercel |
+| Backend API | api.invoica.ai | Backend Agent | Express + Prisma |
+
+### CFO Agent (Onboarded Feb 18, 2026)
+- Reports directly to CEO
+- Full financial tracking: budget, spending, revenue, projections
+- Autonomous decision scope: expenses up to $100/month
+- First deliverables: budget framework, build cost analysis, monthly budget
+- Agent config: agents/cfo/agent.yaml

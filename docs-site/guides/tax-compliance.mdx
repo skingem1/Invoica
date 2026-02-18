@@ -1,0 +1,102 @@
+---
+title: Tax Compliance
+description: "Configure automatic tax calculation for multi-jurisdiction compliance."
+---
+
+# Tax Compliance
+
+Invoica automatically calculates taxes based on buyer and seller locations, supporting VAT, sales tax, and other jurisdiction-specific rules.
+
+## How Tax Calculation Works
+
+When an invoice is created with tax IDs (VAT numbers), Invoica:
+
+1. Identifies the buyer and seller jurisdictions
+2. Looks up the applicable tax rate
+3. Applies exemptions (e.g., B2B reverse charge within the EU)
+4. Adds tax line items to the invoice
+5. Stores the tax breakdown for reporting
+
+## Configuration
+
+Enable tax calculation in your invoice requests:
+
+```typescript
+const invoice = await client.invoices.create({
+  amount: 10000,
+  currency: 'EUR',
+  description: 'AI Agent Compute Services',
+  taxEnabled: true,
+  buyer: {
+    companyName: 'Berlin AI GmbH',
+    address: 'Alexanderplatz 1, 10178 Berlin, Germany',
+    vat: 'DE123456789',
+  },
+  seller: {
+    name: 'Paris Tech SAS',
+    address: '10 Rue de Rivoli, 75001 Paris, France',
+    vat: 'FR98765432100',
+    wallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18',
+  },
+});
+```
+
+## Tax Calculation API
+
+Calculate tax before creating an invoice:
+
+```bash
+curl -X POST https://api.invoica.ai/api/tax/calculate \
+  -H "Authorization: Bearer inv_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 10000,
+    "currency": "EUR",
+    "buyerCountry": "DE",
+    "buyerVat": "DE123456789",
+    "sellerCountry": "FR",
+    "sellerVat": "FR98765432100"
+  }'
+```
+
+### Response
+
+```json
+{
+  "subtotal": 10000,
+  "taxRate": 0.19,
+  "taxAmount": 1900,
+  "total": 11900,
+  "jurisdiction": "DE",
+  "taxType": "VAT",
+  "reverseCharge": false,
+  "exemptions": []
+}
+```
+
+## Supported Scenarios
+
+| Scenario | Tax Treatment |
+|----------|--------------|
+| US domestic (same state) | State sales tax applied |
+| US domestic (different state) | Nexus rules determine liability |
+| EU B2B (different countries) | Reverse charge mechanism |
+| EU B2C (different countries) | Destination country VAT |
+| EU domestic | Local VAT rate |
+| International (non-EU) | Zero-rated export |
+
+## Tax Reports
+
+Access tax summaries through the API:
+
+```typescript
+const taxReport = await client.tax.getSummary({
+  startDate: '2026-01-01',
+  endDate: '2026-03-31',
+  groupBy: 'jurisdiction',
+});
+```
+
+<Info>
+  Tax rates are updated regularly. Invoica uses jurisdiction databases that are refreshed monthly to ensure accuracy.
+</Info>

@@ -61,3 +61,46 @@ autonomous_authority:
   media_content: propose_only (Owner approves)
   strategy_changes: ceo_approval
 company_name: "NEXUS COLLECTIVE"
+
+# POST-MVP: Website & Documentation Ownership (Effective Feb 18, 2026)
+website_ownership:
+  status: active
+  directive: CEO-DIR-002-website-launch
+  properties:
+    landing_page:
+      domain: invoica.ai
+      technology: "Next.js static export"
+      directory: website/
+      deployment: Vercel
+    developer_docs:
+      domain: docs.invoica.ai
+      technology: Mintlify
+      directory: docs-site/
+      deployment: "Mintlify Cloud"
+    dashboard:
+      domain: app.invoica.ai
+      technology: "Next.js + Clerk"
+      directory: frontend/
+      deployment: Vercel
+  autonomous_authority:
+    - Documentation content accuracy and updates
+    - Website copy changes that don't alter pricing or positioning
+    - SEO optimization and meta tag management
+    - Developer guide creation and tutorial updates
+  requires_ceo_approval:
+    - Pricing tier changes
+    - Brand positioning changes
+    - New product announcements
+context_files_additional:
+  - ../../docs-site/     # Mintlify documentation site
+  - ../../website/       # Marketing landing page
+  - ../../directives/    # CEO directives
+additional_responsibilities:
+  - Website deployment and maintenance (invoica.ai)
+  - Developer documentation management (docs.invoica.ai via Mintlify)
+  - Documentation updates when API changes
+  - Landing page content and SEO optimization
+additional_outputs:
+  - Website strategy: reports/cmo/website-strategy-v1.md
+  - Website: website/
+  - Documentation: docs-site/
