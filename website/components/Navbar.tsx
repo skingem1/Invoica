@@ -8,7 +8,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-10">
           <a href="/" className="flex items-center">
-            <Image src="/logo.png" alt="Invoica" width={130} height={36} className="h-9 w-auto" priority />
+            <Image src="/logo.png" alt="Invoica" width={180} height={48} className="h-12 w-auto" priority />
           </a>
           <div className="hidden md:flex items-center gap-8">
             <a href="https://docs.invoica.ai" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
