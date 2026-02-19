@@ -6,3 +6,9 @@ dist/
 coverage/
 .turbo/
 .env.local
+x402-evm/node_modules/
+x402-evm/.env
+x402-evm/*-keypair.json
+x402-test/node_modules/
+x402-test/.env
+x402-test/*-keypair.json
