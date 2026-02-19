@@ -34,7 +34,7 @@ export function Divider({
   }
   const wrapperStyle = isHorizontal
     ? { display: 'flex', alignItems: 'center', gap: '8px', margin: `${spacing}px 0` }
-    : { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: `0 ${spacing}px`, alignSelf: 'stretch' };
+    : { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '8px', margin: `0 ${spacing}px`, alignSelf: 'stretch' };
   const lineStyle = isHorizontal
     ? { flex: 1, borderTop: `${thickness}px solid ${color}` }
     : { flex: 1, borderLeft: `${thickness}px solid ${color}` };
