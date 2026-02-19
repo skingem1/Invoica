@@ -30,6 +30,19 @@ const initialAgents: Agent[] = [
   },
 ];
 
+function getToggleClass(status: string) {
+  if (status === 'Active') {
+    return 'bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100';
+  }
+  return 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100';
+}
+
+function getStatusClass(status: string) {
+  if (status === 'Active') return 'bg-green-100 text-green-800';
+  if (status === 'Paused') return 'bg-yellow-100 text-yellow-800';
+  return 'bg-gray-100 text-gray-800';
+}
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
 
@@ -37,7 +50,7 @@ export default function AgentsPage() {
     setAgents((prev) =>
       prev.map((a) =>
         a.id === id
-          ? { ...a, status: a.status === 'Active' ? 'Paused' : 'Active' }
+          ? { ...a, status: a.status === 'Active' ? 'Paused' as const : 'Active' as const }
           : a
       )
     );
@@ -45,7 +58,7 @@ export default function AgentsPage() {
 
   const restartAgent = (id: string) => {
     setAgents((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'Active' } : a))
+      prev.map((a) => (a.id === id ? { ...a, status: 'Active' as const } : a))
     );
   };
 
@@ -67,7 +80,7 @@ export default function AgentsPage() {
             <div className="flex items-start justify-between">
               <h3 className="font-semibold">{agent.name}</h3>
               <span
-                className={}
+                className={'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + getStatusClass(agent.status)}
               >
                 {agent.status}
               </span>
@@ -76,7 +89,7 @@ export default function AgentsPage() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => toggleAgent(agent.id)}
-                className={}
+                className={'px-3 py-1.5 text-xs font-medium rounded-md transition-colors ' + getToggleClass(agent.status)}
               >
                 {agent.status === 'Active' ? 'Pause' : 'Resume'}
               </button>
