@@ -1,3 +1,4 @@
+import { Invoice } from '@/types/invoices';
 import { ApiError } from '@/lib/errors';
 
 export interface ApiConfig {
@@ -171,8 +172,8 @@ export async function fetchInvoices(
 }
 
 
-export async function fetchInvoiceById(id: string): Promise<Record<string, unknown>> {
-  return apiGet<Record<string, unknown>>(`/v1/invoices/${id}`);
+export async function fetchInvoiceById(id: string): Promise<Invoice> {
+  return apiGet<Invoice>(`/v1/invoices/${id}`);
 }
 
 export { ApiError };
