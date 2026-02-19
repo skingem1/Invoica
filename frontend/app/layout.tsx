@@ -48,9 +48,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
                     <Image
                       src="/logo.png"
                       alt="Invoica"
-                      width={120}
-                      height={32}
-                      className="h-8 w-auto"
+                      width={160}
+                      height={44}
+                      className="h-11 w-auto"
                       priority
                     />
                   </a>

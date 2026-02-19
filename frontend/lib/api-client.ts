@@ -45,7 +45,7 @@ export async function apiGet<T>(
   const response = await fetch(url.toString(), {
     method: 'GET',
     headers: apiConfig.headers,
-    credentials: 'include',
+    
   });
 
   return handleResponse<T>(response);
@@ -58,7 +58,7 @@ export async function apiPost<T>(
   const response = await fetch(`${apiConfig.baseUrl}${endpoint}`, {
     method: 'POST',
     headers: apiConfig.headers,
-    credentials: 'include',
+    
     body: data ? JSON.stringify(data) : undefined,
   });
 
@@ -69,7 +69,7 @@ export async function apiDelete<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${apiConfig.baseUrl}${endpoint}`, {
     method: 'DELETE',
     headers: apiConfig.headers,
-    credentials: 'include',
+    
   });
 
   return handleResponse<T>(response);

@@ -14,7 +14,7 @@ const tiers = [
       'Sandbox environment',
     ],
     cta: 'Start Free',
-    href: 'https://app.invoica.ai',
+    href: 'https://invoica-b89o.vercel.app',
     highlighted: false,
   },
   {
@@ -31,7 +31,7 @@ const tiers = [
       'Advanced analytics',
     ],
     cta: 'Start Pro Trial',
-    href: 'https://app.invoica.ai',
+    href: 'https://invoica-b89o.vercel.app',
     highlighted: true,
   },
   {

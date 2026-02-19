@@ -1,18 +1,19 @@
 'use client';
 
+import Image from 'next/image';
+
 export default function Hero() {
   return (
-    <section className="relative pt-32 pb-24 overflow-hidden bg-invoica-blue min-h-[90vh] flex items-center">
-      {/* Animated gradient background */}
+    <section className="relative pt-32 pb-24 overflow-hidden bg-white min-h-[90vh] flex items-center">
+      {/* Subtle background effects */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-invoica-blue via-invoica-blue to-[#1a1145]" />
-        {/* Gradient orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-invoica-purple/20 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-invoica-purple-light/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+        {/* Gradient orbs - lighter for white bg */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-invoica-purple/5 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-invoica-purple-light/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
         {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(10,37,64,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(10,37,64,0.1) 1px, transparent 1px)',
           backgroundSize: '64px 64px',
         }} />
       </div>
@@ -21,12 +22,12 @@ export default function Hero() {
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left content */}
           <div className="animate-fade-in-up">
-            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-sm">
+            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-invoica-purple/5 border border-invoica-purple/15 mb-8">
               <div className="w-2 h-2 rounded-full bg-invoica-purple animate-glow mr-3" />
-              <span className="text-xs font-medium text-invoica-gray-300 tracking-wide uppercase">Built on the x402 Protocol</span>
+              <span className="text-xs font-medium text-invoica-gray-500 tracking-wide uppercase">Built on the x402 Protocol</span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-[1.1] mb-8 tracking-tight">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-invoica-blue leading-[1.1] mb-8 tracking-tight">
               The Financial OS
               <br />
               <span className="bg-gradient-to-r from-invoica-purple to-invoica-purple-light bg-clip-text text-transparent">
@@ -34,14 +35,14 @@ export default function Hero() {
               </span>
             </h1>
 
-            <p className="text-lg md:text-xl text-invoica-gray-300 mb-10 max-w-lg leading-relaxed">
+            <p className="text-lg md:text-xl text-invoica-gray-500 mb-10 max-w-lg leading-relaxed">
               Automated invoicing, tax compliance, budget enforcement, and settlement detection.
               Your AI agents handle payments — Invoica handles the infrastructure.
             </p>
 
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://app.invoica.ai/api-keys"
+                href="https://invoica-b89o.vercel.app/api-keys"
                 className="group inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Start Building
@@ -49,7 +50,7 @@ export default function Hero() {
               </a>
               <a
                 href="https://docs.invoica.ai"
-                className="inline-flex items-center px-8 py-4 text-sm font-semibold text-white/80 border border-white/15 rounded-full hover:bg-white/5 hover:text-white hover:border-white/25 transition-all duration-300"
+                className="inline-flex items-center px-8 py-4 text-sm font-semibold text-invoica-blue border-2 border-invoica-gray-200 rounded-full hover:bg-invoica-purple/5 hover:border-invoica-purple hover:text-invoica-purple transition-all duration-300"
               >
                 Read the Docs
               </a>
@@ -60,8 +61,8 @@ export default function Hero() {
           <div className="hidden lg:block animate-float">
             <div className="relative">
               {/* Glow effect behind card */}
-              <div className="absolute -inset-4 bg-gradient-to-r from-invoica-purple/20 to-invoica-purple-light/20 rounded-2xl blur-2xl" />
-              <div className="relative bg-[#0d1b2a]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+              <div className="absolute -inset-4 bg-gradient-to-r from-invoica-purple/10 to-invoica-purple-light/10 rounded-2xl blur-2xl" />
+              <div className="relative bg-invoica-blue border border-invoica-blue/80 rounded-2xl p-8 shadow-2xl">
                 {/* Terminal header */}
                 <div className="flex items-center gap-2 mb-6">
                   <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />

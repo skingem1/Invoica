@@ -26,11 +26,11 @@ export default function Navbar() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <a href="https://app.invoica.ai" className="hidden sm:inline text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
+          <a href="https://invoica-b89o.vercel.app" className="hidden sm:inline text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
             Dashboard
           </a>
           <a
-            href="https://app.invoica.ai/api-keys"
+            href="https://invoica-b89o.vercel.app/api-keys"
             className="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-lg hover:shadow-invoica-purple/25 transition-all duration-300"
           >
             Get API Key
