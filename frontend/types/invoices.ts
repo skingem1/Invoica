@@ -6,14 +6,20 @@ export interface Invoice {
   id: string;
   /** Human-readable invoice number */
   invoiceNumber: string;
+  /** Alias used by some components */
+  number?: string;
   /** Invoice amount in the specified currency */
   amount: number;
   /** ISO 4217 currency code (e.g., USD, EUR) */
   currency: string;
   /** Current status of the invoice */
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  status: string;
   /** Timestamp when the invoice was created */
   createdAt: string;
+  /** Timestamp when the invoice was paid */
+  paidAt?: string | null;
+  /** Arbitrary metadata attached to the invoice */
+  metadata?: Record<string, string>;
 }
 
 /**
