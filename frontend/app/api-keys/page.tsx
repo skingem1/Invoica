@@ -146,7 +146,7 @@ export default function ApiKeysPage() {
     });
   };
 
-  const isKeyExpired = (expiresAt: string | null) => {
+  const isKeyExpired = (expiresAt: string | null | undefined) => {
     if (!expiresAt) return false;
     return new Date(expiresAt) < new Date();
   };
