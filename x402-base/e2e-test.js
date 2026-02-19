@@ -1,16 +1,17 @@
-// e2e-test.js — End-to-end x402 transaction test on Solana Mainnet
+// e2e-test.js — End-to-end x402 on Base Mainnet (EIP-3009 USDC)
 import { spawn } from "child_process";
 import { config } from "dotenv";
 
 config();
 
 console.log(`\n${"=".repeat(60)}`);
-console.log(`  INVOICA x402 END-TO-END TEST (Solana Mainnet)`);
-console.log(`  Network: Solana Mainnet (USDC SPL Token)`);
-console.log(`  Protocol: HTTP 402 → USDC Transfer → 200 OK`);
+console.log(`  INVOICA x402 END-TO-END TEST (Base Mainnet)`);
+console.log(`  Network: Base Mainnet (EVM, Chain ID: 8453)`);
+console.log(`  Token: USDC (EIP-3009 TransferWithAuthorization)`);
+console.log(`  Protocol: HTTP 402 → EIP-712 Signature → 200 OK`);
 console.log(`${"=".repeat(60)}\n`);
 
-const PORT = process.env.SERVER_PORT || 4402;
+const PORT = process.env.SERVER_PORT || 4403;
 
 const seller = spawn("node", ["seller-agent.js"], {
   stdio: ["pipe", "pipe", "pipe"],
@@ -47,7 +48,7 @@ async function runTest() {
     console.log(`\nBuyerBot-7 exited with code ${code}`);
     setTimeout(() => {
       seller.kill();
-      console.log("✅ Test complete. SellerBot-3 stopped.");
+      console.log("✅ Test complete.");
       process.exit(code || 0);
     }, 3000);
   });

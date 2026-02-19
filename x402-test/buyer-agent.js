@@ -1,167 +1,177 @@
-// buyer-agent.js — BuyerBot-7: Autonomous x402 client that pays for API access on Solana
-// This agent: requests a resource → gets 402 → builds & signs USDC payment → retries with X-Payment header
+// buyer-agent.js — BuyerBot-7: Autonomous x402 client on Solana Mainnet
+// Flow: request → 402 → send USDC SPL transfer on-chain → retry with X-Payment (signature)
 import { config } from "dotenv";
 import {
   Connection,
   Keypair,
   PublicKey,
   Transaction,
+  sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import {
-  createTransferInstruction,
-  getOrCreateAssociatedTokenAccount,
   getAssociatedTokenAddress,
+  getOrCreateAssociatedTokenAccount,
+  createTransferInstruction,
   getAccount,
-  createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 import { readFileSync } from "fs";
 
 config();
 
-const SOLANA_RPC = process.env.SOLANA_RPC || "https://api.devnet.solana.com";
-const USDC_MINT = new PublicKey(process.env.USDC_MINT || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const SOLANA_RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const SELLER_URL = `http://localhost:${process.env.SERVER_PORT || 4402}`;
+const USDC_MINT = new PublicKey(process.env.USDC_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 // Load buyer keypair
-const buyerKeyData = JSON.parse(readFileSync("buyer-keypair.json", "utf-8"));
-const buyerKeypair = Keypair.fromSecretKey(Uint8Array.from(buyerKeyData));
+const buyerKeypair = Keypair.fromSecretKey(
+  Uint8Array.from(JSON.parse(readFileSync("buyer-keypair.json", "utf-8")))
+);
+const BUYER_ADDRESS = buyerKeypair.publicKey.toBase58();
 
 const connection = new Connection(SOLANA_RPC, "confirmed");
 
-console.log(`\n🤖 BuyerBot-7 Starting...`);
-console.log(`   Wallet: ${buyerKeypair.publicKey.toBase58()}`);
-console.log(`   Network: Solana Devnet`);
+console.log(`\n🤖 BuyerBot-7 Starting (Solana Mainnet)...`);
+console.log(`   Wallet: ${BUYER_ADDRESS}`);
+console.log(`   Network: Solana Mainnet`);
 console.log(`   Target: ${SELLER_URL}/v1/ai/inference`);
 
 async function runBuyerAgent() {
-  // Step 1: Check buyer's USDC balance
-  console.log(`\n📊 Step 1: Checking USDC balance...`);
-  const buyerTokenAccount = await getAssociatedTokenAddress(USDC_MINT, buyerKeypair.publicKey);
+  // Step 1: Check balances
+  console.log(`\n📊 Step 1: Checking balances...`);
 
+  const solBalance = await connection.getBalance(buyerKeypair.publicKey);
+  console.log(`   SOL: ${solBalance / 1e9}`);
+
+  const buyerTokenAccount = await getAssociatedTokenAddress(USDC_MINT, buyerKeypair.publicKey);
+  let usdcBalance;
   try {
-    const balance = await connection.getTokenAccountBalance(buyerTokenAccount);
-    console.log(`   Balance: ${balance.value.uiAmountString} USDC`);
-    if (Number(balance.value.amount) < 10000) {
-      console.log(`   ❌ Insufficient USDC balance. Need at least 0.01 USDC.`);
-      console.log(`   Get devnet USDC from: https://faucet.circle.com/`);
-      console.log(`   Wallet: ${buyerKeypair.publicKey.toBase58()}`);
-      process.exit(1);
-    }
+    const tokenInfo = await getAccount(connection, buyerTokenAccount);
+    usdcBalance = tokenInfo.amount;
+    console.log(`   USDC: ${Number(usdcBalance) / 1e6}`);
   } catch (e) {
-    console.log(`   ❌ No USDC token account found. Fund this wallet first:`);
-    console.log(`   ${buyerKeypair.publicKey.toBase58()}`);
-    console.log(`   Get devnet USDC from: https://faucet.circle.com/`);
+    console.log(`   USDC: 0 (no token account)`);
     process.exit(1);
   }
 
-  // Step 2: Request the resource (expect 402)
+  if (solBalance < 10000) {
+    console.log(`   ❌ Need SOL for transaction fees`);
+    process.exit(1);
+  }
+
+  if (usdcBalance < 10000n) {
+    console.log(`   ❌ Need at least 0.01 USDC`);
+    process.exit(1);
+  }
+
+  // Step 2: Request resource (expect 402)
   console.log(`\n🌐 Step 2: Requesting /v1/ai/inference (expecting 402)...`);
   const initialResponse = await fetch(`${SELLER_URL}/v1/ai/inference`);
 
   if (initialResponse.status !== 402) {
     console.log(`   Unexpected status: ${initialResponse.status}`);
-    const body = await initialResponse.json();
-    console.log(`   Response:`, body);
     return;
   }
 
-  const paymentRequirements = await initialResponse.json();
+  const paymentReq = await initialResponse.json();
   console.log(`   ✅ Got 402 Payment Required`);
-  console.log(`   Price: ${paymentRequirements.payment.amountUSDC} USDC`);
-  console.log(`   Recipient: ${paymentRequirements.payment.recipientWallet}`);
-  console.log(`   Token Account: ${paymentRequirements.payment.tokenAccount}`);
+  console.log(`   Price: ${paymentReq.payment.amountUSDC} USDC`);
+  console.log(`   Recipient: ${paymentReq.payment.recipient}`);
+  console.log(`   Token Account: ${paymentReq.payment.tokenAccount}`);
 
-  // Step 3: Build USDC transfer transaction
-  console.log(`\n🔨 Step 3: Building Solana USDC transfer transaction...`);
+  // Step 3: Build and send USDC transfer
+  console.log(`\n💸 Step 3: Sending ${paymentReq.payment.amountUSDC} USDC to seller on-chain...`);
 
-  const recipientTokenAccount = new PublicKey(paymentRequirements.payment.tokenAccount);
-  const recipientWallet = new PublicKey(paymentRequirements.payment.recipientWallet);
-  const amount = paymentRequirements.payment.amount;
+  const sellerPubkey = new PublicKey(paymentReq.payment.recipient);
+  const amount = BigInt(paymentReq.payment.amount);
 
-  // Get latest blockhash
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-
-  const tx = new Transaction({
-    feePayer: buyerKeypair.publicKey,
-    blockhash,
-    lastValidBlockHeight,
-  });
-
-  // Check if recipient token account exists, create if needed
+  // Get or create seller's token account
+  let sellerTokenAccount;
   try {
-    await getAccount(connection, recipientTokenAccount);
-    console.log(`   Recipient token account exists`);
+    sellerTokenAccount = await getAssociatedTokenAddress(USDC_MINT, sellerPubkey);
+    // Check if it exists
+    await getAccount(connection, sellerTokenAccount);
+    console.log(`   Seller token account: ${sellerTokenAccount.toBase58()}`);
   } catch (e) {
-    console.log(`   Creating recipient token account...`);
-    tx.add(
-      createAssociatedTokenAccountInstruction(
-        buyerKeypair.publicKey,  // payer
-        recipientTokenAccount,    // token account to create
-        recipientWallet,          // owner of the new account
-        USDC_MINT                 // token mint
-      )
+    // Create it if it doesn't exist
+    console.log(`   Creating seller token account...`);
+    const result = await getOrCreateAssociatedTokenAccount(
+      connection,
+      buyerKeypair,
+      USDC_MINT,
+      sellerPubkey
     );
+    sellerTokenAccount = result.address;
+    console.log(`   Created: ${sellerTokenAccount.toBase58()}`);
   }
 
-  // Add USDC transfer instruction
-  tx.add(
-    createTransferInstruction(
-      buyerTokenAccount,         // source (buyer's USDC account)
-      recipientTokenAccount,     // destination (seller's USDC account)
-      buyerKeypair.publicKey,    // authority (buyer signs)
-      amount                     // amount in atomic units (0.01 USDC = 10000)
-    )
+  // Build transfer instruction
+  const transferIx = createTransferInstruction(
+    buyerTokenAccount,
+    sellerTokenAccount,
+    buyerKeypair.publicKey,
+    amount
   );
 
-  // Sign transaction
-  tx.sign(buyerKeypair);
-  console.log(`   ✅ Transaction built and signed`);
-  console.log(`   Transfer: ${amount / 1_000_000} USDC → ${recipientWallet.toBase58().substring(0, 8)}...`);
+  const tx = new Transaction().add(transferIx);
 
-  // Step 4: Serialize and encode as X-Payment header
-  console.log(`\n📦 Step 4: Encoding X-Payment header...`);
+  console.log(`   From: ${BUYER_ADDRESS}`);
+  console.log(`   To: ${sellerPubkey.toBase58()}`);
+  console.log(`   Amount: ${Number(amount) / 1e6} USDC`);
+  console.log(`   Sending transaction...`);
 
-  const serializedTx = tx.serialize().toString("base64");
+  const signature = await sendAndConfirmTransaction(connection, tx, [buyerKeypair], {
+    commitment: "confirmed",
+  });
+
+  console.log(`   ✅ Transaction confirmed!`);
+  console.log(`   Signature: ${signature}`);
+  console.log(`   Explorer: https://solscan.io/tx/${signature}`);
+
+  // Step 4: Encode X-Payment header
+  console.log(`\n📦 Step 4: Encoding X-Payment header with on-chain proof...`);
+
   const paymentProof = {
     x402Version: 1,
     scheme: "exact",
-    network: "solana-devnet",
+    network: "solana-mainnet",
     payload: {
-      serializedTransaction: serializedTx,
+      signature,
+      from: BUYER_ADDRESS,
+      to: sellerPubkey.toBase58(),
+      amount: amount.toString(),
+      mint: USDC_MINT.toBase58(),
     },
   };
 
   const xPaymentHeader = Buffer.from(JSON.stringify(paymentProof)).toString("base64");
   console.log(`   ✅ Payment proof encoded (${xPaymentHeader.length} chars)`);
 
-  // Step 5: Retry request with payment
-  console.log(`\n💸 Step 5: Retrying request with X-Payment header...`);
+  // Step 5: Retry with payment
+  console.log(`\n🔄 Step 5: Retrying request with X-Payment header...`);
 
   const paidResponse = await fetch(`${SELLER_URL}/v1/ai/inference`, {
-    headers: {
-      "X-Payment": xPaymentHeader,
-    },
+    headers: { "X-Payment": xPaymentHeader },
   });
 
   const result = await paidResponse.json();
 
-  if (paidResponse.status === 200) {
+  if (paidResponse.status === 200 && result.success) {
     console.log(`\n✅ ============================================`);
-    console.log(`   REAL x402 TRANSACTION COMPLETE!`);
+    console.log(`   REAL x402 SOLANA TRANSACTION COMPLETE!`);
     console.log(`   ============================================`);
     console.log(`   Status: ${paidResponse.status} OK`);
     console.log(`   AI Result: ${result.data?.result}`);
-    console.log(`   Tokens Used: ${result.data?.tokens_used}`);
-    console.log(`\n   Payment Details:`);
+    console.log(`\n   On-Chain Payment Details:`);
     console.log(`   Signature: ${result.payment?.signature}`);
     console.log(`   Amount: ${result.payment?.amount}`);
     console.log(`   Network: ${result.payment?.network}`);
+    console.log(`   Slot: ${result.payment?.slot}`);
+    console.log(`   Settlement: ${result.payment?.settlementMethod}`);
     console.log(`   Explorer: ${result.payment?.explorer}`);
     if (result.payment?.invoica) {
       console.log(`\n   Invoica Settlement:`);
-      console.log(`   Invoice ID: ${result.payment.invoica.invoiceId}`);
+      console.log(`   Invoice ID: ${result.payment.invoica.invoiceId || result.payment.invoica.id}`);
       console.log(`   Status: ${result.payment.invoica.status}`);
-      console.log(`   Tx Hash: ${result.payment.invoica.txHash}`);
     }
     console.log(`   ============================================\n`);
   } else {
@@ -169,9 +179,9 @@ async function runBuyerAgent() {
     console.log(`   Response:`, JSON.stringify(result, null, 2));
   }
 
-  // Check updated balance
-  const newBalance = await connection.getTokenAccountBalance(buyerTokenAccount);
-  console.log(`📊 Updated USDC balance: ${newBalance.value.uiAmountString} USDC`);
+  // Final balance
+  const newUsdcInfo = await getAccount(connection, buyerTokenAccount);
+  console.log(`📊 Updated USDC balance: ${Number(newUsdcInfo.amount) / 1e6} USDC`);
 }
 
 runBuyerAgent().catch((err) => {
