@@ -5,57 +5,29 @@ description: "Configure automatic tax calculation for multi-jurisdiction complia
 
 # Tax Compliance
 
-Invoica automatically calculates taxes based on buyer and seller locations, supporting VAT, sales tax, and other jurisdiction-specific rules.
+Invoica automatically calculates taxes based on jurisdiction, supporting EU VAT and other country-specific tax rates across 15 countries.
 
 ## How Tax Calculation Works
 
-When an invoice is created with tax IDs (VAT numbers), Invoica:
+Tax in Invoica is **calculated as a percentage of the payment amount and added on top**. The original payment amount becomes the subtotal, and the total includes the tax:
 
-1. Identifies the buyer and seller jurisdictions
-2. Looks up the applicable tax rate
-3. Applies exemptions (e.g., B2B reverse charge within the EU)
-4. Adds tax line items to the invoice
-5. Stores the tax breakdown for reporting
-
-## Configuration
-
-Enable tax calculation in your invoice requests:
-
-```typescript
-const invoice = await client.invoices.create({
-  amount: 10000,
-  currency: 'EUR',
-  description: 'AI Agent Compute Services',
-  taxEnabled: true,
-  buyer: {
-    companyName: 'Berlin AI GmbH',
-    address: 'Alexanderplatz 1, 10178 Berlin, Germany',
-    vat: 'DE123456789',
-  },
-  seller: {
-    name: 'Paris Tech SAS',
-    address: '10 Rue de Rivoli, 75001 Paris, France',
-    vat: 'FR98765432100',
-    wallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18',
-  },
-});
 ```
+Subtotal (payment amount): 00.00
+Tax Rate (Germany, 19%):     9.00
+Total:                      19.00
+```
+
+The middleware does **not** modify the original payment amount from the server. Instead, when creating an invoice, if a country code is provided, Invoica looks up the applicable VAT rate and adds tax on top of the subtotal.
 
 ## Tax Calculation API
 
-Calculate tax before creating an invoice:
+Calculate tax for any amount and jurisdiction:
 
 ```bash
-curl -X POST https://api.invoica.ai/api/tax/calculate \
-  -H "Authorization: Bearer inv_your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "amount": 10000,
-    "currency": "EUR",
-    "buyerCountry": "DE",
-    "buyerVat": "DE123456789",
-    "sellerCountry": "FR",
-    "sellerVat": "FR98765432100"
+curl -X POST https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api/v1/tax/calculate   -H "Content-Type: application/json"   -d '{
+    "amount": 1000,
+    "countryCode": "DE",
+    "currency": "EUR"
   }'
 ```
 
@@ -63,40 +35,127 @@ curl -X POST https://api.invoica.ai/api/tax/calculate \
 
 ```json
 {
-  "subtotal": 10000,
-  "taxRate": 0.19,
-  "taxAmount": 1900,
-  "total": 11900,
-  "jurisdiction": "DE",
-  "taxType": "VAT",
-  "reverseCharge": false,
-  "exemptions": []
+  "success": true,
+  "data": {
+    "subtotal": 1000,
+    "taxRate": 19,
+    "taxAmount": 190,
+    "totalAmount": 1190,
+    "currency": "EUR",
+    "countryCode": "DE",
+    "country": "Germany",
+    "rateType": "standard",
+    "breakdown": [
+      {
+        "description": "Germany VAT (19%)",
+        "rate": 19,
+        "amount": 190
+      }
+    ]
+  }
 }
 ```
 
-## Supported Scenarios
+## Automatic Tax on Invoice Creation
 
-| Scenario | Tax Treatment |
-|----------|--------------|
-| US domestic (same state) | State sales tax applied |
-| US domestic (different state) | Nexus rules determine liability |
-| EU B2B (different countries) | Reverse charge mechanism |
-| EU B2C (different countries) | Destination country VAT |
-| EU domestic | Local VAT rate |
-| International (non-EU) | Zero-rated export |
+When creating an invoice with a `taxCountry` or `country` field, tax is automatically calculated:
 
-## Tax Reports
-
-Access tax summaries through the API:
-
-```typescript
-const taxReport = await client.tax.getSummary({
-  startDate: '2026-01-01',
-  endDate: '2026-03-31',
-  groupBy: 'jurisdiction',
-});
+```bash
+curl -X POST https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api/v1/invoices   -H "Content-Type: application/json"   -d '{
+    "amount": 5000,
+    "currency": "EUR",
+    "customerName": "Berlin AI GmbH",
+    "customerEmail": "billing@berlin-ai.de",
+    "sellerName": "My Platform",
+    "taxCountry": "DE",
+    "serviceDescription": "AI compute services"
+  }'
 ```
 
+The invoice will automatically include:
+- `subtotal`: 5000 (original amount)
+- `taxRate`: 19 (Germany standard VAT)
+- `taxAmount`: 950 (19% of 5000)
+- `total`: 5950 (subtotal + tax)
+
+## How Location is Determined
+
+In the current implementation, **the buyer/seller location must be provided explicitly** when creating an invoice or calculating tax. The API caller (AI agent or integration) provides:
+
+| Field | Purpose |
+|-------|---------|
+| `taxCountry` / `country` | ISO country code for tax rate lookup |
+| `buyerVat` | Buyer VAT registration number |
+| `sellerVat` | Seller VAT registration number |
+| `buyerAddress` | Full buyer business address |
+| `sellerAddress` | Full seller business address |
+
+If no country code is provided, **tax defaults to 0** (no tax applied).
+
 <Info>
-  Tax rates are updated regularly. Invoica uses jurisdiction databases that are refreshed monthly to ensure accuracy.
+  Future versions will support automatic location detection via VAT number validation (VIES API), billing address parsing, and IP geolocation as fallbacks.
 </Info>
+
+## Supported Tax Rates
+
+Invoica includes built-in tax rates for 15 countries:
+
+| Country | Standard Rate | Reduced Rate |
+|---------|--------------|--------------|
+| Germany (DE) | 19% | 7% |
+| France (FR) | 20% | 5.5% |
+| Italy (IT) | 22% | 10% |
+| Spain (ES) | 21% | 10% |
+| Netherlands (NL) | 21% | 9% |
+| Belgium (BE) | 21% | 6% |
+| Austria (AT) | 20% | 10% |
+| Portugal (PT) | 23% | 6% |
+| Ireland (IE) | 23% | 13.5% |
+| Sweden (SE) | 25% | 12% |
+| Finland (FI) | 25.5% | 14% |
+| Denmark (DK) | 25% | 0% |
+| Poland (PL) | 23% | 8% |
+| United Kingdom (GB) | 20% | 5% |
+| United States (US) | 0% | 0% |
+
+## Tax Rates Lookup API
+
+Get tax rates for a specific country:
+
+```bash
+curl https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api/v1/tax/rates?country=FR
+```
+
+Or list all available rates:
+
+```bash
+curl https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api/v1/tax/rates
+```
+
+## Tax Summary (Dashboard)
+
+Access cumulative tax summaries grouped by country:
+
+```bash
+curl https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api/v1/dashboard/tax-summary   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+Returns total subtotal, total tax, total with tax, invoice count, and breakdown by country.
+
+## Reduced Rates
+
+To use the reduced VAT rate instead of standard, pass `rateType: "reduced"` in the tax calculation request:
+
+```json
+{
+  "amount": 1000,
+  "countryCode": "DE",
+  "rateType": "reduced"
+}
+```
+
+This returns 7% instead of 19% for Germany.
+
+<Warning>
+  US tax rates are currently set to 0%. State-level sales tax is not yet implemented. For US-based transactions, you should handle tax calculation externally.
+</Warning>
