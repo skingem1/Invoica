@@ -1,0 +1,49 @@
+'use client';
+
+import { useAuth } from '@/components/auth-provider';
+import { usePathname } from 'next/navigation';
+import { Sidebar } from '@/components/sidebar';
+import { UserMenu } from '@/components/user-menu';
+import Image from 'next/image';
+
+const publicPaths = ['/login', '/register', '/auth/callback'];
+
+export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+
+  const isPublicPath = publicPaths.some(p => pathname.startsWith(p));
+
+  // For public paths (login, register), render without shell
+  if (isPublicPath || !user) {
+    return <>{children}</>;
+  }
+
+  // For authenticated paths, render with sidebar and header
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b bg-white sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <a href="/" className="flex items-center gap-2">
+              <Image src="/logo.png" alt="Invoica" width={200} height={56} className="h-14 w-auto" priority />
+            </a>
+          </div>
+          <div className="flex items-center gap-4">
+            <a href="https://docs.invoica.ai" className="text-sm text-slate-500 hover:text-slate-900 transition-colors hidden md:inline">Docs</a>
+            <UserMenu />
+          </div>
+        </div>
+      </header>
+      <div className="flex-1 flex">
+        <Sidebar />
+        <main className="flex-1 ml-16 md:ml-56 p-6">{children}</main>
+      </div>
+      <footer className="border-t bg-white py-6 ml-16 md:ml-56">
+        <div className="px-6 text-center text-sm text-slate-500">
+          <p>&copy; {new Date().getFullYear()} Invoica. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}

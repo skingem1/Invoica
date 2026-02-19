@@ -19,7 +19,31 @@ export interface Invoice {
   /** Timestamp when the invoice was paid */
   paidAt?: string | null;
   /** Arbitrary metadata attached to the invoice */
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+  /** Customer/buyer name */
+  customerName?: string;
+  /** Customer/buyer email */
+  customerEmail?: string;
+  /** Seller/company name (shown on invoice header) */
+  sellerName?: string;
+  /** Service description (what the x402 transaction was about) */
+  serviceDescription?: string;
+  /** Subtotal before tax */
+  subtotal?: number;
+  /** Tax rate percentage */
+  taxRate?: number;
+  /** Tax amount */
+  taxAmount?: number;
+  /** Total including tax */
+  total?: number;
+  /** Tax type (e.g., VAT) */
+  taxType?: string;
+  /** Tax jurisdiction country code */
+  taxCountry?: string;
+  /** Seller VAT number */
+  sellerVat?: string;
+  /** Buyer VAT number */
+  buyerVat?: string;
 }
 
 /**
