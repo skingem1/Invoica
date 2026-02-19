@@ -44,7 +44,7 @@ export default function CodeExample() {
               ))}
             </ul>
 
-            <a href="https://docs.invoica.ai/quickstart" className="group inline-flex items-center text-sm font-semibold text-invoica-purple-light hover:text-white transition-colors duration-200">
+            <a href="https://invoica.mintlify.app/quickstart" className="group inline-flex items-center text-sm font-semibold text-invoica-purple-light hover:text-white transition-colors duration-200">
               Read the quickstart guide
               <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
             </a>

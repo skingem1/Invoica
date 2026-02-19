@@ -26,12 +26,12 @@
   "topbarLinks": [
     {
       "name": "Dashboard",
-      "url": "https://app.invoica.ai"
+      "url": "https://invoica-b89o.vercel.app"
     }
   ],
   "topbarCtaButton": {
     "name": "Get API Key",
-    "url": "https://app.invoica.ai/api-keys"
+    "url": "https://invoica-b89o.vercel.app/api-keys"
   },
   "tabs": [
     {
@@ -82,7 +82,7 @@
     "twitter": "https://twitter.com/NexusCollectv"
   },
   "api": {
-    "baseUrl": "https://api.invoica.ai",
+    "baseUrl": "https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api",
     "auth": {
       "method": "key",
       "name": "Authorization"
