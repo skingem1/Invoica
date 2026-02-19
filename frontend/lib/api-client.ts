@@ -170,4 +170,9 @@ export async function fetchInvoices(
   return apiGet<InvoiceListResponse>('/v1/invoices', params);
 }
 
+
+export async function fetchInvoiceById(id: string): Promise<Record<string, unknown>> {
+  return apiGet<Record<string, unknown>>(`/v1/invoices/${id}`);
+}
+
 export { ApiError };
