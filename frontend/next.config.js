@@ -3,6 +3,11 @@ const nextConfig = {
   images: {
     domains: ["img.clerk.com"],
   },
+  env: {
+    NEXT_PUBLIC_API_URL:
+      process.env.NEXT_PUBLIC_API_URL ||
+      "https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api",
+  },
 };
 
 module.exports = nextConfig;
