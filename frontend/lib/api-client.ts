@@ -170,6 +170,29 @@ export async function fetchInvoiceById(id: string): Promise<InvoiceListItem & { 
   return apiGet<InvoiceListItem & { metadata?: Record<string, unknown> }>(`/v1/invoices/${id}`);
 }
 
+// Billing / Subscription
+export interface BillingStatus {
+  subscription_plan: 'free' | 'pro' | 'enterprise';
+  subscription_status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_period_end: string | null;
+  invoice_count_this_month: number;
+  api_call_count_this_month: number;
+}
+
+export async function fetchBillingStatus(): Promise<BillingStatus> {
+  return apiGet<BillingStatus>('/v1/billing/status');
+}
+
+export async function createCheckoutSession(): Promise<{ url: string }> {
+  return apiPost<{ url: string }>('/v1/billing/create-checkout');
+}
+
+export async function createPortalSession(): Promise<{ url: string }> {
+  return apiPost<{ url: string }>('/v1/billing/create-portal');
+}
+
 export class ApiError extends Error {
   status: number;
   data?: unknown;
