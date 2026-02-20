@@ -80,11 +80,13 @@ export interface CreateApiKeyResponse {
 }
 
 export async function fetchApiKeys(): Promise<ApiKey[]> {
-  return apiGet<ApiKey[]>('/v1/api-keys');
+  const res = await apiGet<{ success: boolean; data: ApiKey[] }>('/v1/api-keys');
+  return res.data ?? [];
 }
 
 export async function createNewApiKey(name: string, expiresInDays?: number): Promise<CreateApiKeyResponse> {
-  return apiPost<CreateApiKeyResponse>('/v1/api-keys', { name, expiresInDays });
+  const res = await apiPost<{ success: boolean; data: CreateApiKeyResponse }>('/v1/api-keys', { name, expiresInDays });
+  return res.data;
 }
 
 export async function deleteApiKey(id: string): Promise<void> {
@@ -96,7 +98,8 @@ export async function revokeApiKey(id: string): Promise<void> {
 }
 
 export async function rotateApiKey(id: string): Promise<CreateApiKeyResponse> {
-  return apiPost<CreateApiKeyResponse>(`/v1/api-keys/${id}/rotate`);
+  const res = await apiPost<{ success: boolean; data: CreateApiKeyResponse }>(`/v1/api-keys/${id}/rotate`);
+  return res.data;
 }
 
 export interface DashboardStats {
