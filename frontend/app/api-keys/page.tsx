@@ -157,7 +157,7 @@ export default function ApiKeysPage() {
         <div>
           <h1 className="text-3xl font-bold">API Keys</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your API keys for accessing the Countable API.
+            Manage your API keys for accessing the Invoica API.
           </p>
         </div>
         
