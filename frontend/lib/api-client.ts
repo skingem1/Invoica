@@ -182,15 +182,18 @@ export interface BillingStatus {
 }
 
 export async function fetchBillingStatus(): Promise<BillingStatus> {
-  return apiGet<BillingStatus>('/v1/billing/status');
+  const res = await apiGet<{ success: boolean; data: BillingStatus }>('/v1/billing/status');
+  return res.data;
 }
 
 export async function createCheckoutSession(): Promise<{ url: string }> {
-  return apiPost<{ url: string }>('/v1/billing/create-checkout');
+  const res = await apiPost<{ success: boolean; data: { url: string; sessionId: string } }>('/v1/billing/create-checkout');
+  return { url: res.data.url };
 }
 
 export async function createPortalSession(): Promise<{ url: string }> {
-  return apiPost<{ url: string }>('/v1/billing/create-portal');
+  const res = await apiPost<{ success: boolean; data: { url: string } }>('/v1/billing/create-portal');
+  return { url: res.data.url };
 }
 
 export class ApiError extends Error {
