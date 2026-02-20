@@ -47,6 +47,9 @@ export default function Footer() {
               <li><a href="https://twitter.com/NexusCollectv" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Twitter / X</a></li>
               <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Open Source</a></li>
               <li><a href="mailto:hello@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Contact</a></li>
+              <li><a href="/terms" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Terms of Service</a></li>
+              <li><a href="/privacy" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Privacy Policy</a></li>
+              <li><a href="/acceptable-use" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Acceptable Use</a></li>
             </ul>
           </div>
         </div>
@@ -56,9 +59,11 @@ export default function Footer() {
           <p className="text-sm text-invoica-gray-500">
             &copy; {new Date().getFullYear()} Invoica. Built by Nexus Collective.
           </p>
-          <p className="text-sm text-invoica-gray-500">
-            Powered by the x402 protocol
-          </p>
+          <div className="flex gap-6">
+            <a href="/terms" className="text-sm text-invoica-gray-500 hover:text-invoica-gray-300 transition-colors">Terms</a>
+            <a href="/privacy" className="text-sm text-invoica-gray-500 hover:text-invoica-gray-300 transition-colors">Privacy</a>
+            <a href="/acceptable-use" className="text-sm text-invoica-gray-500 hover:text-invoica-gray-300 transition-colors">AUP</a>
+          </div>
         </div>
       </div>
     </footer>
