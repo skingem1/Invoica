@@ -5,6 +5,7 @@ import {
   createNewApiKey,
   fetchCompanyProfile,
   saveCompanyProfile,
+  verifyCompanyProfile,
   fetchSupportedCountries,
   createCheckoutSession,
   type CompanyProfile,
@@ -79,6 +80,8 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
   const [projectName, setProjectName] = useState('');
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ verified: boolean; message: string } | null>(null);
 
   // API key state
   const [apiSecret, setApiSecret] = useState('');
@@ -117,6 +120,7 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
   const handleSaveProfile = async () => {
     if (!profileType) return;
     setProfileError('');
+    setVerifyResult(null);
     setSaving(true);
     try {
       const payload = profileType === 'registered_company'
@@ -130,10 +134,29 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
           }
         : { profile_type: 'web3_project' as const, project_name: projectName };
       await saveCompanyProfile(payload);
-      setStep('pricing');
+
+      // For registered companies, auto-verify before moving to pricing
+      if (profileType === 'registered_company') {
+        setSaving(false);
+        setVerifying(true);
+        try {
+          const result = await verifyCompanyProfile();
+          setVerifyResult({ verified: result.verified, message: result.message });
+          // Move to pricing after a short delay so user can see the result
+          setTimeout(() => setStep('pricing'), 1500);
+        } catch {
+          // Verification failed but profile is saved — still proceed
+          setVerifyResult({ verified: false, message: 'Verification could not be completed, but your profile has been saved. You can retry from Settings.' });
+          setTimeout(() => setStep('pricing'), 2500);
+        } finally {
+          setVerifying(false);
+        }
+      } else {
+        // Web3 projects skip verification
+        setStep('pricing');
+      }
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : 'Failed to save profile');
-    } finally {
       setSaving(false);
     }
   };
@@ -331,16 +354,30 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
             </div>
           )}
 
+          {/* Verification progress / result */}
+          {verifying && (
+            <div className="p-4 rounded-xl bg-[#635BFF]/5 border border-[#635BFF]/20 text-sm text-[#635BFF] flex items-center gap-3">
+              <svg className="animate-spin h-5 w-5 flex-shrink-0" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              <span className="font-medium">Verifying your company with the official registry...</span>
+            </div>
+          )}
+          {verifyResult && !verifying && (
+            <div className={`p-4 rounded-xl text-sm flex items-center gap-3 ${verifyResult.verified ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-amber-50 border border-amber-200 text-amber-700'}`}>
+              <span className="flex-shrink-0 text-lg">{verifyResult.verified ? '✓' : 'ℹ️'}</span>
+              <span className="font-medium">{verifyResult.message}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-2">
             <button onClick={onComplete} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
               Skip for now
             </button>
             <button
               onClick={handleSaveProfile}
-              disabled={saving || !profileType || (profileType === 'registered_company' && (!companyName || !companyCountry || !regNumber)) || (profileType === 'web3_project' && !projectName)}
+              disabled={saving || verifying || !profileType || (profileType === 'registered_company' && (!companyName || !companyCountry || !regNumber)) || (profileType === 'web3_project' && !projectName)}
               className="px-6 py-2.5 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-[#635BFF]/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Saving...' : 'Continue'}
+              {saving ? 'Saving...' : verifying ? 'Verifying...' : 'Continue'}
             </button>
           </div>
         </div>

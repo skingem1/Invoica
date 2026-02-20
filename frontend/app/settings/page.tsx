@@ -3,14 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   fetchCompanyProfile,
-  saveCompanyProfile,
   verifyCompanyProfile,
   fetchSupportedCountries,
   type CompanyProfile,
   type SupportedCountry,
 } from '@/lib/api-client';
-
-type ProfileType = 'registered_company' | 'web3_project' | null;
 
 function VerificationBadge({ status }: { status: CompanyProfile['verification_status'] }) {
   const config = {
@@ -27,9 +24,21 @@ function VerificationBadge({ status }: { status: CompanyProfile['verification_st
   );
 }
 
+function ReadOnlyField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-400 mb-1">{label}</label>
+      <div className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+        {value || '—'}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   // General settings
   const [email, setEmail] = useState('');
+  const [editingEmail, setEditingEmail] = useState(false);
   const [currency, setCurrency] = useState('USD');
   const [notifications, setNotifications] = useState({
     invoiceCreated: true,
@@ -42,21 +51,10 @@ export default function SettingsPage() {
   // Company profile
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [countries, setCountries] = useState<SupportedCountry[]>([]);
-  const [profileType, setProfileType] = useState<ProfileType>(null);
-  const [companyName, setCompanyName] = useState('');
-  const [companyCountry, setCompanyCountry] = useState('');
-  const [regNumber, setRegNumber] = useState('');
-  const [vatNumber, setVatNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [projectName, setProjectName] = useState('');
-  const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
+  const [verifyError, setVerifyError] = useState('');
   const [verifyMessage, setVerifyMessage] = useState('');
   const [loading, setLoading] = useState(true);
-
-  const selectedCountry = countries.find(c => c.code === companyCountry);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -64,13 +62,6 @@ export default function SettingsPage() {
       setCountries(c);
       if (p) {
         setProfile(p);
-        setProfileType(p.profile_type);
-        setCompanyName(p.company_name || '');
-        setCompanyCountry(p.company_country || '');
-        setRegNumber(p.registration_number || '');
-        setVatNumber(p.vat_number || '');
-        setAddress(p.address || '');
-        setProjectName(p.project_name || '');
       }
     } catch {
       // Profile not yet created — that's OK
@@ -81,44 +72,28 @@ export default function SettingsPage() {
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  const handleSaveGeneral = () => {
-    setGeneralSaved(true);
-    setTimeout(() => setGeneralSaved(false), 2000);
-  };
-
-  const handleSaveProfile = async () => {
-    setProfileError('');
-    setProfileSuccess('');
-    setVerifyMessage('');
-    setSaving(true);
-    try {
-      const payload = profileType === 'registered_company'
-        ? { profile_type: 'registered_company' as const, company_name: companyName, company_country: companyCountry, registration_number: regNumber, vat_number: vatNumber || undefined, address: address || undefined }
-        : { profile_type: 'web3_project' as const, project_name: projectName };
-      const result = await saveCompanyProfile(payload);
-      setProfile(result);
-      setProfileSuccess('Company profile saved successfully.');
-      setTimeout(() => setProfileSuccess(''), 3000);
-    } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Failed to save profile');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const countryName = countries.find(c => c.code === profile?.company_country)?.name || profile?.company_country || '—';
+  const selectedCountry = countries.find(c => c.code === profile?.company_country);
 
   const handleVerify = async () => {
     setVerifyMessage('');
-    setProfileError('');
+    setVerifyError('');
     setVerifying(true);
     try {
       const result = await verifyCompanyProfile();
       setVerifyMessage(result.message);
       setProfile(result.profile);
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Verification failed');
+      setVerifyError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
       setVerifying(false);
     }
+  };
+
+  const handleSaveGeneral = () => {
+    setGeneralSaved(true);
+    setEditingEmail(false);
+    setTimeout(() => setGeneralSaved(false), 2000);
   };
 
   if (loading) {
@@ -142,186 +117,115 @@ export default function SettingsPage() {
         <p className="mt-2 text-slate-500">Manage your account preferences and company profile.</p>
       </div>
 
-      {/* ─── Company Profile ─── */}
+      {/* ─── Company Profile (Read-Only) ─── */}
       <div className="rounded-2xl border bg-white p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Company Profile</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Set up your business identity for invoicing.</p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {profile ? 'Your business identity for invoicing.' : 'Set up your business identity for invoicing.'}
+            </p>
           </div>
           {profile && <VerificationBadge status={profile.verification_status} />}
         </div>
 
-        {/* Profile type selector */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setProfileType('registered_company')}
-            className={`relative p-4 rounded-xl border-2 text-left transition-all ${
-              profileType === 'registered_company'
-                ? 'border-[#635BFF] bg-[#635BFF]/[0.04] shadow-sm'
-                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${profileType === 'registered_company' ? 'bg-[#635BFF]/10' : 'bg-slate-100'}`}>
-                <svg className={`w-5 h-5 ${profileType === 'registered_company' ? 'text-[#635BFF]' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        {/* No profile yet — direct to onboarding */}
+        {!profile && (
+          <div className="text-center py-8">
+            <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">No company profile found. Complete the onboarding to set up your profile.</p>
+            <a
+              href="/"
+              className="inline-flex px-5 py-2.5 text-sm font-semibold text-white bg-[#635BFF] rounded-lg hover:bg-[#635BFF]/90 transition-colors"
+            >
+              Go to Dashboard
+            </a>
+          </div>
+        )}
+
+        {/* Profile exists — read-only display */}
+        {profile && profile.profile_type === 'registered_company' && (
+          <div className="space-y-4">
+            {/* Type badge */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-[#635BFF]/10 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-[#635BFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <div>
-                <div className="font-semibold text-sm text-slate-900">Registered Company</div>
-              </div>
+              <span className="text-sm font-medium text-slate-700">Registered Company</span>
             </div>
-            <p className="text-xs text-slate-500">Traditional entity with tax, VAT, and compliance features.</p>
-            {profileType === 'registered_company' && (
-              <div className="absolute top-3 right-3">
-                <svg className="w-5 h-5 text-[#635BFF]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <ReadOnlyField label="Company Name" value={profile.verified_company_name || profile.company_name} />
+              <ReadOnlyField label="Country" value={countryName} />
+              <ReadOnlyField label={selectedCountry?.regLabel || 'Registration Number'} value={profile.registration_number} />
+              <ReadOnlyField label="VAT Number" value={profile.vat_number} />
+            </div>
+            <ReadOnlyField label="Registered Address" value={profile.address} />
+
+            {/* Verified company name banner */}
+            {profile.verified_company_name && profile.verification_status === 'verified' && (
+              <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-200">
+                <div className="text-xs font-medium text-emerald-600 mb-1">Verified Company Name</div>
+                <div className="text-sm font-semibold text-emerald-900">{profile.verified_company_name}</div>
+                {profile.verified_at && (
+                  <div className="text-xs text-emerald-500 mt-1">Verified on {new Date(profile.verified_at).toLocaleDateString()}</div>
+                )}
               </div>
             )}
-          </button>
 
-          <button
-            type="button"
-            onClick={() => setProfileType('web3_project')}
-            className={`relative p-4 rounded-xl border-2 text-left transition-all ${
-              profileType === 'web3_project'
-                ? 'border-[#635BFF] bg-[#635BFF]/[0.04] shadow-sm'
-                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${profileType === 'web3_project' ? 'bg-[#635BFF]/10' : 'bg-slate-100'}`}>
-                <svg className={`w-5 h-5 ${profileType === 'web3_project' ? 'text-[#635BFF]' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            {/* Verify button for unverified companies */}
+            {profile.verification_status !== 'verified' && (
+              <div className="pt-1">
+                <button
+                  onClick={handleVerify}
+                  disabled={verifying}
+                  className="px-5 py-2.5 text-sm font-semibold text-[#635BFF] border border-[#635BFF] rounded-lg hover:bg-[#635BFF]/5 transition-colors disabled:opacity-50"
+                >
+                  {verifying ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      Verifying...
+                    </span>
+                  ) : 'Verify Company'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {profile && profile.profile_type === 'web3_project' && (
+          <div className="space-y-4">
+            {/* Type badge */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-[#635BFF]/10 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-[#635BFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
               </div>
-              <div>
-                <div className="font-semibold text-sm text-slate-900">Web3 Project</div>
-              </div>
-            </div>
-            <p className="text-xs text-slate-500">No country, no VAT, no tax — invoicing and ledger only.</p>
-            {profileType === 'web3_project' && (
-              <div className="absolute top-3 right-3">
-                <svg className="w-5 h-5 text-[#635BFF]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Registered Company Form */}
-        {profileType === 'registered_company' && (
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
-                placeholder="Acme Corporation Ltd."
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Country of Registration</label>
-              <select
-                value={companyCountry}
-                onChange={e => setCompanyCountry(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent bg-white"
-              >
-                <option value="">Select a country...</option>
-                {countries.map(c => (
-                  <option key={c.code} value={c.code}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                {selectedCountry?.regLabel || 'Registration Number'}
-              </label>
-              <input
-                type="text"
-                value={regNumber}
-                onChange={e => setRegNumber(e.target.value)}
-                placeholder={selectedCountry?.regPlaceholder || 'Enter registration number'}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
-              />
-              {selectedCountry && (
-                <p className="mt-1 text-xs text-slate-400">Format: {selectedCountry.regFormat}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                VAT Number <span className="text-slate-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={vatNumber}
-                onChange={e => setVatNumber(e.target.value)}
-                placeholder="e.g. DE123456789"
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Registered Address <span className="text-slate-400 font-normal">(optional)</span>
-              </label>
-              <textarea
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                placeholder="123 Business Street, City, Country"
-                rows={2}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent resize-none"
-              />
+              <span className="text-sm font-medium text-slate-700">Web3 Project</span>
             </div>
 
-            {/* Verification info box */}
-            {selectedCountry && (
-              <div className={`p-3 rounded-lg text-sm ${selectedCountry.autoVerify ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5">{selectedCountry.autoVerify ? '⚡' : 'ℹ️'}</span>
-                  <span>
-                    {selectedCountry.autoVerify
-                      ? `Auto-verification available for ${selectedCountry.name}. Save your profile then click "Verify" to check your company in real-time.`
-                      : `Automated verification is not yet available for ${selectedCountry.name}. Your registration will be saved and reviewed manually.`}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+            <ReadOnlyField label="Project Name" value={profile.project_name} />
 
-        {/* Web3 Project Form */}
-        {profileType === 'web3_project' && (
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Project Name</label>
-              <input
-                type="text"
-                value={projectName}
-                onChange={e => setProjectName(e.target.value)}
-                placeholder="My DeFi Protocol"
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
-              />
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 text-sm text-slate-600">
+            <div className="p-3 rounded-lg bg-slate-50 text-sm text-slate-500">
               <div className="flex items-start gap-2">
-                <span className="mt-0.5">💡</span>
-                <span>Web3 projects operate without country registration. No VAT, no tax obligations — only invoicing and ledger entries will be tracked.</span>
+                <span className="mt-0.5">&#128161;</span>
+                <span>Web3 projects operate without country registration. No VAT, no tax obligations.</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Error / Success Messages */}
-        {profileError && (
+        {/* Verification messages */}
+        {verifyError && (
           <div className="p-3 rounded-lg bg-red-50 text-sm text-red-700 flex items-center gap-2">
-            <span>✗</span> {profileError}
-          </div>
-        )}
-        {profileSuccess && (
-          <div className="p-3 rounded-lg bg-emerald-50 text-sm text-emerald-700 flex items-center gap-2">
-            <span>✓</span> {profileSuccess}
+            <span>&#10007;</span> {verifyError}
           </div>
         )}
         {verifyMessage && (
@@ -330,67 +234,86 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Verified company name display */}
-        {profile?.verified_company_name && profile.verification_status === 'verified' && (
-          <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-200">
-            <div className="text-xs font-medium text-emerald-600 mb-1">Verified Company Name</div>
-            <div className="text-sm font-semibold text-emerald-900">{profile.verified_company_name}</div>
-            {profile.verified_at && (
-              <div className="text-xs text-emerald-500 mt-1">Verified on {new Date(profile.verified_at).toLocaleDateString()}</div>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {profileType && (
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              onClick={handleSaveProfile}
-              disabled={saving}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-[#635BFF] rounded-lg hover:bg-[#635BFF]/90 transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Profile'}
-            </button>
-            {profileType === 'registered_company' && profile && profile.profile_type === 'registered_company' && profile.verification_status !== 'verified' && (
-              <button
-                onClick={handleVerify}
-                disabled={verifying}
-                className="px-5 py-2.5 text-sm font-semibold text-[#635BFF] border border-[#635BFF] rounded-lg hover:bg-[#635BFF]/5 transition-colors disabled:opacity-50"
-              >
-                {verifying ? 'Verifying...' : 'Verify Company'}
-              </button>
-            )}
+        {/* Info note about profile changes */}
+        {profile && (
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500 flex items-start gap-2">
+            <svg className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <span>Company details cannot be changed after registration. Contact <a href="mailto:support@invoica.ai" className="text-[#635BFF] hover:underline">support@invoica.ai</a> if you need to update your company information.</span>
           </div>
         )}
       </div>
 
       {/* ─── General Settings ─── */}
       <div className="rounded-2xl border bg-white p-6 space-y-4">
-        <h2 className="text-xl font-semibold">General</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">General</h2>
+          {!editingEmail && profile && (
+            <button
+              onClick={() => setEditingEmail(true)}
+              className="text-sm font-medium text-[#635BFF] hover:text-[#635BFF]/80 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Edit
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Billing Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="billing@company.com"
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
-            />
+            {editingEmail ? (
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="billing@company.com"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent"
+                autoFocus
+              />
+            ) : (
+              <div className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+                {email || <span className="text-slate-400">Not set</span>}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Default Currency</label>
-            <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent bg-white"
-            >
-              <option value="USD">USD - US Dollar</option>
-              <option value="EUR">EUR - Euro</option>
-              <option value="GBP">GBP - British Pound</option>
-              <option value="USDC">USDC - USD Coin</option>
-            </select>
+            {editingEmail ? (
+              <select
+                value={currency}
+                onChange={e => setCurrency(e.target.value)}
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#635BFF] focus:border-transparent bg-white"
+              >
+                <option value="USD">USD - US Dollar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="USDC">USDC - USD Coin</option>
+              </select>
+            ) : (
+              <div className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+                {currency === 'USD' ? 'USD - US Dollar' : currency === 'EUR' ? 'EUR - Euro' : currency === 'GBP' ? 'GBP - British Pound' : 'USDC - USD Coin'}
+              </div>
+            )}
           </div>
+          {editingEmail && (
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSaveGeneral}
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-[#635BFF] rounded-lg hover:bg-[#635BFF]/90 transition-colors"
+              >
+                {generalSaved ? 'Saved!' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditingEmail(false)}
+                className="px-5 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -435,16 +358,6 @@ export default function SettingsPage() {
             Manage Billing
           </a>
         </div>
-      </div>
-
-      {/* ─── Save General ─── */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSaveGeneral}
-          className="px-6 py-2.5 text-sm font-semibold text-white bg-[#635BFF] rounded-lg hover:bg-[#635BFF]/90 transition-colors"
-        >
-          {generalSaved ? 'Saved!' : 'Save Changes'}
-        </button>
       </div>
     </div>
   );
