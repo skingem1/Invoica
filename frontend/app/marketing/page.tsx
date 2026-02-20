@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
+import { ADMIN_EMAILS } from '@/components/sidebar-nav-items';
 
 interface SocialPost {
   id: string;
@@ -43,11 +46,20 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function MarketingPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [tweetText, setTweetText] = useState('');
   const [posting, setPosting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Admin-only route guard
+  useEffect(() => {
+    if (user && !ADMIN_EMAILS.includes(user.email || '')) {
+      router.replace('/');
+    }
+  }, [user, router]);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -68,6 +80,11 @@ export default function MarketingPage() {
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
+
+  // Don't render for non-admins
+  if (user && !ADMIN_EMAILS.includes(user.email || '')) {
+    return null;
+  }
 
   async function handlePostTweet() {
     if (!tweetText.trim()) return;

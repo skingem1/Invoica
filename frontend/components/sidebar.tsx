@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { navItems, type NavItem } from './sidebar-nav-items';
+import { useAuth } from '@/components/auth-provider';
+import { navItems, ADMIN_EMAILS, type NavItem } from './sidebar-nav-items';
 
 function NavIcon({ item, active }: { item: NavItem; active: boolean }) {
   return (
@@ -17,6 +19,9 @@ function NavIcon({ item, active }: { item: NavItem; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(user?.email || ''), [user?.email]);
+  const visibleItems = useMemo(() => navItems.filter(item => !item.adminOnly || isAdmin), [isAdmin]);
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
@@ -27,7 +32,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-16 bottom-0 w-16 md:w-56 bg-white border-r border-gray-100 z-40 overflow-y-auto">
       <nav className="py-4" aria-label="Sidebar navigation">
         <ul className="space-y-0.5 px-2">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const active = isActive(item.href);
             return (
               <li key={item.href}>

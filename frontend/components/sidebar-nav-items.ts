@@ -11,7 +11,10 @@ export interface NavItem {
   label: string;
   iconPath: string; // SVG path d attribute
   iconPaths?: string[]; // For multi-path SVGs
+  adminOnly?: boolean; // Only visible to admin users
 }
+
+export const ADMIN_EMAILS = ['skininthegem@gmail.com'];
 
 export const navItems: NavItem[] = [
   {
@@ -71,6 +74,7 @@ export const navItems: NavItem[] = [
     label: 'Marketing',
     iconPath: 'M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728',
     iconPaths: ['M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072', 'M13 12a1 1 0 11-2 0 1 1 0 012 0z'],
+    adminOnly: true,
   },
   {
     href: '/agents',
