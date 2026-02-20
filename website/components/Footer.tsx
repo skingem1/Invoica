@@ -37,6 +37,7 @@ export default function Footer() {
               <li><a href="https://invoica.mintlify.app/guides/create-invoice" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Guides</a></li>
               <li><a href="https://invoica.mintlify.app/concepts/x402-protocol" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">x402 Protocol</a></li>
               <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">GitHub</a></li>
+              <li><a href="/status" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">System Status</a></li>
             </ul>
           </div>
 
