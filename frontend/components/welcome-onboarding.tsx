@@ -393,124 +393,209 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
             <p className="text-sm text-slate-500 mt-0.5">Start free and scale as you grow.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Free Tier */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col">
-              <div className="mb-4">
-                <h3 className="font-semibold text-slate-900">Free</h3>
-                <div className="mt-2">
-                  <span className="text-3xl font-bold text-slate-900">$0</span>
-                  <span className="text-sm text-slate-500">/month</span>
+          {/* ── Web3 Project Pricing (2 tiers: Free + $24 Growth) ── */}
+          {profileType === 'web3_project' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl mx-auto">
+              {/* Free Tier */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-slate-900">Free</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-slate-900">$0</span>
+                    <span className="text-sm text-slate-500">/month</span>
+                  </div>
                 </div>
+                <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    100 invoices/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    1,000 API calls/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    x402 payment protocol
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    On-chain ledger
+                  </li>
+                </ul>
+                <button
+                  onClick={() => setStep('apiKey')}
+                  className="w-full py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+                >
+                  Get Started Free
+                </button>
               </div>
-              <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  100 invoices/month
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  1,000 API calls/month
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  x402 payment protocol
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Basic tax compliance
-                </li>
-              </ul>
-              <button
-                onClick={() => setStep('apiKey')}
-                className="w-full py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
-              >
-                Get Started Free
-              </button>
-            </div>
 
-            {/* Pro Tier — highlighted */}
-            <div className="rounded-2xl border-2 border-[#635BFF] bg-white p-5 flex flex-col relative shadow-lg shadow-[#635BFF]/10">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="px-3 py-1 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white text-xs font-bold rounded-full">
-                  Most Popular
-                </span>
-              </div>
-              <div className="mb-4 mt-1">
-                <h3 className="font-semibold text-slate-900">Pro</h3>
-                <div className="mt-2">
-                  <span className="text-3xl font-bold text-slate-900">$49</span>
-                  <span className="text-sm text-slate-500">/month</span>
+              {/* Growth Tier — Web3 highlighted */}
+              <div className="rounded-2xl border-2 border-[#635BFF] bg-white p-5 flex flex-col relative shadow-lg shadow-[#635BFF]/10">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="px-3 py-1 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white text-xs font-bold rounded-full">
+                    Recommended
+                  </span>
                 </div>
+                <div className="mb-4 mt-1">
+                  <h3 className="font-semibold text-slate-900">Growth</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-slate-900">$24</span>
+                    <span className="text-sm text-slate-500">/month</span>
+                  </div>
+                </div>
+                <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    5,000 invoices/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    25,000 API calls/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Multi-chain settlement tracking
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Webhook notifications
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Priority support
+                  </li>
+                </ul>
+                <button
+                  onClick={handleProCheckout}
+                  className="w-full py-2.5 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-[#635BFF]/25 transition-all"
+                >
+                  Upgrade to Growth
+                </button>
               </div>
-              <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Unlimited invoices
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  50,000 API calls/month
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Advanced tax engine (12 countries)
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Company registry verification
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Priority support
-                </li>
-              </ul>
-              <button
-                onClick={handleProCheckout}
-                className="w-full py-2.5 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-[#635BFF]/25 transition-all"
-              >
-                Upgrade to Pro
-              </button>
             </div>
+          ) : (
+            /* ── Registered Company Pricing (3 tiers: Free + $49 Pro + Enterprise) ── */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Free Tier */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-slate-900">Free</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-slate-900">$0</span>
+                    <span className="text-sm text-slate-500">/month</span>
+                  </div>
+                </div>
+                <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    100 invoices/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    1,000 API calls/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    x402 payment protocol
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Basic tax compliance
+                  </li>
+                </ul>
+                <button
+                  onClick={() => setStep('apiKey')}
+                  className="w-full py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+                >
+                  Get Started Free
+                </button>
+              </div>
 
-            {/* Enterprise Tier */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col">
-              <div className="mb-4">
-                <h3 className="font-semibold text-slate-900">Enterprise</h3>
-                <div className="mt-2">
-                  <span className="text-3xl font-bold text-slate-900">Custom</span>
+              {/* Pro Tier — highlighted */}
+              <div className="rounded-2xl border-2 border-[#635BFF] bg-white p-5 flex flex-col relative shadow-lg shadow-[#635BFF]/10">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="px-3 py-1 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white text-xs font-bold rounded-full">
+                    Most Popular
+                  </span>
                 </div>
+                <div className="mb-4 mt-1">
+                  <h3 className="font-semibold text-slate-900">Pro</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-slate-900">$49</span>
+                    <span className="text-sm text-slate-500">/month</span>
+                  </div>
+                </div>
+                <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Unlimited invoices
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    50,000 API calls/month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Advanced tax engine (12 countries)
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Company registry verification
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-[#635BFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Priority support
+                  </li>
+                </ul>
+                <button
+                  onClick={handleProCheckout}
+                  className="w-full py-2.5 bg-gradient-to-r from-[#635BFF] to-[#818CF8] text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-[#635BFF]/25 transition-all"
+                >
+                  Upgrade to Pro
+                </button>
               </div>
-              <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Everything in Pro
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Unlimited API calls
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Dedicated account manager
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  Custom SLA &amp; compliance
-                </li>
-                <li className="flex items-start gap-2">
-                  <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  On-premise deployment option
-                </li>
-              </ul>
-              <a
-                href="mailto:sales@invoica.ai"
-                className="w-full py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all text-center block"
-              >
-                Contact Sales
-              </a>
+
+              {/* Enterprise Tier */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-slate-900">Enterprise</h3>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold text-slate-900">Custom</span>
+                  </div>
+                </div>
+                <ul className="space-y-2.5 text-sm text-slate-600 flex-1 mb-5">
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Everything in Pro
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Unlimited API calls
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Dedicated account manager
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Custom SLA &amp; compliance
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    On-premise deployment option
+                  </li>
+                </ul>
+                <a
+                  href="mailto:sales@invoica.ai"
+                  className="w-full py-2.5 border-2 border-slate-200 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all text-center block"
+                >
+                  Contact Sales
+                </a>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Free tier skip link */}
           <div className="text-center pt-1">

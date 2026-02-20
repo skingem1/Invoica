@@ -35,10 +35,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-18 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <a href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Invoica" width={240} height={64} className="h-10 w-auto" priority />
+              <Image src="/logo.png" alt="Invoica" width={360} height={96} className="h-14 w-auto" priority />
             </a>
           </div>
           <div className="flex items-center gap-4">
