@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchDashboardStats, fetchRecentActivity, fetchApiKeys, DashboardStats, RecentActivityItem } from '@/lib/api-client';
+import { fetchDashboardStats, fetchRecentActivity, fetchApiKeys, fetchCompanyProfile, DashboardStats, RecentActivityItem } from '@/lib/api-client';
 import { WelcomeOnboarding } from '@/components/welcome-onboarding';
 // Custom modern icons - no external dependency
 
@@ -17,18 +17,20 @@ export default function DashboardPage() {
 
   async function loadDashboard() {
     try {
-      const [statsData, activityData, keys] = await Promise.all([
+      const [statsData, activityData, keys, profile] = await Promise.all([
         fetchDashboardStats(),
         fetchRecentActivity(),
         fetchApiKeys().catch(() => []),
+        fetchCompanyProfile().catch(() => null),
       ]);
       setStats(statsData);
       setActivity(activityData);
 
-      // Show onboarding if user has no API keys and no invoices
-      const isNewUser = keys.length === 0 && (statsData.totalInvoices ?? 0) === 0;
+      // Show onboarding if user has no company profile or no API keys
+      const needsProfile = !profile;
+      const needsApiKey = keys.length === 0;
       const dismissed = typeof window !== 'undefined' && localStorage.getItem('invoica_onboarding_dismissed');
-      setShowOnboarding(isNewUser && !dismissed);
+      setShowOnboarding((needsProfile || needsApiKey) && !dismissed);
     } finally {
       setLoading(false);
     }
