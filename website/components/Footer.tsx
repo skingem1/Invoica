@@ -12,7 +12,7 @@ export default function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
           {/* Brand column */}
           <div className="lg:col-span-2">
-            <Image src="/logo-dark.png" alt="Invoica" width={180} height={48} className="h-12 w-auto mb-6" />
+            <Image src="/logo-dark.png" alt="Invoica" width={220} height={60} className="h-10 w-auto mb-6" />
             <p className="text-sm text-invoica-gray-400 leading-relaxed max-w-sm">
               The Financial OS for AI Agents. Automated invoicing, tax compliance, and settlement detection built on the x402 protocol.
             </p>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { fetchDashboardStats, fetchRecentActivity, fetchApiKeys, DashboardStats, RecentActivityItem } from '@/lib/api-client';
 import { WelcomeOnboarding } from '@/components/welcome-onboarding';
-import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
+// Custom modern icons - no external dependency
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -58,47 +58,71 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        {/* Total Invoices */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-[#635BFF]/10 transition-all duration-300">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <FileText className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-gradient-to-br from-[#635BFF]/10 to-[#818CF8]/10 rounded-xl">
+              <svg className="w-6 h-6 text-[#635BFF]" viewBox="0 0 24 24" fill="none">
+                <rect x="4" y="2" width="16" height="20" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M8 7h8M8 11h6M8 15h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="17" cy="17" r="3.5" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M15.8 17l.8.8 1.6-1.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Invoices</p>
-              <p className="text-2xl font-semibold">{stats?.totalInvoices ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalInvoices ?? 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        {/* Pending */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-amber-200 transition-all duration-300">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-100 rounded-lg">
-              <Clock className="w-6 h-6 text-amber-600" />
+            <div className="p-3 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl">
+              <svg className="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.08" />
+                <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" opacity="0.25" />
+              </svg>
             </div>
             <div>
               <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-semibold">{stats?.pending ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.pending ?? 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        {/* Settled */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-emerald-200 transition-all duration-300">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl">
+              <svg className="w-6 h-6 text-emerald-500" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.08" />
+                <path d="M8 12.5l2.5 2.5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
             <div>
               <p className="text-sm text-gray-500">Settled</p>
-              <p className="text-2xl font-semibold">{stats?.settled ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.settled ?? 0}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        {/* Revenue */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-violet-200 transition-all duration-300">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <XCircle className="w-6 h-6 text-red-600" />
+            <div className="p-3 bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl">
+              <svg className="w-6 h-6 text-violet-500" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="2" y="4" width="20" height="16" rx="3" fill="currentColor" opacity="0.06" />
+                <path d="M2 9h20" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M12 14.5c0-.83.67-1.5 1.5-1.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3c-.83 0-1.5-.67-1.5-1.5z" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1" />
+                <path d="M6 14h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </div>
             <div>
               <p className="text-sm text-gray-500">Revenue</p>
-              <p className="text-2xl font-semibold">${(stats?.revenue ?? 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${(stats?.revenue ?? 0).toLocaleString()}</p>
             </div>
           </div>
         </div>

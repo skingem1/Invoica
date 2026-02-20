@@ -26,7 +26,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <a href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Invoica" width={200} height={56} className="h-14 w-auto" priority />
+              <Image src="/logo.png" alt="Invoica" width={240} height={64} className="h-10 w-auto" priority />
             </a>
           </div>
           <div className="flex items-center gap-4">

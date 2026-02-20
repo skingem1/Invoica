@@ -1,35 +1,103 @@
 'use client';
 
-const features = [
+interface FeatureItem {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  gradient: string;
+  glowColor: string;
+}
+
+const features: FeatureItem[] = [
   {
     title: 'Automated Invoicing',
     description: 'Generate professional invoices for every AI agent transaction. Line items, tax breakdowns, and PDF delivery — fully automated.',
-    iconPath: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    gradient: 'from-[#635BFF] to-[#818CF8]',
+    glowColor: 'shadow-[#635BFF]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <rect x="5" y="3" width="18" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M9 8h10M9 12h7M9 16h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="20" cy="19" r="4.5" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M18.5 19l1 1 2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
   },
   {
     title: 'Tax Compliance',
     description: 'Multi-jurisdiction VAT and sales tax calculation. Automatic rate lookup, reverse charge handling, and audit-ready reporting.',
-    iconPath: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+    gradient: 'from-[#10B981] to-[#34D399]',
+    glowColor: 'shadow-[#10B981]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" fill="currentColor" opacity="0.08" />
+        <path d="M10.5 13.5l2.5 2.5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
   },
   {
     title: 'Budget Enforcement',
     description: 'Hierarchical spending limits per agent, team, or department. Transactions exceeding budgets are blocked before execution.',
-    iconPath: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+    gradient: 'from-[#F59E0B] to-[#FBBF24]',
+    glowColor: 'shadow-[#F59E0B]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <rect x="3" y="6" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="3" y="6" width="22" height="16" rx="3" fill="currentColor" opacity="0.06" />
+        <path d="M3 11h22" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="18" cy="18" r="2" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="22" cy="18" r="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M7 18h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
   },
   {
     title: 'Settlement Detection',
     description: 'Dual on-chain monitoring — poll-based and event-driven — ensures no payment confirmation is ever missed.',
-    iconPath: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1',
+    gradient: 'from-[#8B5CF6] to-[#A78BFA]',
+    glowColor: 'shadow-[#8B5CF6]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="10" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="14" cy="14" r="10" fill="currentColor" opacity="0.06" />
+        <path d="M14 7v7l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="14" cy="14" r="2" fill="currentColor" opacity="0.3" />
+        <path d="M21 5l2 2M5 5L3 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
   },
   {
     title: 'TypeScript SDK',
     description: '100 modules, 26 React hooks, 19 UI components. Fully typed, tree-shakeable, and designed for developer experience.',
-    iconPath: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+    gradient: 'from-[#3B82F6] to-[#60A5FA]',
+    glowColor: 'shadow-[#3B82F6]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="3" y="3" width="22" height="22" rx="4" fill="currentColor" opacity="0.06" />
+        <path d="M8 18V11h5v1.8h-3V18H8z" fill="currentColor" />
+        <path d="M14.5 14.6c0-.5.1-.9.4-1.3.3-.3.6-.6 1-.8.4-.2.9-.3 1.4-.3.8 0 1.5.2 2 .7.5.4.7 1 .7 1.7h-2c0-.3-.1-.5-.2-.6-.2-.2-.3-.2-.6-.2-.2 0-.4.1-.5.2-.2.1-.2.3-.2.5 0 .2.1.4.3.5.2.2.5.3.9.5.5.2.9.3 1.2.5.4.2.6.5.9.8.2.3.3.8.3 1.3s-.1 1-.4 1.3c-.3.3-.6.6-1 .8-.4.2-.9.3-1.4.3-.8 0-1.5-.2-2-.7-.5-.5-.8-1.1-.8-1.8h2.1c0 .3.1.5.3.7.2.2.4.2.6.2.3 0 .4-.1.5-.2.2-.1.2-.3.2-.5 0-.2-.1-.4-.3-.6-.2-.2-.5-.3-1-.5-.5-.2-.9-.3-1.2-.5-.4-.2-.6-.5-.8-.8-.3-.3-.3-.7-.3-1.2z" fill="currentColor" />
+      </svg>
+    ),
   },
   {
     title: 'Developer Dashboard',
     description: 'Manage API keys, view invoices, monitor settlements, and configure webhooks from a single interface.',
-    iconPath: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z',
+    gradient: 'from-[#EC4899] to-[#F472B6]',
+    glowColor: 'shadow-[#EC4899]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="3" y="3" width="22" height="5" rx="2" fill="currentColor" opacity="0.12" />
+        <circle cx="6.5" cy="5.5" r="1" fill="currentColor" opacity="0.4" />
+        <circle cx="9.5" cy="5.5" r="1" fill="currentColor" opacity="0.4" />
+        <circle cx="12.5" cy="5.5" r="1" fill="currentColor" opacity="0.4" />
+        <rect x="6" y="11" width="7" height="4" rx="1" stroke="currentColor" strokeWidth="1" opacity="0.7" />
+        <rect x="6" y="18" width="7" height="4" rx="1" stroke="currentColor" strokeWidth="1" opacity="0.7" />
+        <rect x="16" y="11" width="7" height="11" rx="1" stroke="currentColor" strokeWidth="1" opacity="0.7" />
+      </svg>
+    ),
   },
 ];
 
@@ -65,11 +133,9 @@ export default function Features() {
               className="group relative p-8 rounded-2xl border border-invoica-gray-100 hover:border-invoica-purple/20 bg-white hover:bg-gradient-to-b hover:from-white hover:to-invoica-purple/[0.02] transition-all duration-500 hover:shadow-xl hover:shadow-invoica-purple/5 hover:-translate-y-1"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              {/* Icon */}
-              <div className="w-14 h-14 flex items-center justify-center rounded-xl bg-gradient-to-br from-invoica-blue to-invoica-blue/80 text-white mb-6 group-hover:from-invoica-purple group-hover:to-invoica-purple-light group-hover:shadow-lg group-hover:shadow-invoica-purple/20 transition-all duration-500">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={feature.iconPath} />
-                </svg>
+              {/* Icon with per-feature color gradient */}
+              <div className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-gradient-to-br ${feature.gradient} text-white mb-6 group-hover:shadow-lg group-hover:${feature.glowColor} group-hover:scale-110 transition-all duration-500`}>
+                {feature.icon}
               </div>
 
               <h3 className="text-lg font-semibold text-invoica-blue mb-3">{feature.title}</h3>
