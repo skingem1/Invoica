@@ -54,7 +54,7 @@ export default function LoginPage() {
           <div className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-[#818CF8] blur-3xl" />
         </div>
         <div className="relative">
-          <Image src="/logo-dark.png" alt="Invoica" width={816} height={216} className="h-[134px] w-auto" />
+          <Image src="/logo-dark.png" alt="Invoica" width={432} height={115} className="h-[67px] w-auto" />
         </div>
         <div className="relative space-y-6">
           <h1 className="text-4xl font-bold text-white leading-tight">
@@ -79,7 +79,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex justify-center mb-8">
-            <Image src="/logo.png" alt="Invoica" width={768} height={202} className="h-[134px] w-auto" />
+            <Image src="/logo.png" alt="Invoica" width={432} height={115} className="h-[67px] w-auto" />
           </div>
           <div className="text-center lg:text-left">
             <h2 className="text-2xl font-bold text-slate-900">{isSignUp ? 'Create your account' : 'Welcome back'}</h2>
