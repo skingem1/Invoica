@@ -8,7 +8,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-10">
           <a href="/" className="flex items-center">
-            <Image src="/logo.png" alt="Invoica" width={220} height={60} className="h-10 w-auto" priority />
+            <Image src="/logo.png" alt="Invoica" width={432} height={115} className="h-[67px] w-auto" priority />
           </a>
           <div className="hidden md:flex items-center gap-8">
             <a href="https://invoica.mintlify.app" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
