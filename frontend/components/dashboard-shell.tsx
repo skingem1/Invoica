@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
@@ -11,6 +12,17 @@ const publicPaths = ['/login', '/register', '/auth/callback'];
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const pathname = usePathname();
+
+  // Force reload when restored from bfcache (e.g. back from Stripe checkout)
+  useEffect(() => {
+    function handlePageShow(e: PageTransitionEvent) {
+      if (e.persisted) {
+        window.location.reload();
+      }
+    }
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   const isPublicPath = publicPaths.some(p => pathname.startsWith(p));
 
