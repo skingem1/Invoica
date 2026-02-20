@@ -18,13 +18,13 @@ export default function DashboardPage() {
   async function loadDashboard() {
     try {
       const [statsData, activityData, keys, profile] = await Promise.all([
-        fetchDashboardStats(),
-        fetchRecentActivity(),
+        fetchDashboardStats().catch(() => null),
+        fetchRecentActivity().catch(() => []),
         fetchApiKeys().catch(() => []),
         fetchCompanyProfile().catch(() => null),
       ]);
       setStats(statsData);
-      setActivity(activityData);
+      setActivity(activityData ?? []);
 
       // Show onboarding if user has no company profile or no API keys
       const needsProfile = !profile;
