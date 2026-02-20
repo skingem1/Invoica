@@ -55,6 +55,11 @@ export const navItems: NavItem[] = [
     iconPaths: ['M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
   },
   {
+    href: '/marketing',
+    label: 'Marketing',
+    iconPath: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
+  },
+  {
     href: '/agents',
     label: 'Agents',
     iconPath: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z',
