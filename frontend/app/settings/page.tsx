@@ -102,12 +102,10 @@ export default function SettingsPage() {
             <div className="text-sm text-slate-500">100 invoices/month</div>
           </div>
           <a
-            href="https://invoica.vercel.app/#pricing"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/billing"
             className="px-4 py-2 text-sm font-medium text-[#635BFF] border border-[#635BFF] rounded-md hover:bg-[#635BFF]/5 transition-colors"
           >
-            Upgrade Plan
+            Manage Billing
           </a>
         </div>
       </div>
