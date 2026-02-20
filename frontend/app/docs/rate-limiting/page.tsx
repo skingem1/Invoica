@@ -36,6 +36,28 @@ if (tracker.shouldWait()) { await tracker.waitIfNeeded(); }`}</code>
         <li>1000 requests per hour per API key</li>
         <li>Rate limit headers included in every response</li>
       </ul>
+
+      <h2 style={{ fontSize: '24px', marginTop: '32px', marginBottom: '16px' }}>Monthly Limits by Plan</h2>
+      <p style={{ marginBottom: '16px' }}>
+        In addition to per-minute rate limits, each plan has monthly API call and invoice quotas.
+      </p>
+
+      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Registered Company Plans</h3>
+      <ul style={{ marginBottom: '16px', paddingLeft: '20px' }}>
+        <li><strong>Free:</strong> 100 invoices/month, 1,000 API calls/month</li>
+        <li><strong>Pro ($49/mo):</strong> Unlimited invoices, 50,000 API calls/month</li>
+        <li><strong>Enterprise:</strong> Unlimited invoices, unlimited API calls</li>
+      </ul>
+
+      <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Web3 Project Plans</h3>
+      <ul style={{ marginBottom: '24px', paddingLeft: '20px' }}>
+        <li><strong>Free:</strong> 100 invoices/month, 1,000 API calls/month</li>
+        <li><strong>Growth ($24/mo):</strong> 5,000 invoices/month, 25,000 API calls/month</li>
+      </ul>
+
+      <p style={{ marginBottom: '24px' }}>
+        See <a href="/docs/pricing" style={{ color: '#635BFF' }}>Plans &amp; Pricing</a> for full details.
+      </p>
     </div>
   );
 }

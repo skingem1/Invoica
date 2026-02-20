@@ -6,6 +6,16 @@ interface ChangeEntry {
 
 const entries: ChangeEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-02-20',
+    changes: [
+      'New Web3 Growth plan at $24/mo with 5,000 invoices and 25,000 API calls',
+      'Web3 projects now see tailored pricing (Free + Growth) during onboarding',
+      'Registered companies continue to see Free + Pro ($49) + Enterprise tiers',
+      'Added Plans & Pricing documentation page',
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-02-16',
     changes: [

@@ -15,6 +15,7 @@ const navigation: NavGroup[] = [
       { label: 'Quick Start', href: '/docs/quickstart' },
       { label: 'Configuration', href: '/docs/configuration' },
       { label: 'Authentication', href: '/docs/authentication' },
+      { label: 'Plans & Pricing', href: '/docs/pricing' },
     ],
   },
   {
