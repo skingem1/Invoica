@@ -196,6 +196,71 @@ export async function createPortalSession(): Promise<{ url: string }> {
   return { url: res.data.url };
 }
 
+// Company Profile
+export interface SupportedCountry {
+  code: string;
+  name: string;
+  regLabel: string;
+  regPlaceholder: string;
+  regFormat: string;
+  autoVerify: boolean;
+}
+
+export interface CompanyProfile {
+  id: string;
+  profile_type: 'registered_company' | 'web3_project';
+  company_name: string | null;
+  company_country: string | null;
+  registration_number: string | null;
+  verification_status: 'unverified' | 'pending' | 'verified' | 'failed' | 'not_applicable';
+  verified_company_name: string | null;
+  verified_at: string | null;
+  verification_details: Record<string, unknown> | null;
+  project_name: string | null;
+  vat_number: string | null;
+  address: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerifyCompanyResult {
+  verified: boolean;
+  method: string;
+  companyName: string | null;
+  address: string | null;
+  status: string;
+  message: string;
+  profile: CompanyProfile;
+}
+
+export async function fetchSupportedCountries(): Promise<SupportedCountry[]> {
+  const res = await apiGet<{ success: boolean; data: SupportedCountry[] }>('/v1/company/countries');
+  return res.data;
+}
+
+export async function fetchCompanyProfile(): Promise<CompanyProfile | null> {
+  const res = await apiGet<{ success: boolean; data: CompanyProfile | null }>('/v1/company/profile');
+  return res.data;
+}
+
+export async function saveCompanyProfile(data: {
+  profile_type: 'registered_company' | 'web3_project';
+  company_name?: string;
+  company_country?: string;
+  registration_number?: string;
+  vat_number?: string;
+  address?: string;
+  project_name?: string;
+}): Promise<CompanyProfile> {
+  const res = await apiPost<{ success: boolean; data: CompanyProfile }>('/v1/company/profile', data);
+  return res.data;
+}
+
+export async function verifyCompanyProfile(): Promise<VerifyCompanyResult> {
+  const res = await apiPost<{ success: boolean; data: VerifyCompanyResult }>('/v1/company/verify');
+  return res.data;
+}
+
 export class ApiError extends Error {
   status: number;
   data?: unknown;
