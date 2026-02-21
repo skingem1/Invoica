@@ -1,0 +1,39 @@
+{
+  "current_tier": "pre_launch",
+  "mrr": 0,
+  "mrr_currency": "USD",
+  "last_updated": "2026-02-20T00:00:00Z",
+  "beta_start_date": "2026-02-23",
+  "billing_activation_date": "2026-04-23",
+  "day_number": 0,
+  "tiers": {
+    "normal": {
+      "mrr_threshold": 5000,
+      "agents_active": 18,
+      "description": "Full capabilities. All addons active. Replication mode on. Frontier models."
+    },
+    "low_compute": {
+      "mrr_threshold": 2000,
+      "agents_active": 15,
+      "description": "Pause non-revenue features. Downgrade to cheaper models. Focus on retention."
+    },
+    "critical": {
+      "mrr_threshold": 500,
+      "agents_active": 8,
+      "description": "Minimal operations. CEO focuses only on revenue recovery. Emergency outreach."
+    },
+    "dead": {
+      "mrr_threshold": 0,
+      "agents_active": 2,
+      "description": "All non-essential agents suspended. Human intervention required. CEO + CTO only."
+    }
+  },
+  "history": [
+    {
+      "date": "2026-02-20",
+      "tier": "pre_launch",
+      "mrr": 0,
+      "event": "Conway Edition v2.0 initialized"
+    }
+  ]
+}

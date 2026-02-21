@@ -220,6 +220,17 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
         <p className="text-slate-500 text-sm mt-1">Let&apos;s get you set up in just a few steps.</p>
       </div>
 
+      {/* Beta Banner */}
+      <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-[#635BFF]/10 to-[#818CF8]/10 border border-[#635BFF]/20">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="px-2 py-0.5 bg-[#635BFF] text-white text-[10px] font-bold rounded-full uppercase tracking-wider">Beta</span>
+          <span className="text-sm font-semibold text-slate-800">Free access to all features during beta</span>
+        </div>
+        <p className="text-xs text-slate-600 ml-[52px]">
+          Sign up now to lock in your <strong className="text-[#635BFF]">Founding Agent</strong> discount — 20% off all paid plans for 24 months when billing starts (April 23).
+        </p>
+      </div>
+
       <StepIndicator current={stepNumber} />
 
       {/* ═══════════════════════════════════════════════════
@@ -390,7 +401,20 @@ export function WelcomeOnboarding({ onComplete }: WelcomeOnboardingProps) {
         <div className="space-y-5">
           <div className="text-center">
             <h2 className="text-lg font-semibold text-slate-900">Choose your plan</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Start free and scale as you grow.</p>
+            <p className="text-sm text-slate-500 mt-0.5">All plans are <strong className="text-[#635BFF]">free during beta</strong>. Pick the tier you want when billing starts.</p>
+          </div>
+
+          {/* Founding Agent Badge */}
+          <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-amber-50 border border-amber-200/60">
+            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Founding Agent — 20% off for 24 months</p>
+              <p className="text-xs text-amber-700">Your discount locks at signup and applies automatically when billing starts on Day 61 (April 23).</p>
+            </div>
           </div>
 
           {/* ── Web3 Project Pricing (2 tiers: Free + $24 Growth) ── */}

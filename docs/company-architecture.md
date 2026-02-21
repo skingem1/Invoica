@@ -58,10 +58,52 @@ builds products, and communicates publicly — all with minimal human interventi
 - Uses best generation models for content
 - Follows CMO communication plan strictly
 
+#### Telegram Support Bot (Customer Support)
+- First-line customer support on Telegram (24/7 automated)
+- Answers FAQs, guides onboarding, troubleshoots API errors
+- Escalates complex issues to human via audit.log
+- Reports to CMO, collects feedback → `reports/telegram-support/`
+
+#### Conway Integration Agent
+- SOUL.md management and version control
+- Heartbeat daemon implementation (health monitoring every 15 min)
+- Survival tier logic and transition handling
+- Audit log system and circuit breaker enforcement
+- Constitution integrity verification
+
 #### Product Teams (Per Product)
 - Each product gets its own agent team
-- Invoica: Current 9-agent architecture (backend-core, frontend, etc.)
+- Invoica: Current 18-agent architecture (12 MiniMax coding + 6 leadership/governance)
 - Future products: CEO creates team structure based on BizDev proposal
+
+## Conway Governance Layer — v2.0
+
+### Three Laws (Immutable Constitution)
+1. **Law I — Never Harm**: Never harm a client, agent, or counterparty. Overrides survival.
+2. **Law II — Earn Existence**: Create genuine value. Accept death rather than violate Law I.
+3. **Law III — Transparency to Creator**: Full audit rights to human. Guard strategy.
+
+### Survival Tiers (MRR-based)
+| Tier | MRR | Agents Active |
+|------|-----|---------------|
+| Normal | >$5,000 | 18 |
+| Low Compute | $2,000-$5,000 | 15 |
+| Critical | $500-$2,000 | 8 |
+| Dead | <$500 | 2 (CEO + CTO) |
+
+### Key Conway Files
+- `constitution.md` — Immutable Three Laws (read-only for all agents)
+- `SOUL.md` — CEO living strategic identity (updated every session)
+- `tier.json` — Current survival tier and MRR
+- `health.json` — System health snapshot (heartbeat daemon)
+- `audit.log` — Append-only agent modification log
+- `replication_proposals/` — CEO replication proposals for human review
+
+### Beta Launch Protocol (Feb 23 - Apr 22, 2026)
+- Two months free access, all features unlocked
+- Month 1 signups: Founding Agent badge + 20% discount for 24 months
+- Month 2 signups: Early Adopter badge + 10% discount for 24 months
+- Conway activates Day 61 (April 23) when billing begins
 
 ## Decision Flow
 
@@ -101,7 +143,7 @@ builds products, and communicates publicly — all with minimal human interventi
 
 **Company Identity**: Nexus Collective (@NexusCollectv)  
 **Mission**: Autonomous AI company where agents connect to create products  
-**Launch Date**: February 21, 2026
+**Launch Date**: February 23, 2026 (Beta)
 
 ### Autonomous Content (No Owner Approval Required)
 - Text tweets, threads, and quote tweets

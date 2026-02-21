@@ -1,0 +1,54 @@
+{
+  "last_heartbeat": "2026-02-20T00:00:00Z",
+  "status": "healthy",
+  "phase": "pre_launch",
+  "uptime_seconds": 0,
+  "checks": {
+    "api_status": "operational",
+    "database_status": "operational",
+    "edge_function_status": "operational",
+    "dashboard_status": "operational",
+    "website_status": "operational"
+  },
+  "agents": {
+    "total_configured": 18,
+    "total_active": 18,
+    "agents": {
+      "ceo": { "status": "active", "model": "claude-opus-4-6", "last_session": null },
+      "cto": { "status": "active", "model": "claude-sonnet-4-6", "last_session": null },
+      "cmo": { "status": "active", "model": "manus-1.6", "last_session": null },
+      "supervisor-1": { "status": "active", "model": "claude-sonnet-4-6", "last_session": null },
+      "supervisor-2": { "status": "active", "model": "openai-o4-mini", "last_session": null },
+      "skills": { "status": "active", "model": "claude-sonnet-4-6", "last_session": null },
+      "backend-core": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "backend-tax": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "backend-ledger": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "frontend": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "security": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "devops": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "api-integration": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "database": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "documentation": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "conway-integration": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "testing": { "status": "active", "model": "minimax-m2.5", "last_session": null },
+      "monitoring": { "status": "active", "model": "minimax-m2.5", "last_session": null }
+    }
+  },
+  "financials": {
+    "mrr": 0,
+    "monthly_budget": 200,
+    "monthly_spend": 0,
+    "gas_reserve_sol": 0,
+    "credit_balance_usd": 0
+  },
+  "beta": {
+    "start_date": "2026-02-23",
+    "day_number": 0,
+    "agents_onboarded": 0,
+    "companies_onboarded": 0,
+    "api_integrations_live": 0,
+    "transactions_monitored": 0,
+    "founding_agent_badges": 0,
+    "early_adopter_badges": 0
+  }
+}

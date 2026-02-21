@@ -1,11 +1,15 @@
 node_modules/
 .env
 *.log
+!audit.log
 dist/
 .next/
 coverage/
 .turbo/
 .env.local
+
+# Conway governance temp files
+.circuit-breaker.json
 x402-evm/node_modules/
 x402-evm/.env
 x402-evm/*-keypair.json

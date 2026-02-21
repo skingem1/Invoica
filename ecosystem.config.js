@@ -2,6 +2,7 @@
  * Invoica PM2 Ecosystem Configuration
  *
  * Manages scheduled agent runners:
+ * - Heartbeat daemon every 15 minutes (Conway governance)
  * - CTO daily full-scan at 10AM CET (9 UTC)
  * - CMO market watch weekdays at 8:30 UTC
  * - Orchestrator (manual start with sprint file)
@@ -15,6 +16,23 @@
 
 module.exports = {
   apps: [
+    // ===== Conway Heartbeat Daemon (every 15 minutes) =====
+    {
+      name: 'heartbeat',
+      script: './scripts/heartbeat-daemon.ts',
+      interpreter: 'npx',
+      interpreter_args: 'ts-node',
+      cwd: '/home/agent/agentic-finance-platform',
+      cron_restart: '*/15 * * * *',  // Every 15 minutes
+      autorestart: false,
+      watch: false,
+      max_memory_restart: '256M',
+      env: { NODE_ENV: 'production' },
+      error_file: 'logs/heartbeat-error.log',
+      out_file: 'logs/heartbeat-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    },
+
     // ===== CTO Daily Full Scan (10AM CET = 9AM UTC) =====
     {
       name: 'cto-daily-scan',
