@@ -35,6 +35,20 @@ export default function SupportPage() {
           ))}
         </div>
       </section>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div>
+                                      <h3 className="font-semibold text-blue-900">💬 Live Support on Telegram</h3>
+                                                  <p className="text-blue-700 text-sm mt-1">Chat with our AI support bot — instant answers, 24/7</p>
+                                                            </div>
+                                                                      <a
+                                                                                  href="https://t.me/invoicaBot"
+                                                                                              target="_blank"
+                                                                                                          rel="noopener noreferrer"
+                                                                                                                      className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
+                                                                                                                                >
+                                                                                                                                            Open Telegram Bot
+                                                                                                                                                      </a>
+                                                                                                                                                              </div>
 
       <section>
         <h2 className="text-xl font-semibold mb-4">FAQ</h2>
