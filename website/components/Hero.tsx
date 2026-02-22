@@ -42,7 +42,7 @@ export default function Hero() {
 
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://invoica-b89o.vercel.app/api-keys"
+                href="https://invoica.wp1.host/api-keys"
                 className="group inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Start Building
