@@ -103,11 +103,24 @@ export default function SupportPage() {
 
   const handleTelegramClick = () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    window.open(
-      isMobile ? 'tg://resolve?domain=invoicaBot' : 'https://web.telegram.org/k/#@invoicaBot',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    if (isMobile) {
+      // Deep links must use location.href on mobile — window.open() gets blocked
+      // If Telegram app isn't installed, fall back to t.me after 1.5s
+      const fallback = setTimeout(() => {
+        window.location.href = 'https://t.me/invoicaBot';
+      }, 1500);
+      // If the app opens, the page becomes hidden — cancel the fallback
+      const onVisChange = () => {
+        if (document.visibilityState === 'hidden') {
+          clearTimeout(fallback);
+          document.removeEventListener('visibilitychange', onVisChange);
+        }
+      };
+      document.addEventListener('visibilitychange', onVisChange);
+      window.location.href = 'tg://resolve?domain=invoicaBot';
+    } else {
+      window.open('https://web.telegram.org/k/#@invoicaBot', '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
