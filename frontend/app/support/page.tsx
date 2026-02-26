@@ -101,6 +101,15 @@ export default function SupportPage() {
     }
   }
 
+  const handleTelegramClick = () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    window.open(
+      isMobile ? 'tg://resolve?domain=invoicaBot' : 'https://web.telegram.org/k/#@invoicaBot',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
+
   return (
     <div className="max-w-3xl mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
@@ -242,11 +251,9 @@ export default function SupportPage() {
           </div>
           <p className="text-xs text-gray-500">support@invoica.ai for urgent issues</p>
         </a>
-        <a
-          href="https://web.telegram.org/k/#@invoicaBot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-white rounded-xl border shadow-sm p-5 hover:border-[#635BFF]/30 hover:shadow-md transition-all group"
+        <button
+          onClick={handleTelegramClick}
+          className="bg-white rounded-xl border shadow-sm p-5 hover:border-[#635BFF]/30 hover:shadow-md transition-all group text-left w-full cursor-pointer"
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
@@ -257,7 +264,7 @@ export default function SupportPage() {
             <h3 className="font-semibold text-sm">Telegram Support</h3>
           </div>
           <p className="text-xs text-gray-500">Chat with @invoicaBot for instant help</p>
-        </a>
+        </button>
       </div>
 
       {/* Ticket History */}
