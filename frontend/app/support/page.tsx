@@ -243,7 +243,7 @@ export default function SupportPage() {
           <p className="text-xs text-gray-500">support@invoica.ai for urgent issues</p>
         </a>
         <a
-          href="https://t.me/invoicaBot"
+          href="https://web.telegram.org/k/#@invoicaBot"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-white rounded-xl border shadow-sm p-5 hover:border-[#635BFF]/30 hover:shadow-md transition-all group"
