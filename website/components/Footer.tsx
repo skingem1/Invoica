@@ -22,10 +22,9 @@ export default function Footer() {
           <div>
             <h4 className="text-xs font-semibold text-invoica-gray-300 uppercase tracking-wider mb-5">Product</h4>
             <ul className="space-y-3">
-              <li><a href="https://invoica.mintlify.app" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Documentation</a></li>
-              <li><a href="https://invoica.mintlify.app/api-reference/overview" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">API Reference</a></li>
-              <li><a href="https://invoica.mintlify.app/sdk/overview" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">SDK</a></li>
-              <li><a href="#pricing" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Pricing</a></li>
+              <li><a href="https://docs.invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Documentation</a></li>
+              <li><a href="https://docs.invoica.ai/api-reference/overview" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">API Reference</a></li>
+              <li><a href="https://docs.invoica.ai/sdk/overview" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">SDK</a></li>
             </ul>
           </div>
 
@@ -33,9 +32,9 @@ export default function Footer() {
           <div>
             <h4 className="text-xs font-semibold text-invoica-gray-300 uppercase tracking-wider mb-5">Resources</h4>
             <ul className="space-y-3">
-              <li><a href="https://invoica.mintlify.app/quickstart" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Quickstart</a></li>
-              <li><a href="https://invoica.mintlify.app/guides/create-invoice" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Guides</a></li>
-              <li><a href="https://invoica.mintlify.app/concepts/x402-protocol" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">x402 Protocol</a></li>
+              <li><a href="https://docs.invoica.ai/quickstart" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Quickstart</a></li>
+              <li><a href="https://docs.invoica.ai/guides/create-invoice" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Guides</a></li>
+              <li><a href="https://docs.invoica.ai/concepts/x402-protocol" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">x402 Protocol</a></li>
               <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">GitHub</a></li>
               <li><a href="/status" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">System Status</a></li>
             </ul>
@@ -48,6 +47,7 @@ export default function Footer() {
               <li><a href="https://twitter.com/NexusCollectv" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Twitter / X</a></li>
               <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Open Source</a></li>
               <li><a href="mailto:hello@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Contact</a></li>
+              <li><a href="mailto:support@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Support</a></li>
               <li><a href="/terms" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Terms of Service</a></li>
               <li><a href="/privacy" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Privacy Policy</a></li>
               <li><a href="/acceptable-use" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Acceptable Use</a></li>
