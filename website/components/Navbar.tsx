@@ -11,14 +11,11 @@ export default function Navbar() {
             <Image src="/logo.png" alt="Invoica" width={432} height={115} className="h-[67px] w-auto" priority />
           </a>
           <div className="hidden md:flex items-center gap-8">
-            <a href="https://invoica.mintlify.app" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
+            <a href="https://docs.invoica.ai" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
               Docs
             </a>
             <a href="#features" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
               Features
-            </a>
-            <a href="#pricing" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
-              Pricing
             </a>
             <a href="https://github.com/skingem1/Invoica" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
               GitHub
@@ -26,11 +23,11 @@ export default function Navbar() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <a href="https://invoica.wp1.host" className="hidden sm:inline text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
+          <a href="https://app.invoica.ai" className="hidden sm:inline text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
             Dashboard
           </a>
           <a
-            href="https://invoica.wp1.host/api-keys"
+            href="https://app.invoica.ai/api-keys"
             className="inline-flex items-center px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-lg hover:shadow-invoica-purple/25 transition-all duration-300"
           >
             Get API Key
