@@ -2,7 +2,7 @@ import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
 import CodeExample from '@/components/CodeExample';
-import Pricing from '@/components/Pricing';
+import BetaBanner from '@/components/BetaBanner';
 import Footer from '@/components/Footer';
 
 export default function HomePage() {
@@ -13,7 +13,7 @@ export default function HomePage() {
         <Hero />
         <Features />
         <CodeExample />
-        <Pricing />
+        <BetaBanner />
       </main>
       <Footer />
     </>
