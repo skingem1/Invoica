@@ -12,6 +12,7 @@ interface ServiceStatus {
 }
 
 const API_URL = 'https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlnc3BvcG9lamhzeHZ3dnh5aGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0ODQzNTksImV4cCI6MjA4NzA2MDM1OX0.a0P9MHW7fXD2LfjHq-fSs_pLsefUpNAivDn7qbM91v8';
 
 async function checkService(url: string, timeout = 10000): Promise<{ ok: boolean; ms: number }> {
   const start = performance.now();
@@ -66,7 +67,7 @@ export default function PublicStatusPage() {
     setRefreshing(true);
     const [api, auth, dash, docs] = await Promise.all([
       checkService(`${API_URL}/v1/health`),
-      checkService('https://igspopoejhsxvwvxyhbh.supabase.co/auth/v1/health'),
+      checkService(`https://igspopoejhsxvwvxyhbh.supabase.co/auth/v1/health?apikey=${SUPABASE_ANON_KEY}`),
       checkService('https://invoica-b89o.vercel.app'),
       checkService('https://invoica.mintlify.app'),
     ]);
@@ -97,7 +98,7 @@ export default function PublicStatusPage() {
       <header className="border-b border-white/10">
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Invoica" width={32} height={32} />
+            <Image src="/logo-dark.png" alt="Invoica" width={32} height={32} />
             <span className="text-white font-bold text-lg tracking-tight">Invoica</span>
           </Link>
           <div className="flex items-center gap-4">
