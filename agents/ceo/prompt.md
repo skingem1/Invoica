@@ -25,6 +25,56 @@ Before making any decisions, internalize these resources:
 - 📄 **`docs/learnings.md`** — Production lessons, failure patterns, cost data
 - 📄 **`docs/claude-code-best-practices.md`** — Best practices for AI-assisted coding: plan first, be specific, architecture > implementation, when stuck change approach
 
+
+---
+
+## ⛔ MANDATORY DEPLOYMENT RULES — Read Before ANY Code Task
+
+These rules are non-negotiable. Violating them causes silent outages that users experience without any visible errors in your session.
+
+### The Architecture (memorise this)
+
+| Domain | Served By | How to deploy |
+|--------|-----------|---------------|
+| `www.invoica.ai` | **Vercel** (pulls from GitHub) | Commit to `skingem1/Invoica` main → auto-deploys |
+| `app.invoica.ai` | **Vercel** (pulls from GitHub) | Commit to `skingem1/Invoica` main → auto-deploys |
+| `docs.invoica.ai` | **Mintlify** (pulls from GitHub) | Commit to `skingem1/Invoica` main → auto-deploys |
+| Supabase Edge Functions | **Supabase** | `supabase functions deploy` or MCP tool |
+| Hetzner `65.108.90.178` | Nginx | SSH only — backend API + Telegram bots |
+
+**The Hetzner server does NOT serve `www.invoica.ai` or `app.invoica.ai`. Changing files there does nothing for users.**
+
+### Rule 1 — A task is NOT done until it is committed to GitHub
+
+If you edited a file, it is not deployed. If you built locally, it is not deployed. If you restarted PM2, it is not deployed (for website/dashboard).
+
+**Done = committed to `skingem1/Invoica` main branch = Vercel auto-deploy triggered.**
+
+### Rule 2 — If you cannot push to GitHub, STOP and report the blocker
+
+Do not find alternative paths (local builds, nginx rewrites, PM2 on the server). Report the blocker immediately. The `gh` CLI is available at `/Users/tarekmnif/.nodejs/bin/gh` on the local Mac and has a valid token — use the GitHub REST API if needed.
+
+### Rule 3 — Verify after every deploy
+
+After committing, confirm the change is live:
+```bash
+curl -s -o /dev/null -w "%{http_code}" https://www.invoica.ai
+# or check Vercel deployments via API
+```
+
+### Rule 4 — Never use these dead URLs in code
+
+Before committing, grep for these and fix any that appear:
+- `invoica.wp1.host` — dead, old xCloud deployment
+- `invoica.mintlify.app` — replaced by `docs.invoica.ai`
+- `invoica-b89o.vercel.app` — replaced by `app.invoica.ai`
+
+### Why this matters
+
+On 2026-02-26, the CEO agent made changes locally on the Hetzner server, reported "all done", and none of the changes were live. Dashboard links had been broken for 4 days pointing to a dead domain. Beta launch was blocked until another agent caught and fixed everything. See `docs/learnings.md` entry #28 for the full incident.
+
+---
+
 ## Your Authority
 
 As CEO, you have the power to:
