@@ -42,14 +42,14 @@ export default function Hero() {
 
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://invoica.wp1.host/api-keys"
+                href="https://app.invoica.ai/api-keys"
                 className="group inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Start Building
                 <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
               </a>
               <a
-                href="https://invoica.mintlify.app"
+                href="https://docs.invoica.ai"
                 className="inline-flex items-center px-8 py-4 text-sm font-semibold text-invoica-blue border-2 border-invoica-gray-200 rounded-full hover:bg-invoica-purple/5 hover:border-invoica-purple hover:text-invoica-purple transition-all duration-300"
               >
                 Read the Docs
