@@ -197,9 +197,9 @@ export default function SupportPage() {
       )}
 
       {/* Quick Help */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <a
-          href="https://invoica.mintlify.app"
+          href="https://docs.invoica.ai"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-white rounded-xl border shadow-sm p-5 hover:border-[#635BFF]/30 hover:shadow-md transition-all group"
@@ -241,6 +241,22 @@ export default function SupportPage() {
             <h3 className="font-semibold text-sm">Email Us</h3>
           </div>
           <p className="text-xs text-gray-500">support@invoica.ai for urgent issues</p>
+        </a>
+        <a
+          href="https://t.me/invoicaBot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-white rounded-xl border shadow-sm p-5 hover:border-[#635BFF]/30 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+              <svg className="w-5 h-5 text-[#2AABEE]" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/>
+              </svg>
+            </div>
+            <h3 className="font-semibold text-sm">Telegram Support</h3>
+          </div>
+          <p className="text-xs text-gray-500">Chat with @invoicaBot for instant help</p>
         </a>
       </div>
 
