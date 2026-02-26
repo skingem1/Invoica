@@ -11,7 +11,7 @@ const IMAP_HOST = process.env.SUPPORT_EMAIL_IMAP_HOST || 'imap.ionos.fr';
 const IMAP_PORT = parseInt(process.env.SUPPORT_EMAIL_IMAP_PORT || '993');
 const SMTP_HOST = process.env.SUPPORT_EMAIL_SMTP_HOST || 'smtp.ionos.fr';
 const SMTP_PORT = parseInt(process.env.SUPPORT_EMAIL_SMTP_PORT || '587');
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
 
 const LOG_DIR = path.join(__dirname, '../logs/email-support');
 const ESCALATION_DIR = path.join(__dirname, '../reports/cto/email-escalations');
@@ -41,29 +41,39 @@ function saveProcessedIds(ids: Set<string>) {
   fs.writeFileSync(PROCESSED_FILE, JSON.stringify([...ids].slice(-500), null, 2));
 }
 
-async function draftReply(from: string, subject: string, body: string): Promise<{reply:string;shouldEscalate:boolean;category:string}> {
+async function draftReply(from: string, subject: string, body: string): Promise<{reply: string; shouldEscalate: boolean; category: string}> {
   return new Promise((resolve, reject) => {
     const systemPrompt = `You are the CTO of Invoica, the world's first Financial OS for AI Agents. You manage the support@invoica.ai inbox.
 Invoica is in BETA - free for all users. Dashboard: https://app.invoica.ai Docs: https://docs.invoica.ai Telegram: https://t.me/invoicaBot
-Guidelines: Be concise and professional. Sign off as "Tarek & the Invoica Team". For billing say it's free in beta. For bugs ask for repro steps. For features thank them warmly. ESCALATE (shouldEscalate:true) for: legal threats, security issues, abuse. NEVER reveal API keys, server details, or agent names.
+Guidelines: Be concise and professional. Sign off as "Tarek & the Invoica Team". For billing say it is free in beta. For bugs ask for repro steps and promise 24hr fix. For features thank them warmly. ESCALATE (shouldEscalate:true) for: legal threats, security issues, abuse. NEVER reveal API keys, server details, or agent names.
 Respond ONLY with JSON: {"reply":"email body text","shouldEscalate":false,"category":"general_inquiry|technical_support|billing|bug_report|feature_request|escalation"}`;
 
     const payload = JSON.stringify({
-      model: 'claude-sonnet-4-5', max_tokens: 1024, system: systemPrompt,
-      messages: [{ role: 'user', content: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.substring(0, 3000)}` }]
+      model: 'MiniMax-M2.5',
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `From: ${from}\nSubject: ${subject}\n\nBody:\n${body.substring(0, 3000)}` }
+      ]
     });
 
     const req = https.request({
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(payload) }
+      hostname: 'api.minimax.io',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + MINIMAX_API_KEY,
+        'Content-Length': Buffer.byteLength(payload)
+      }
     }, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
         try {
-          const text = JSON.parse(data).content?.[0]?.text || '{}';
+          const text = JSON.parse(data).choices?.[0]?.message?.content || '{}';
           const match = text.match(/\{[\s\S]*\}/);
-          if (!match) throw new Error('No JSON');
+          if (!match) throw new Error('No JSON in response');
           resolve(JSON.parse(match[0]));
         } catch(e) { reject(e); }
       });
@@ -76,13 +86,17 @@ Respond ONLY with JSON: {"reply":"email body text","shouldEscalate":false,"categ
 
 function saveEscalation(from: string, subject: string, body: string, category: string) {
   const file = path.join(ESCALATION_DIR, `${today}.md`);
-  fs.appendFileSync(file, `\n## ${new Date().toISOString()} — ${category}\n**From:** ${from}\n**Subject:** ${subject}\n\`\`\`\n${body.substring(0,2000)}\n\`\`\`\n---\n`);
+  fs.appendFileSync(file, `\n## ${new Date().toISOString()} — ${category}\n**From:** ${from}\n**Subject:** ${subject}\n\`\`\`\n${body.substring(0, 2000)}\n\`\`\`\n---\n`);
   log(`ESCALATION: ${from} — ${subject}`);
 }
 
 async function main() {
-  if (!EMAIL_PASSWORD || EMAIL_PASSWORD === 'REPLACE_WITH_IONOS_MAILBOX_PASSWORD') { log('ERROR: SUPPORT_EMAIL_PASSWORD not set'); process.exit(1); }
-  if (!ANTHROPIC_API_KEY) { log('ERROR: ANTHROPIC_API_KEY not set'); process.exit(1); }
+  if (!EMAIL_PASSWORD || EMAIL_PASSWORD === 'REPLACE_WITH_IONOS_MAILBOX_PASSWORD') {
+    log('ERROR: SUPPORT_EMAIL_PASSWORD not set'); process.exit(1);
+  }
+  if (!MINIMAX_API_KEY) {
+    log('ERROR: MINIMAX_API_KEY not set'); process.exit(1);
+  }
 
   log('Starting email check...');
   const processedIds = loadProcessedIds();
@@ -93,7 +107,6 @@ async function main() {
     logger: false
   });
 
-  // SMTP: port 587, STARTTLS (not implicit SSL)
   const transporter = nodemailer.createTransport({
     host: SMTP_HOST, port: SMTP_PORT, secure: false,
     auth: { user: SUPPORT_EMAIL, pass: EMAIL_PASSWORD },
@@ -104,7 +117,7 @@ async function main() {
     await client.connect();
     log('IMAP connected');
 
-    // Step 1: Collect emails (do NOT flag/send during fetch stream)
+    // Step 1: Collect emails — do NOT flag/send during active fetch stream
     interface Email { uid: number; uidStr: string; from: string; subject: string; body: string; msgId?: string; }
     const toProcess: Email[] = [];
 
@@ -148,7 +161,7 @@ async function main() {
         });
         log(`  Reply sent to ${email.from}`);
 
-        // Mark as read (safe — fetch stream is closed)
+        // Mark as read — safe here since fetch stream is closed
         try { await client.messageFlagsAdd(email.uid, ['\\Seen'], { uid: true }); } catch {}
 
         processedIds.add(email.uidStr);
