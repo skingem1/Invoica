@@ -2,14 +2,14 @@
   "$schema": "https://mintlify.com/schema.json",
   "name": "Invoica",
   "logo": {
-    "dark": "/logo/dark.svg",
-    "light": "/logo/light.svg"
+    "dark": "/logo/logo-dark.png",
+    "light": "/logo/logo.png"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/logo/logo.png",
   "colors": {
     "primary": "#635BFF",
     "light": "#818CF8",
-    "dark": "#0A2540",
+    "dark": "#635BFF",
     "background": {
       "dark": "#0A2540"
     }
@@ -26,12 +26,12 @@
   "topbarLinks": [
     {
       "name": "Dashboard",
-      "url": "https://invoica-b89o.vercel.app"
+      "url": "https://app.invoica.ai"
     }
   ],
   "topbarCtaButton": {
     "name": "Get API Key",
-    "url": "https://invoica-b89o.vercel.app/api-keys"
+    "url": "https://app.invoica.ai/api-keys"
   },
   "tabs": [
     {
@@ -47,12 +47,17 @@
     {
       "name": "GitHub",
       "icon": "github",
-      "url": "https://github.com/skingem1/Invoica"
+      "url": "https://github.com/invoica"
     },
     {
-      "name": "Community",
-      "icon": "twitter",
-      "url": "https://twitter.com/NexusCollectv"
+      "name": "Status",
+      "icon": "signal-bars",
+      "url": "https://invoica.ai/status"
+    },
+    {
+      "name": "Support",
+      "icon": "envelope",
+      "url": "mailto:support@invoica.ai"
     }
   ],
   "navigation": [
@@ -78,11 +83,11 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/skingem1/Invoica",
-    "twitter": "https://twitter.com/NexusCollectv"
+    "github": "https://github.com/invoica",
+    "twitter": "https://twitter.com/invoica"
   },
   "api": {
-    "baseUrl": "https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api",
+    "baseUrl": "https://api.invoica.ai",
     "auth": {
       "method": "key",
       "name": "Authorization"
