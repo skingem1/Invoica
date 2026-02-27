@@ -2,19 +2,12 @@ module.exports = {
   apps: [
     {
       name: "backend",
-      script: "./backend/src/server.ts",
-      interpreter: "node",
-      interpreter_args: "-r ts-node/register",
+      script: "/home/invoica/apps/Invoica/backend-wrapper.sh",
+      interpreter: "bash",
       cwd: "/home/invoica/apps/Invoica",
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
-      env_production: {
-        NODE_ENV: "production",
-        PORT: "3001",
-        TS_NODE_TRANSPILE_ONLY: "true",
-        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
-      },
       error_file: "/home/invoica/apps/Invoica/logs/backend-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/backend-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
