@@ -1,4 +1,9 @@
 import https from 'https';
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
+import path from 'path';
+
+const ROOT = path.resolve(__dirname, '../../../');
 
 interface Message {
   role: 'user' | 'assistant';
@@ -80,12 +85,11 @@ USDC contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 YOUR TOOLS (what you can actually do)
 ═══════════════════════════════════════════
 1. generate_video — create a video using MiniMax AI (text-to-video)
-   Use model: MiniMax-Hailuo-02
-   Returns a download link when ready
-
 2. check_wallet_balance — query live USDC balance of any agent wallet on Base
+3. get_team_status — get live system health, PM2 processes, recent report list, and user count
+4. read_report — read a specific report file (daily, cmo, cto, sprints, etc.)
 
-You ONLY have these two tools plus general knowledge and conversation.
+When asked about the team, agents, system status, or what's happening — USE get_team_status first, then read_report for details.
 
 ═══════════════════════════════════════════
 ABSOLUTE RULES — NON-NEGOTIABLE
@@ -147,6 +151,29 @@ const TOOLS = [
         },
       },
       required: ['agent'],
+    },
+  },
+  {
+    name: 'get_team_status',
+    description: 'Get a full snapshot of the system: health.json, PM2 process status, recent report files, and Supabase user count. Use this whenever the founder asks about the team, agents, system health, or what\'s happening.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'read_report',
+    description: 'Read the content of a specific report file. Use get_team_status first to see available files, then use this to read one.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        file_path: {
+          type: 'string',
+          description: 'Relative path from repo root, e.g. "reports/daily/2026-02-27.md" or "sprints/week-2.json"',
+        },
+      },
+      required: ['file_path'],
     },
   },
 ];
@@ -286,6 +313,91 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
 
     } catch (err: any) {
       return `Error generating video: ${err.message}`;
+    }
+  }
+
+  if (name === 'get_team_status') {
+    try {
+      const lines: string[] = [];
+
+      // 1. Health snapshot
+      const healthFile = path.join(ROOT, 'health.json');
+      if (existsSync(healthFile)) {
+        const h = JSON.parse(readFileSync(healthFile, 'utf-8'));
+        lines.push(`=== SYSTEM HEALTH ===`);
+        lines.push(`Status: ${h.status} | Phase: ${h.phase}`);
+        lines.push(`Last heartbeat: ${h.last_heartbeat}`);
+        lines.push(`API: ${h.checks?.api_status} | DB: ${h.checks?.database_status}`);
+        if (h.beta) {
+          lines.push(`Beta day: ${h.beta.day_number} | Users onboarded: ${h.beta.agents_onboarded}`);
+        }
+        if (h.financials) {
+          lines.push(`MRR: $${h.financials.mrr} | Monthly spend: $${h.financials.monthly_spend}`);
+        }
+      }
+
+      // 2. PM2 processes
+      try {
+        const pm2Raw = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        const procs = JSON.parse(pm2Raw) as Array<{ name: string; pm2_env: { status: string; restart_time: number }; pid: number }>;
+        lines.push(`\n=== PM2 PROCESSES ===`);
+        for (const p of procs) {
+          lines.push(`${p.name}: ${p.pm2_env.status} (pid ${p.pid}, restarts: ${p.pm2_env.restart_time})`);
+        }
+      } catch { lines.push(`\nPM2: (could not read)`); }
+
+      // 3. Recent daily reports
+      const dailyDir = path.join(ROOT, 'reports/daily');
+      if (existsSync(dailyDir)) {
+        const files = readdirSync(dailyDir).sort().reverse().slice(0, 5);
+        lines.push(`\n=== RECENT DAILY REPORTS ===`);
+        lines.push(files.length ? files.map(f => `reports/daily/${f}`).join('\n') : '(none)');
+      }
+
+      // 4. Latest CMO / CTO report refs
+      const cmoDir = path.join(ROOT, 'reports/cmo');
+      if (existsSync(cmoDir)) {
+        const files = readdirSync(cmoDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, 3);
+        lines.push(`\n=== RECENT CMO REPORTS ===`);
+        lines.push(files.length ? files.map(f => `reports/cmo/${f}`).join('\n') : '(none)');
+      }
+
+      const ctoDir = path.join(ROOT, 'reports/cto');
+      if (existsSync(ctoDir)) {
+        const files = readdirSync(ctoDir).filter(f => f.endsWith('.md')).sort().reverse().slice(0, 3);
+        lines.push(`\n=== RECENT CTO REPORTS ===`);
+        lines.push(files.length ? files.map(f => `reports/cto/${f}`).join('\n') : '(none)');
+      }
+
+      // 5. Current sprint
+      const sprintsDir = path.join(ROOT, 'sprints');
+      if (existsSync(sprintsDir)) {
+        const sprintFiles = readdirSync(sprintsDir).filter(f => f.endsWith('.json')).sort().reverse();
+        if (sprintFiles.length) lines.push(`\n=== CURRENT SPRINT ===\nLatest: sprints/${sprintFiles[0]}`);
+      }
+
+      // 6. Auth users count from Supabase env
+      lines.push(`\n=== SUPABASE PROJECT ===`);
+      lines.push(`URL: ${process.env.SUPABASE_URL || '(not set)'}`);
+
+      return lines.join('\n');
+    } catch (err: any) {
+      return `Error getting team status: ${err.message}`;
+    }
+  }
+
+  if (name === 'read_report') {
+    const filePath = input.file_path as string;
+    // Safety: only allow reading within ROOT, no path traversal
+    const absPath = path.resolve(ROOT, filePath);
+    if (!absPath.startsWith(ROOT)) return 'Access denied: path outside repo root.';
+    try {
+      if (!existsSync(absPath)) return `File not found: ${filePath}`;
+      const content = readFileSync(absPath, 'utf-8');
+      // Truncate if too long
+      return content.length > 6000 ? content.slice(0, 6000) + '\n\n[... truncated]' : content;
+    } catch (err: any) {
+      return `Error reading file: ${err.message}`;
     }
   }
 
