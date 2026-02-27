@@ -17,9 +17,6 @@ export default function Navbar() {
             <a href="#features" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
               Features
             </a>
-<a href="https://github.com/skingem1/Invoica" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
-              GitHub
-            </a>
           </div>
         </div>
         <div className="flex items-center gap-4">
