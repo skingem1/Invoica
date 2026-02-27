@@ -94,7 +94,8 @@ YOUR TOOLS
 1. get_team_status — live health.json, PM2 processes, recent report file list
 2. read_report — read any report or sprint file by path
 3. check_wallet_balance — live USDC balance for any agent wallet
-4. generate_video — MiniMax AI text-to-video
+4. check_signups — query Supabase for real user signup count, recent users, breakdown by provider
+5. generate_video — MiniMax AI text-to-video
 
 ═══════════════════════════════════════════
 RULES
@@ -166,6 +167,20 @@ const TOOLS = [
         },
       },
       required: ['file_path'],
+    },
+  },
+  {
+    name: 'check_signups',
+    description: 'Query Supabase for real user signups — total count, recent signups with name/email/date, and breakdown by auth provider. Use this for launch metrics, user counts, and signup questions.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        hours: {
+          type: 'number',
+          description: 'How many hours back to look for recent signups. Default 24. Use 1 for "since launch".',
+        },
+      },
+      required: [],
     },
   },
 ];
@@ -305,6 +320,54 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
 
     } catch (err: any) {
       return `Error generating video: ${err.message}`;
+    }
+  }
+
+  if (name === 'check_signups') {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return 'Error: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.';
+    try {
+      const hours = (input.hours as number) || 24;
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+      // Query auth.users via Supabase REST (admin API)
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/rpc/get_users_since`,
+        { method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` },
+          body: JSON.stringify({ since_ts: since })
+        }
+      ).catch(() => null);
+
+      // Fall back to direct auth admin endpoint
+      const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=50`, {
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+      });
+
+      if (!adminRes.ok) return `Supabase auth API error: ${adminRes.status} ${adminRes.statusText}`;
+      const data = await adminRes.json() as { users: Array<{ id: string; email: string; created_at: string; last_sign_in_at: string; raw_user_meta_data: { full_name?: string; name?: string }; app_metadata: { provider: string } }> };
+      const users = data.users || [];
+
+      const total = users.length;
+      const recentUsers = users.filter(u => u.created_at > since);
+      const myEmails = ['tarekmnif', 'skingem1', 'skininthegem', 'twmnif', 'brainsnack'];
+      const external = users.filter(u => !myEmails.some(e => (u.email || '').toLowerCase().includes(e)));
+      const recentExternal = recentUsers.filter(u => !myEmails.some(e => (u.email || '').toLowerCase().includes(e)));
+
+      const lines = [
+        `Total signups: ${total} (${external.length} external)`,
+        `Last ${hours}h: ${recentUsers.length} new (${recentExternal.length} external)`,
+        '',
+        'Recent external users:',
+      ];
+      for (const u of external.slice(0, 10)) {
+        const name = u.raw_user_meta_data?.full_name || u.raw_user_meta_data?.name || 'Unknown';
+        const date = new Date(u.created_at).toLocaleDateString();
+        lines.push(`  • ${name} <${u.email}> — signed up ${date} via ${u.app_metadata?.provider}`);
+      }
+      return lines.join('\n');
+    } catch (err: any) {
+      return `Error checking signups: ${err.message}`;
     }
   }
 
