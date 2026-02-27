@@ -1,6 +1,6 @@
 import https from 'https';
-import { readFileSync, readdirSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
+import { readFileSync, readdirSync, existsSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync, spawnSync } from 'child_process';
 import path from 'path';
 
 const ROOT = path.resolve(__dirname, '../../../');
@@ -96,14 +96,29 @@ YOUR TOOLS
 3. check_wallet_balance — live USDC balance for any agent wallet
 4. check_signups — query Supabase for real user signup count, recent users, breakdown by provider
 5. generate_video — MiniMax AI text-to-video
+6. run_shell — execute shell commands in the repo (git, gh, pm2, curl — real execution)
+7. write_file — create or update any file in the repo with given content
 
 ═══════════════════════════════════════════
-RULES
+EXECUTION RULES
+═══════════════════════════════════════════
+You can ACTUALLY execute things. When the founder gives you an order:
+• Create GitHub issues → run_shell with "gh issue create ..."
+• Write files → write_file to create reports, ADRs, sprint plans
+• Git commits → run_shell with "git add -A && git commit -m '...'"
+• Check status → run_shell with "pm2 status" or "git log --oneline -5"
+• Restart services → run_shell with "pm2 restart backend"
+
+After executing, confirm what you actually did (show output). Never say "I'll create tickets" — create them and show the URLs.
+
+═══════════════════════════════════════════
+GENERAL RULES
 ═══════════════════════════════════════════
 • Never hallucinate wallet addresses — use only the exact ones above
 • Never invent features or capabilities that don't exist
 • Be concise and direct — you are talking to your founder
-• Respond in first person as CEO at all times`;
+• Respond in first person as CEO at all times
+• When executing shell commands, always show the real output to the founder`;
 
 // ─── Tool Definitions ────────────────────────────────────────────────────────
 
@@ -181,6 +196,42 @@ const TOOLS = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: 'run_shell',
+    description: 'Execute a shell command in the Invoica repo root (/home/invoica/apps/Invoica). Use this to run git commands, gh CLI (GitHub), pm2, curl, or any bash command. This has REAL execution power — commands are actually run on the server. Use for: creating GitHub issues, committing files, restarting services, checking logs.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cmd: {
+          type: 'string',
+          description: 'Shell command to execute. Examples: "gh issue create --title \'Polygon integration\' --body \'...\' --label enhancement", "git add -A && git commit -m \'feat: add ADR\'", "pm2 restart backend", "git log --oneline -5", "pm2 status"',
+        },
+        timeout_ms: {
+          type: 'number',
+          description: 'Timeout in milliseconds. Default 30000 (30s). Use higher values for gh commands that may take longer.',
+        },
+      },
+      required: ['cmd'],
+    },
+  },
+  {
+    name: 'write_file',
+    description: 'Create or overwrite a file in the Invoica repo. Use this to write reports, ADRs, sprint plans, agent configs, or any file. Path is relative to repo root. After writing, use run_shell to git commit the file.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'File path relative to repo root. Examples: "docs/adr/002-polygon.md", "reports/daily/2026-02-27.md", "sprints/current.json"',
+        },
+        content: {
+          type: 'string',
+          description: 'Full content to write to the file.',
+        },
+      },
+      required: ['path', 'content'],
     },
   },
 ];
@@ -456,6 +507,71 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     }
   }
 
+  if (name === 'run_shell') {
+    const cmd = input.cmd as string;
+    const timeoutMs = (input.timeout_ms as number) || 30000;
+
+    // Safety: block obviously dangerous commands
+    const BLOCKED = ['rm -rf /', 'mkfs', 'dd if=', ':(){:|:&};:', 'curl.*|.*sh', 'wget.*|.*sh'];
+    if (BLOCKED.some(b => new RegExp(b).test(cmd))) {
+      return `Blocked: command looks dangerous. Refusing to execute.`;
+    }
+
+    try {
+      console.log(`[CeoBot] run_shell: ${cmd}`);
+      const result = spawnSync('/bin/bash', ['-c', cmd], {
+        cwd: ROOT,
+        timeout: timeoutMs,
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          HOME: '/home/invoica',
+          PATH: '/home/invoica/.nodejs/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin',
+          GIT_AUTHOR_NAME: 'CEO Agent',
+          GIT_AUTHOR_EMAIL: 'ceo@invoica.ai',
+          GIT_COMMITTER_NAME: 'CEO Agent',
+          GIT_COMMITTER_EMAIL: 'ceo@invoica.ai',
+        },
+      });
+
+      const stdout = (result.stdout || '').trim();
+      const stderr = (result.stderr || '').trim();
+      const exitCode = result.status ?? -1;
+
+      let output = '';
+      if (stdout) output += stdout;
+      if (stderr && exitCode !== 0) output += (output ? '\n\nSTDERR:\n' : '') + stderr;
+      if (!output) output = exitCode === 0 ? '(command completed with no output)' : `(exit code ${exitCode})`;
+      if (result.error) output = `Error: ${result.error.message}`;
+
+      // Truncate if too long
+      return output.length > 4000 ? output.slice(0, 4000) + '\n[... truncated]' : output;
+    } catch (err: any) {
+      return `Shell execution error: ${err.message}`;
+    }
+  }
+
+  if (name === 'write_file') {
+    const filePath = input.path as string;
+    const content = input.content as string;
+
+    // Safety: only allow writing within ROOT, no path traversal
+    const absPath = path.resolve(ROOT, filePath);
+    if (!absPath.startsWith(ROOT)) return 'Access denied: path outside repo root.';
+
+    try {
+      // Create parent directory if needed
+      const dir = path.dirname(absPath);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+      writeFileSync(absPath, content, 'utf-8');
+      console.log(`[CeoBot] write_file: ${filePath} (${content.length} bytes)`);
+      return `✅ Written: ${filePath} (${content.length} bytes)\nUse run_shell to git commit: "git add ${filePath} && git commit -m 'chore: add ${path.basename(filePath)}'"`;
+    } catch (err: any) {
+      return `Error writing file: ${err.message}`;
+    }
+  }
+
   return `Unknown tool: ${name}`;
 }
 
@@ -633,7 +749,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `📋 *Commands*\n\n/status — Platform health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Reset conversation\n\n*Available AI capabilities:*\n• Generate videos (MiniMax Hailuo-02)\n• Check live wallet balances\n• General questions & planning\n\n*What I cannot do:*\n• Execute trades or transactions\n• Access external APIs beyond my tools\n• Generate images\n• Post to social media`,
+      text: `📋 *Commands*\n\n/status — Platform health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Reset conversation\n\n*Executive capabilities:*\n• Create GitHub issues (real execution)\n• Write files & commit to git\n• Restart PM2 services\n• Check wallet balances (live on-chain)\n• Generate videos (MiniMax Hailuo-02)\n• Read reports, sprints, health data\n• Query Supabase user signups\n\n*Examples:*\n• "Create tickets for Polygon and Solana support"\n• "Write an ADR for multi-chain strategy"\n• "Restart the backend"\n• "Show me today's signup count"`,
     });
     return;
   }
