@@ -1,7 +1,7 @@
 import { withTimeout } from './timeout';
 import { retryWithBackoff } from './retry';
 import { buildUrl, buildHeaders } from './request-builder';
-import { parseResponse } from './response-parser';
+import { parseResponse } from './response-parser-v2';
 
 export interface TransportRequestConfig {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';

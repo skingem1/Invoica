@@ -9,10 +9,10 @@ export function debounce<T extends (...args: any[]) => any>(
   delay: number
 ): T & { cancel: () => void } {
   let timer: ReturnType<typeof setTimeout>;
-  const debounced = (...args: Parameters<T>) => {
+  const debounced = ((...args: Parameters<T>) => {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), delay);
-  } as T & { cancel: () => void };
+  }) as unknown as T & { cancel: () => void };
   debounced.cancel = () => clearTimeout(timer);
   return debounced;
 }
@@ -28,13 +28,13 @@ export function throttle<T extends (...args: any[]) => any>(
   limit: number
 ): T & { cancel: () => void } {
   let lastCall = 0;
-  const throttled = (...args: Parameters<T>) => {
+  const throttled = ((...args: Parameters<T>) => {
     const now = Date.now();
     if (now - lastCall >= limit) {
       lastCall = now;
       fn(...args);
     }
-  } as T & { cancel: () => void };
+  }) as unknown as T & { cancel: () => void };
   throttled.cancel = () => { lastCall = 0; };
   return throttled;
 }

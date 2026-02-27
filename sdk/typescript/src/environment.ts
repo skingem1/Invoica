@@ -5,13 +5,15 @@ export type SdkEnvironment = 'node' | 'browser' | 'edge' | 'unknown';
  * @returns The detected environment type
  */
 export function detectEnvironment(): SdkEnvironment {
-  if (typeof globalThis.process !== 'undefined' && globalThis.process.versions?.node) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as any;
+  if (typeof g.process !== 'undefined' && g.process?.versions?.node) {
     return 'node';
   }
-  if (typeof globalThis.EdgeRuntime === 'string') {
+  if (typeof g.EdgeRuntime === 'string') {
     return 'edge';
   }
-  if (typeof globalThis.window !== 'undefined' && typeof globalThis.document !== 'undefined') {
+  if (typeof g.window !== 'undefined' && typeof g.document !== 'undefined') {
     return 'browser';
   }
   return 'unknown';
@@ -39,5 +41,6 @@ export function getUserAgent(): string {
  * @returns True if ReadableStream is available
  */
 export function supportsStreaming(): boolean {
-  return typeof ReadableStream !== 'undefined';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return typeof (globalThis as any).ReadableStream !== 'undefined';
 }

@@ -1,5 +1,5 @@
 import { CountableClient } from './enhanced-client-v2';
-import { createApiKeyMethods, createWebhookMethods } from './enhanced-client-extras';
+import { createApiKeyMethods, createWebhookMethods } from './enhanced-client-extras-v2';
 import { InvoicaClientConfig } from './client-config';
 
 export class InvoicaFullClient extends CountableClient {
