@@ -116,7 +116,7 @@ export async function createPendingInvoice(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -164,7 +164,7 @@ export async function updatePaymentDetails(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -218,7 +218,7 @@ export async function markAsSettled(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -267,7 +267,7 @@ export async function markAsProcessing(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -315,7 +315,7 @@ export async function markAsCompleted(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -362,7 +362,7 @@ export async function getInvoiceById(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -390,7 +390,7 @@ export async function getInvoiceByNumber(
   currency: string;
   customerEmail: string;
   customerName: string;
-  paymentDetails: Record<string, unknown> | null;
+  paymentDetails: any;
   settledAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
