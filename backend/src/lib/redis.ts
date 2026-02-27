@@ -21,7 +21,7 @@ export const redis = {
   },
   get: async (key: string): Promise<string | null> => {
     if (!redisClient) return null;
-    return redisClient.get(key);
+    const val = await redisClient.get(key); return val as string | null;
   },
   set: async (key: string, value: string, ttl?: number): Promise<void> => {
     if (!redisClient) return;
