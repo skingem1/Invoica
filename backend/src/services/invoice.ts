@@ -45,7 +45,7 @@ export const CreateInvoiceInputSchema = z.object({
   customerEmail: z.string().email('Invalid email address'),
   customerName: z.string().min(1, 'Customer name is required'),
   companyId: z.string().optional(),
-  paymentDetails: z.record(z.unknown()).optional(),
+  paymentDetails: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type CreateInvoiceInput = z.infer<typeof CreateInvoiceInputSchema>;
@@ -54,7 +54,7 @@ export type CreateInvoiceInput = z.infer<typeof CreateInvoiceInputSchema>;
  * Input schema for updating payment details
  */
 export const UpdatePaymentDetailsInputSchema = z.object({
-  paymentDetails: z.record(z.unknown()),
+  paymentDetails: z.record(z.string(), z.unknown()),
 });
 
 export type UpdatePaymentDetailsInput = z.infer<typeof UpdatePaymentDetailsInputSchema>;
@@ -137,7 +137,7 @@ export async function createPendingInvoice(
         customerEmail: validatedInput.customerEmail,
         customerName: validatedInput.customerName,
         companyId: validatedInput.companyId ?? null,
-        paymentDetails: validatedInput.paymentDetails ?? undefined,
+        paymentDetails: (validatedInput.paymentDetails ?? undefined) as any,
       },
     });
   });
