@@ -902,6 +902,10 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
 }
 
 // ─── Wallet Monitor ───────────────────────────────────────────────────────────
+// Tracks which agents are currently in "low" state to avoid repeat alerts.
+// Only fires when a wallet transitions from OK → low (or every 30 min as reminder).
+const walletAlertState = new Map<string, { isLow: boolean; lastAlertAt: number }>();
+const ALERT_REMINDER_MS = 30 * 60 * 1000; // re-alert every 30 min if still low
 
 async function startWalletMonitor(): Promise<void> {
   const checkWallets = async () => {
@@ -910,49 +914,72 @@ async function startWalletMonitor(): Promise<void> {
       if (!ownerChatId) return;
       const supabaseUrl = process.env.SUPABASE_URL;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const { getAgentWallets } = await import('../../../scripts/wallet-service');
+      const { getAgentWallets, updateBalance } = await import('../../../scripts/wallet-service');
       const wallets = await getAgentWallets();
       if (!wallets) return;
 
       for (const w of wallets) {
-        if (Number(w.usdc_balance) < Number(w.low_balance_threshold)) {
-          // Look up pending topup request for this agent
-          let requestId: string | null = null;
-          let topupAmount: number | null = null;
-          if (supabaseUrl && serviceKey) {
-            try {
-              const res = await fetch(
-                `${supabaseUrl}/rest/v1/agent_topup_requests?agent_name=eq.${w.agent_name}&status=eq.pending&order=requested_at.desc&limit=1`,
-                { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
-              );
-              const rows = await res.json() as Array<{ id: string; amount: number }>;
-              if (rows.length > 0) {
-                requestId = rows[0].id;
-                topupAmount = rows[0].amount;
-              }
-            } catch { /* skip — alert still sends */ }
-          }
-
-          let text: string;
-          if (requestId) {
-            text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\nTop-up amount: $${topupAmount?.toFixed(2) ?? '?'} USDC\n\nTap to approve:\n\`/approve_topup ${requestId}\``;
-          } else {
-            text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\n⚠️ No pending topup request found — agent must request funding first.`;
-          }
-
-          await telegramSend('sendMessage', {
-            chat_id: ownerChatId,
-            parse_mode: 'Markdown',
-            text,
-          });
+        // Fetch live on-chain balance instead of trusting stale DB value
+        let liveBalance: number;
+        try {
+          liveBalance = await getLiveUsdcBalance(w.address);
+          // Sync DB with live balance
+          await updateBalance(w.agent_name, liveBalance).catch(() => {});
+        } catch {
+          liveBalance = Number(w.usdc_balance); // fall back to DB if RPC fails
         }
+
+        const threshold = Number(w.low_balance_threshold);
+        const isCurrentlyLow = liveBalance < threshold;
+        const prev = walletAlertState.get(w.agent_name) ?? { isLow: false, lastAlertAt: 0 };
+
+        // Only alert on new transition OR after reminder interval
+        const shouldAlert = isCurrentlyLow && (
+          !prev.isLow ||
+          (Date.now() - prev.lastAlertAt) > ALERT_REMINDER_MS
+        );
+
+        walletAlertState.set(w.agent_name, { isLow: isCurrentlyLow, lastAlertAt: shouldAlert ? Date.now() : prev.lastAlertAt });
+
+        if (!shouldAlert) continue;
+
+        // Look up pending topup request (amount_usdc is the correct column name)
+        let requestId: string | null = null;
+        let topupAmount: number | null = null;
+        if (supabaseUrl && serviceKey) {
+          try {
+            const res = await fetch(
+              `${supabaseUrl}/rest/v1/agent_topup_requests?agent_name=eq.${w.agent_name}&status=eq.pending&order=requested_at.desc&limit=1`,
+              { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
+            );
+            const rows = await res.json() as Array<{ id: string; amount_usdc: number }>;
+            if (rows.length > 0) {
+              requestId = rows[0].id;
+              topupAmount = rows[0].amount_usdc;
+            }
+          } catch { /* skip — alert still sends */ }
+        }
+
+        let text: string;
+        if (requestId) {
+          text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${liveBalance.toFixed(2)} USDC (live)\nThreshold: $${threshold.toFixed(2)} USDC\nTop-up amount: $${topupAmount?.toFixed(2) ?? '?'} USDC\n\nTap to approve:\n\`/approve_topup ${requestId}\``;
+        } else {
+          text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${liveBalance.toFixed(2)} USDC (live)\nThreshold: $${threshold.toFixed(2)} USDC\n\n⚠️ No pending topup request found.`;
+        }
+
+        await telegramSend('sendMessage', {
+          chat_id: ownerChatId,
+          parse_mode: 'Markdown',
+          text,
+        });
+        console.log(`[CeoBot] Wallet alert sent for ${w.agent_name}: $${liveBalance.toFixed(2)} < $${threshold}`);
       }
     } catch (err) {
       console.error('[CeoBot] Wallet monitor error:', err);
     }
   };
   setTimeout(() => { checkWallets(); setInterval(checkWallets, 60_000); }, 30_000);
-  console.log('[CeoBot] Wallet monitor started (60s interval).');
+  console.log('[CeoBot] Wallet monitor started (60s interval, dedup enabled).');
 }
 
 // ─── Entry Point ──────────────────────────────────────────────────────────────
