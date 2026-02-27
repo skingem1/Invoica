@@ -162,6 +162,8 @@ export async function requireX402Payment(
 
     // 6. Check on-chain nonce freshness (authorizationState)
     try {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore -- viem readContract overload mismatch
       const nonceUsed = await publicClient.readContract({
         address: USDC_ADDRESS,
         abi: USDC_ABI,
