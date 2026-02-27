@@ -25,14 +25,14 @@ router.get('/v1/api-keys', async (req: Request, res: Response, next: NextFunctio
 
 router.post('/v1/api-keys/:id/revoke', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const key = await invalidateApiKey(req.params.id);
+    const key = await invalidateApiKey(req.params.id as string);
     res.json({ success: true, data: key });
   } catch (err) { next(err); }
 });
 
 router.post('/v1/api-keys/:id/rotate', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const newKey = await rotateApiKey(req.params.id);
+    const newKey = await rotateApiKey(req.params.id as string);
     res.json({ success: true, data: newKey });
   } catch (err) { next(err); }
 });

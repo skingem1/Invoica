@@ -26,7 +26,7 @@ router.get('/v1/webhooks', async (_req: Request, res: Response, next: NextFuncti
 // DELETE /v1/webhooks/:id — remove a webhook
 router.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json({ success: true, data: { id: req.params.id, deleted: true } });
+    res.json({ success: true, data: { id: req.params.id as string, deleted: true } });
   } catch (err) { next(err); }
 });
 
