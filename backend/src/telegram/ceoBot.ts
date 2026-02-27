@@ -304,17 +304,32 @@ async function telegramSend(method: string, params: object): Promise<any> {
 // ─── Tool Execution ───────────────────────────────────────────────────────────
 
 async function getLiveUsdcBalance(address: string): Promise<number> {
-  const padded = address.slice(2).padStart(64, '0');
-  const res = await fetch('https://mainnet.base.org', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: '0x70a08231' + padded }, 'latest']
-    })
+  // Use https.request (not fetch) — fetch against Base public RPC is unreliable
+  // and intermittently returns 0x0. https.request is stable.
+  const padded = '0'.repeat(24) + address.toLowerCase().slice(2); // 64-char lowercase hex
+  const body = JSON.stringify({
+    jsonrpc: '2.0', id: 1, method: 'eth_call',
+    params: [{ to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: '0x70a08231' + padded }, 'latest'],
   });
-  const json = await res.json() as { result: string };
-  return Number(BigInt(json.result || '0x0')) / 1_000_000;
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname: 'mainnet.base.org', path: '/', method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data) as { result?: string };
+            resolve(Number(BigInt(json.result || '0x0')) / 1_000_000);
+          } catch (e) { reject(e); }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
 }
 
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
