@@ -52,8 +52,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 ml-16 md:ml-56 p-6">{children}</main>
       </div>
       <footer className="border-t bg-white py-6 ml-16 md:ml-56">
-        <div className="px-6 text-center text-sm text-slate-500">
-          <p>&copy; {new Date().getFullYear()} Invoica. All rights reserved.</p>
+        <div className="px-6 flex flex-col items-center gap-3">
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs text-slate-400">
+            <a href="https://invoica.ai/terms" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+            <span className="select-none">·</span>
+            <a href="https://invoica.ai/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+            <span className="select-none">·</span>
+            <a href="https://invoica.ai/acceptable-use" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Acceptable Use</a>
+            <span className="select-none">·</span>
+            <a href="https://invoica.ai/cookies" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Cookie Policy</a>
+            <span className="select-none">·</span>
+            <a href="https://status.invoica.ai" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Status</a>
+            <span className="select-none">·</span>
+            <a href="https://docs.invoica.ai" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Docs</a>
+          </div>
+          <p className="text-xs text-slate-400">&copy; {new Date().getFullYear()} Invoica. All rights reserved.</p>
         </div>
       </footer>
     </div>

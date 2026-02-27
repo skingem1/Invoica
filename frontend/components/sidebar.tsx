@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth-provider';
@@ -35,20 +35,27 @@ export function Sidebar() {
           {visibleItems.map((item) => {
             const active = isActive(item.href);
             return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? 'bg-[#635BFF]/[0.08] text-[#635BFF] shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  <span className="flex-shrink-0"><NavIcon item={item} active={active} /></span>
-                  <span className="hidden md:inline">{item.label}</span>
-                </Link>
-              </li>
+              <Fragment key={item.href}>
+                <li>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      active
+                        ? 'bg-[#635BFF]/[0.08] text-[#635BFF] shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <span className="flex-shrink-0"><NavIcon item={item} active={active} /></span>
+                    <span className="hidden md:inline">{item.label}</span>
+                  </Link>
+                </li>
+                {item.dividerAfter && (
+                  <li role="separator" aria-hidden="true">
+                    <hr className="my-2 border-gray-100" />
+                  </li>
+                )}
+              </Fragment>
             );
           })}
         </ul>
