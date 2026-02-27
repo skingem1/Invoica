@@ -404,6 +404,46 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
   return `Unknown tool: ${name}`;
 }
 
+// ─── Live Context Builder ─────────────────────────────────────────────────────
+
+async function buildLiveContext(): Promise<string> {
+  const lines: string[] = ['\n\n═══════════════════════════════════════════\nLIVE SYSTEM SNAPSHOT (auto-loaded)\n═══════════════════════════════════════════'];
+  try {
+    // Health
+    const healthFile = path.join(ROOT, 'health.json');
+    if (existsSync(healthFile)) {
+      const h = JSON.parse(readFileSync(healthFile, 'utf-8'));
+      lines.push(`System: ${h.status} | Phase: ${h.phase} | Heartbeat: ${h.last_heartbeat}`);
+      lines.push(`API: ${h.checks?.api_status} | DB: ${h.checks?.database_status} | MRR: $${h.financials?.mrr ?? 0} | Spend: $${h.financials?.monthly_spend ?? 0}/mo`);
+      if (h.beta) lines.push(`Beta day ${h.beta.day_number} | Users: ${h.beta.agents_onboarded} onboarded`);
+    }
+    // PM2
+    try {
+      const pm2Raw = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8', timeout: 4000 });
+      const procs = JSON.parse(pm2Raw) as Array<{ name: string; pm2_env: { status: string; restart_time: number } }>;
+      lines.push(`PM2: ${procs.map(p => `${p.name}=${p.pm2_env.status}(↺${p.pm2_env.restart_time})`).join(' | ')}`);
+    } catch { /* skip */ }
+    // Latest reports
+    const latestFile = (dir: string, ext = '.md') => {
+      if (!existsSync(dir)) return null;
+      const files = readdirSync(dir).filter(f => f.endsWith(ext)).sort().reverse();
+      return files[0] ? path.join(dir, files[0]) : null;
+    };
+    const latestDaily = latestFile(path.join(ROOT, 'reports/daily'));
+    if (latestDaily) {
+      const content = readFileSync(latestDaily, 'utf-8');
+      lines.push(`\n--- LATEST DAILY REPORT (${path.basename(latestDaily)}) ---\n${content.slice(0, 1500)}`);
+    }
+    const latestSprint = latestFile(path.join(ROOT, 'sprints'), '.json');
+    if (latestSprint) {
+      const content = readFileSync(latestSprint, 'utf-8');
+      lines.push(`\n--- CURRENT SPRINT (${path.basename(latestSprint)}) ---\n${content.slice(0, 1000)}`);
+    }
+  } catch { /* always return something */ }
+  lines.push('═══════════════════════════════════════════');
+  return lines.join('\n');
+}
+
 // ─── Claude with Tool Use ─────────────────────────────────────────────────────
 
 const conversationHistory = new Map<number, Message[]>();
@@ -420,9 +460,9 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
     iterations++;
 
     const body = JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT + await buildLiveContext(),
       tools: TOOLS,
       messages: history,
     });
