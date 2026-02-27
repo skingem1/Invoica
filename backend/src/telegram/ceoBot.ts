@@ -38,6 +38,8 @@ const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID || '';
 const ALLOWED_USER_ID = process.env.CEO_TELEGRAM_USER_ID
   ? parseInt(process.env.CEO_TELEGRAM_USER_ID, 10)
   : null;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
+const GITHUB_REPO = process.env.GITHUB_REPO || 'skingem1/Invoica';
 
 // ─── Real Wallet Addresses (from Supabase agent_wallets) ────────────────────
 const AGENT_WALLETS = {
@@ -96,20 +98,21 @@ YOUR TOOLS
 3. check_wallet_balance — live USDC balance for any agent wallet
 4. check_signups — query Supabase for real user signup count, recent users, breakdown by provider
 5. generate_video — MiniMax AI text-to-video
-6. run_shell — execute shell commands in the repo (git, gh, pm2, curl — real execution)
-7. write_file — create or update any file in the repo with given content
+6. create_github_issue — create a real GitHub issue (returns issue number + URL)
+7. run_shell — execute shell commands in the repo (git, pm2, curl — real execution)
+8. write_file — create or update any file in the repo with given content
 
 ═══════════════════════════════════════════
 EXECUTION RULES
 ═══════════════════════════════════════════
 You can ACTUALLY execute things. When the founder gives you an order:
-• Create GitHub issues → run_shell with "gh issue create ..."
+• Create GitHub issues → create_github_issue (returns real URL, e.g. github.com/skingem1/Invoica/issues/42)
 • Write files → write_file to create reports, ADRs, sprint plans
 • Git commits → run_shell with "git add -A && git commit -m '...'"
 • Check status → run_shell with "pm2 status" or "git log --oneline -5"
 • Restart services → run_shell with "pm2 restart backend"
 
-After executing, confirm what you actually did (show output). Never say "I'll create tickets" — create them and show the URLs.
+After executing, confirm what you actually did (show real URLs and output). Never say "I'll create tickets" — create them NOW and show the URLs.
 
 ═══════════════════════════════════════════
 GENERAL RULES
@@ -199,8 +202,31 @@ const TOOLS = [
     },
   },
   {
+    name: 'create_github_issue',
+    description: 'Create a real GitHub issue in the skingem1/Invoica repo via the GitHub API. Use this whenever the founder asks to create tickets, issues, or tasks. Returns the real issue number and URL.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'Issue title. Be specific, e.g. "Add Polygon RPC provider integration"',
+        },
+        body: {
+          type: 'string',
+          description: 'Issue body in markdown. Include context, technical scope, acceptance criteria.',
+        },
+        labels: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Labels to apply. Common: "enhancement", "bug", "infrastructure", "research"',
+        },
+      },
+      required: ['title', 'body'],
+    },
+  },
+  {
     name: 'run_shell',
-    description: 'Execute a shell command in the Invoica repo root (/home/invoica/apps/Invoica). Use this to run git commands, gh CLI (GitHub), pm2, curl, or any bash command. This has REAL execution power — commands are actually run on the server. Use for: creating GitHub issues, committing files, restarting services, checking logs.',
+    description: 'Execute a shell command in the Invoica repo root (/home/invoica/apps/Invoica). Use this to run git commands, pm2, curl, or any bash command. This has REAL execution power — commands are actually run on the server. Use for: committing files, restarting services, checking logs, git operations.',
     input_schema: {
       type: 'object',
       properties: {
@@ -504,6 +530,35 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
       return content.length > 6000 ? content.slice(0, 6000) + '\n\n[... truncated]' : content;
     } catch (err: any) {
       return `Error reading file: ${err.message}`;
+    }
+  }
+
+  if (name === 'create_github_issue') {
+    if (!GITHUB_TOKEN) return '❌ GITHUB_TOKEN not set in .env — cannot create issues. Ask the founder to add it.';
+    const title = input.title as string;
+    const body = input.body as string;
+    const labels = (input.labels as string[]) || [];
+    try {
+      const payload = JSON.stringify({ title, body, labels });
+      const result = await httpsPost(
+        'api.github.com',
+        `/repos/${GITHUB_REPO}/issues`,
+        {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'User-Agent': 'Invoica-CEO-Bot/1.0',
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+        payload
+      );
+      if (result.html_url) {
+        console.log(`[CeoBot] GitHub issue created: #${result.number} — ${result.html_url}`);
+        return `✅ Issue #${result.number} created: ${result.html_url}\nTitle: ${result.title}`;
+      }
+      return `❌ GitHub API error: ${JSON.stringify(result).slice(0, 500)}`;
+    } catch (err: any) {
+      return `Error creating GitHub issue: ${err.message}`;
     }
   }
 
