@@ -87,10 +87,10 @@ export default function Enterprise() {
             </div>
 
             <a
-              href="mailto:sales@invoica.ai"
+              href="https://invoica.mintlify.app"
               className="inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
             >
-              Talk to Sales
+              Read the Docs
               <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
             </a>
           </div>
