@@ -69,7 +69,7 @@ export default function PublicStatusPage() {
       checkService(`${API_URL}/v1/health`),
       checkService(`https://igspopoejhsxvwvxyhbh.supabase.co/auth/v1/health?apikey=${SUPABASE_ANON_KEY}`),
       checkService('https://app.invoica.ai'),
-      checkService('https://docs.invoica.ai'),
+      checkService('https://invoica.mintlify.app'),
     ]);
 
     setServices([

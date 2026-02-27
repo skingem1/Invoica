@@ -134,7 +134,7 @@ export default function Pricing() {
         {/* Bottom note */}
         <p className="text-center text-sm text-invoica-gray-400 mt-12">
           All plans include full API access, webhook support, and on-chain settlement detection.{' '}
-          <a href="https://docs.invoica.ai" className="text-invoica-purple hover:underline">Read the docs →</a>
+          <a href="https://invoica.mintlify.app" className="text-invoica-purple hover:underline">Read the docs →</a>
         </p>
       </div>
     </section>

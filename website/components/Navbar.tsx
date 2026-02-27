@@ -11,7 +11,7 @@ export default function Navbar() {
             <Image src="/logo.png" alt="Invoica" width={432} height={115} className="h-[67px] w-auto" priority />
           </a>
           <div className="hidden md:flex items-center gap-8">
-            <a href="https://docs.invoica.ai" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
+            <a href="https://invoica.mintlify.app" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">
               Docs
             </a>
             <a href="#features" className="text-sm font-medium text-invoica-gray-500 hover:text-invoica-blue transition-colors duration-200">

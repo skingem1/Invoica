@@ -3,7 +3,7 @@
 const stats = [
   { value: 'x402', label: 'Native Protocol', description: 'First-class support for x402 EIP-712 payment proofs' },
   { value: '100+', label: 'SDK Modules', description: 'Fully typed TypeScript with 26 React hooks' },
-  { value: 'Base', label: 'Mainnet Live', description: 'Real settlements on Base — not just a demo' },
+  { value: 'Base', label: 'Mainnet Live', description: 'Real settlements on Base. Multichain support in development.' },
   { value: '<10m', label: 'Time to First Invoice', description: 'From API key to production invoice in minutes' },
 ];
 

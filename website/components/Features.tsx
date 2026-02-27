@@ -54,7 +54,7 @@ const features: FeatureItem[] = [
   },
   {
     title: 'Settlement Detection',
-    description: 'Dual on-chain monitoring — poll-based and event-driven — ensures no payment confirmation is ever missed.',
+    description: 'Dual on-chain monitoring on Base — poll-based and event-driven. Multichain support in development.',
     gradient: 'from-[#8B5CF6] to-[#A78BFA]',
     glowColor: 'shadow-[#8B5CF6]/25',
     icon: (

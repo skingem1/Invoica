@@ -81,7 +81,7 @@ export default function BetaBanner() {
             </svg>
           </a>
           <a
-            href="https://docs.invoica.ai"
+            href="https://invoica.mintlify.app"
             className="inline-flex items-center px-8 py-4 text-sm font-semibold text-invoica-blue border-2 border-invoica-gray-200 rounded-full hover:bg-invoica-purple/5 hover:border-invoica-purple hover:text-invoica-purple transition-all duration-300"
           >
             Read the Docs

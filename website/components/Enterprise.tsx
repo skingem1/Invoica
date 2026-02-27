@@ -16,17 +16,8 @@ const enterpriseFeatures = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
       </svg>
     ),
-    title: 'Multi-Jurisdiction Tax',
-    description: 'Automatic VAT, GST, and sales tax across 40+ jurisdictions. Reverse charge, exemptions, and audit-ready reports included.',
-  },
-  {
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-      </svg>
-    ),
-    title: '99.99% SLA Guarantee',
-    description: 'Enterprise uptime commitments with dedicated infrastructure, incident response, and credits for downtime.',
+    title: 'US & EU Tax Compliance',
+    description: 'Automatic VAT and sales tax across US and EU. Reverse charge, VIES validation, and audit-ready reports included.',
   },
   {
     icon: (
@@ -36,15 +27,6 @@ const enterpriseFeatures = [
     ),
     title: 'On-Chain Audit Trails',
     description: 'Every invoice, payment, and settlement is cryptographically linked to its on-chain transaction. Immutable compliance records.',
-  },
-  {
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-      </svg>
-    ),
-    title: 'Dedicated Account Manager',
-    description: 'A named contact who knows your infrastructure. Custom onboarding, integration support, and quarterly business reviews.',
   },
   {
     icon: (
@@ -92,10 +74,10 @@ export default function Enterprise() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-6 mb-10">
               {[
-                { value: 'EU+US', label: 'Tax jurisdictions' },
-                { value: 'Base', label: 'Mainnet settlement' },
+                { value: 'US + EU', label: 'Tax compliance' },
+                { value: 'Base', label: 'Mainnet — more chains soon' },
                 { value: '100%', label: 'On-chain audit trail' },
-                { value: 'Custom', label: 'SLA on request' },
+                { value: 'VIES', label: 'VAT validation' },
               ].map((stat) => (
                 <div key={stat.label} className="p-4 rounded-xl border border-invoica-gray-100 bg-invoica-gray-50">
                   <div className="text-3xl font-bold text-invoica-blue mb-1 tracking-tight">{stat.value}</div>
