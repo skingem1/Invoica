@@ -90,12 +90,8 @@ export async function requireApiKey(
   req.companyId = matched.customerId;
   req.apiKeyId  = matched.id;
 
-  // Update lastUsedAt in background
-  sb.from('ApiKey')
-    .update({ lastUsedAt: new Date().toISOString() })
-    .eq('id', matched.id)
-    .then(() => {})
-    .catch(() => {});
+  // Update lastUsedAt in background (fire and forget)
+  (async () => { try { await sb.from('ApiKey').update({ lastUsedAt: new Date().toISOString() }).eq('id', matched.id); } catch {} })();
 
   next();
 }
