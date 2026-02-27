@@ -45,11 +45,6 @@
   ],
   "anchors": [
     {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://github.com/invoica"
-    },
-    {
       "name": "Status",
       "icon": "signal-bars",
       "url": "https://invoica.ai/status"
@@ -83,8 +78,7 @@
     }
   ],
   "footerSocials": {
-    "github": "https://github.com/invoica",
-    "twitter": "https://twitter.com/invoica"
+    "twitter": "https://twitter.com/NexusCollectv"
   },
   "api": {
     "baseUrl": "https://api.invoica.ai",
