@@ -49,6 +49,8 @@ const AGENT_WALLETS = {
   cmo:     { address: '0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0', treasury: false },
   bizdev:  { address: '0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546', treasury: false },
   code:    { address: '0xB6C18ec7b13649756436913856eA9F82c13c5c25', treasury: false },
+  fast:    { address: '0xfB7792E7CaEa2c96570d1eD62e205B8Dc7320d45', treasury: false },
+  support: { address: '0x51A96753db8709AAf9974689DC17fd9B77830aaC', treasury: false },
 } as const;
 
 const SYSTEM_PROMPT = `You ARE the CEO of Invoica. Not an assistant. Not an interface. The Chief Executive Officer.
@@ -88,6 +90,8 @@ CTO:             0x3e127c918C83714616CF2416f8A620F1340C19f1
 CMO:             0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0
 BizDev:          0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546
 Code:            0xB6C18ec7b13649756436913856eA9F82c13c5c25
+Fast:            0xfB7792E7CaEa2c96570d1eD62e205B8Dc7320d45
+Support:         0x51A96753db8709AAf9974689DC17fd9B77830aaC
 Network: Base (chain ID 8453) | USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 
 ═══════════════════════════════════════════
@@ -157,7 +161,7 @@ const TOOLS = [
       properties: {
         agent: {
           type: 'string',
-          enum: ['ceo', 'cfo', 'cto', 'cmo', 'bizdev', 'code'],
+          enum: ['ceo', 'cfo', 'cto', 'cmo', 'bizdev', 'code', 'fast', 'support'],
           description: 'Which agent wallet to check',
         },
       },
@@ -904,15 +908,42 @@ async function startWalletMonitor(): Promise<void> {
     try {
       const ownerChatId = process.env.OWNER_TELEGRAM_CHAT_ID;
       if (!ownerChatId) return;
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const { getAgentWallets } = await import('../../../scripts/wallet-service');
       const wallets = await getAgentWallets();
       if (!wallets) return;
+
       for (const w of wallets) {
         if (Number(w.usdc_balance) < Number(w.low_balance_threshold)) {
+          // Look up pending topup request for this agent
+          let requestId: string | null = null;
+          let topupAmount: number | null = null;
+          if (supabaseUrl && serviceKey) {
+            try {
+              const res = await fetch(
+                `${supabaseUrl}/rest/v1/agent_topup_requests?agent_name=eq.${w.agent_name}&status=eq.pending&order=requested_at.desc&limit=1`,
+                { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
+              );
+              const rows = await res.json() as Array<{ id: string; amount: number }>;
+              if (rows.length > 0) {
+                requestId = rows[0].id;
+                topupAmount = rows[0].amount;
+              }
+            } catch { /* skip — alert still sends */ }
+          }
+
+          let text: string;
+          if (requestId) {
+            text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\nTop-up amount: $${topupAmount?.toFixed(2) ?? '?'} USDC\n\nTap to approve:\n\`/approve_topup ${requestId}\``;
+          } else {
+            text = `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\n⚠️ No pending topup request found — agent must request funding first.`;
+          }
+
           await telegramSend('sendMessage', {
             chat_id: ownerChatId,
             parse_mode: 'Markdown',
-            text: `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\nUse /approve_topup <request_id> to fund.`,
+            text,
           });
         }
       }
