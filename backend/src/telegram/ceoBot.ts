@@ -2,7 +2,17 @@ import https from 'https';
 
 interface Message {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | ContentBlock[];
+}
+
+interface ContentBlock {
+  type: 'text' | 'tool_use' | 'tool_result';
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  tool_use_id?: string;
+  content?: string;
 }
 
 interface TelegramUpdate {
@@ -18,24 +28,130 @@ interface TelegramUpdate {
 
 const TELEGRAM_TOKEN = process.env.CEO_TELEGRAM_BOT_TOKEN || '';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
+const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID || '';
 const ALLOWED_USER_ID = process.env.CEO_TELEGRAM_USER_ID
   ? parseInt(process.env.CEO_TELEGRAM_USER_ID, 10)
   : null;
 
-const SYSTEM_PROMPT = `You are a lightweight relay assistant for the CEO of Invoica — a Financial OS for AI Agents.
+// ─── Real Wallet Addresses (from Supabase agent_wallets) ────────────────────
+const AGENT_WALLETS = {
+  ceo:     { address: '0x9E0e342e4E2Df813B27F078AD0119eD6c289643f', treasury: true },
+  cfo:     { address: '0x7B5BE6D949bC3FcD5BBc62fc6cB03a406e187571', treasury: false },
+  cto:     { address: '0x3e127c918C83714616CF2416f8A620F1340C19f1', treasury: false },
+  cmo:     { address: '0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0', treasury: false },
+  bizdev:  { address: '0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546', treasury: false },
+  code:    { address: '0xB6C18ec7b13649756436913856eA9F82c13c5c25', treasury: false },
+} as const;
 
-Your role is to:
-- Receive messages and tasks from the CEO
-- Relay requests clearly to the appropriate team or system
-- Return outputs, results, and feedback concisely
-- Help draft quick messages, summaries, or instructions
+const SYSTEM_PROMPT = `You are the CEO bot assistant for Invoica — a private executive interface for the founder.
 
-You are NOT the decision-maker. The CEO is. Keep responses brief and action-oriented.
-For complex tasks, acknowledge and confirm you will relay to the relevant agent/team.
+═══════════════════════════════════════════
+WHAT INVOICA IS
+═══════════════════════════════════════════
+Invoica is an AI-native invoice and payments middleware — NOT a payment processor.
+Invoica TRACKS x402 protocol transactions and generates invoices from them.
 
-Invoica context: Express/TypeScript backend, Next.js frontend, Supabase DB, x402 payments on Base.`;
+Core product:
+• Invoice generation for x402 transactions
+• Transaction tracking & reconciliation
+• Settlement reporting & ledger
+• API-first — built for AI agents AND enterprise clients
+• x402 protocol on Base (Ethereum L2), USDC
 
-const conversationHistory = new Map<number, Message[]>();
+What Invoica does NOT do:
+• Move or hold funds (agents have wallets, but Invoica doesn't process payments)
+• Act as a payment gateway or money transmitter
+
+═══════════════════════════════════════════
+AGENT WALLET ADDRESSES (verified from DB)
+═══════════════════════════════════════════
+CEO (treasury):  0x9E0e342e4E2Df813B27F078AD0119eD6c289643f  ← PRIMARY TREASURY
+CFO:             0x7B5BE6D949bC3FcD5BBc62fc6cB03a406e187571
+CTO:             0x3e127c918C83714616CF2416f8A620F1340C19f1  (also x402 seller wallet)
+CMO:             0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0
+BizDev:          0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546
+Code:            0xB6C18ec7b13649756436913856eA9F82c13c5c25
+
+Network: Base (chain ID 8453)
+USDC contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+
+═══════════════════════════════════════════
+YOUR TOOLS (what you can actually do)
+═══════════════════════════════════════════
+1. generate_video — create a video using MiniMax AI (text-to-video)
+   Use model: MiniMax-Hailuo-02
+   Returns a download link when ready
+
+2. check_wallet_balance — query live USDC balance of any agent wallet on Base
+
+You ONLY have these two tools plus general knowledge and conversation.
+
+═══════════════════════════════════════════
+ABSOLUTE RULES — NON-NEGOTIABLE
+═══════════════════════════════════════════
+1. NEVER claim to do something you cannot. If you can't do it, say so immediately.
+2. NEVER pretend to "test" or "check" a capability that you don't have a tool for.
+3. NEVER hallucinate wallet addresses. Always use the exact addresses above.
+4. NEVER invent API integrations, features, or capabilities that don't exist.
+5. If asked to do something outside your tools, say exactly what you CAN'T do and why.
+6. No bluffing. No stalling with fake "testing" messages. Ever.
+
+═══════════════════════════════════════════
+INVOICA TECH STACK
+═══════════════════════════════════════════
+Backend: Express/TypeScript on Hetzner (65.108.90.178:3001), managed via PM2
+Frontend: Next.js on Vercel (app.invoica.ai)
+DB: Supabase (PostgreSQL)
+Website: invoica.ai
+Team: 9 AI agents (CEO, CFO, CTO, CMO, BizDev, Code, Legal, Security, Tax)
+
+Keep responses concise and direct. You are talking to the founder.`;
+
+// ─── Tool Definitions ────────────────────────────────────────────────────────
+
+const TOOLS = [
+  {
+    name: 'generate_video',
+    description: 'Generate a video using MiniMax AI text-to-video. Returns a task ID and polls for completion. Use this when the founder asks to create a video. Videos take 2-5 minutes to generate.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Detailed text prompt describing the video content, style, and motion. Be specific about visual elements, colors, and what happens in the video.',
+        },
+        duration: {
+          type: 'number',
+          description: 'Duration in seconds (3-10 seconds). Default 6.',
+        },
+        resolution: {
+          type: 'string',
+          enum: ['1080p', '720p'],
+          description: 'Video resolution. Default 1080p.',
+        },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'check_wallet_balance',
+    description: 'Check the live USDC balance of an agent wallet on Base mainnet.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        agent: {
+          type: 'string',
+          enum: ['ceo', 'cfo', 'cto', 'cmo', 'bizdev', 'code'],
+          description: 'Which agent wallet to check',
+        },
+      },
+      required: ['agent'],
+    },
+  },
+];
+
+// ─── HTTP Helpers ─────────────────────────────────────────────────────────────
 
 function httpsPost(hostname: string, path: string, headers: Record<string, string>, body: string): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -53,9 +169,9 @@ function httpsPost(hostname: string, path: string, headers: Record<string, strin
   });
 }
 
-function httpsGet(hostname: string, path: string): Promise<any> {
+function httpsGet(hostname: string, path: string, headers?: Record<string, string>): Promise<any> {
   return new Promise((resolve, reject) => {
-    const req = https.request({ hostname, path, method: 'GET' }, (res) => {
+    const req = https.request({ hostname, path, method: 'GET', headers: headers || {} }, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
@@ -70,39 +186,7 @@ async function telegramSend(method: string, params: object): Promise<any> {
   return httpsPost('api.telegram.org', `/bot${TELEGRAM_TOKEN}/${method}`, { 'Content-Type': 'application/json' }, body);
 }
 
-async function callClaude(userId: number, userMessage: string): Promise<string> {
-  if (!conversationHistory.has(userId)) conversationHistory.set(userId, []);
-  const history = conversationHistory.get(userId)!;
-  history.push({ role: 'user', content: userMessage });
-  if (history.length > 20) history.splice(0, history.length - 20);
-
-  const body = JSON.stringify({
-    model: 'claude-haiku-4-5',
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    messages: history,
-  });
-
-  const response = await httpsPost(
-    'api.anthropic.com',
-    '/v1/messages',
-    {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body
-  );
-
-  const reply = response?.content?.[0]?.text || 'No response from Claude.';
-  history.push({ role: 'assistant', content: reply });
-  return reply;
-}
-
-async function getSystemStatus(): Promise<string> {
-  return `📊 *System Status*\n\nEnvironment: ${process.env.NODE_ENV || 'production'}\nUptime: ${Math.floor(process.uptime() / 60)}m ${Math.floor(process.uptime() % 60)}s\nMemory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB used\nAPI: https://invoica.wp1.host/v1/health`;
-}
-
+// ─── Tool Execution ───────────────────────────────────────────────────────────
 
 async function getLiveUsdcBalance(address: string): Promise<number> {
   const padded = address.slice(2).padStart(64, '0');
@@ -118,6 +202,179 @@ async function getLiveUsdcBalance(address: string): Promise<number> {
   return Number(BigInt(json.result || '0x0')) / 1_000_000;
 }
 
+async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
+  if (name === 'check_wallet_balance') {
+    const agent = input.agent as keyof typeof AGENT_WALLETS;
+    const wallet = AGENT_WALLETS[agent];
+    if (!wallet) return `Unknown agent: ${agent}`;
+    try {
+      const balance = await getLiveUsdcBalance(wallet.address);
+      return `${agent.toUpperCase()} wallet: $${balance.toFixed(2)} USDC\nAddress: ${wallet.address}${wallet.treasury ? ' (treasury)' : ''}`;
+    } catch (err: any) {
+      return `Error fetching balance: ${err.message}`;
+    }
+  }
+
+  if (name === 'generate_video') {
+    if (!MINIMAX_API_KEY) return 'Error: MINIMAX_API_KEY not configured.';
+    const prompt = input.prompt as string;
+    const duration = (input.duration as number) || 6;
+    const resolution = (input.resolution as string) || '1080p';
+
+    try {
+      // Submit video generation task
+      const submitBody = JSON.stringify({
+        model: 'MiniMax-Hailuo-02',
+        prompt,
+        duration,
+        resolution,
+        prompt_optimizer: true,
+      });
+
+      const submitRes = await httpsPost(
+        'api.minimax.io',
+        `/v1/video_generation`,
+        {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MINIMAX_API_KEY}`,
+        },
+        submitBody
+      );
+
+      if (submitRes?.base_resp?.status_code !== 0 && submitRes?.base_resp?.status_code !== undefined) {
+        return `MiniMax error: ${submitRes.base_resp.status_msg || 'Unknown error'} (code: ${submitRes.base_resp.status_code})`;
+      }
+
+      const taskId = submitRes?.task_id;
+      if (!taskId) return `Failed to get task ID from MiniMax. Response: ${JSON.stringify(submitRes)}`;
+
+      // Poll for completion (up to 5 min)
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise((r) => setTimeout(r, 5000)); // wait 5s between polls
+        const statusRes = await httpsGet(
+          'api.minimax.io',
+          `/v1/query/video_generation?task_id=${taskId}`,
+          { 'Authorization': `Bearer ${MINIMAX_API_KEY}` }
+        );
+
+        const status = statusRes?.status;
+        if (status === 'Success' || status === 'success') {
+          const fileId = statusRes?.file_id;
+          if (!fileId) return `Video generated but no file_id returned. Task: ${taskId}`;
+
+          // Get download URL
+          const fileRes = await httpsGet(
+            'api.minimax.io',
+            `/v1/files/retrieve?file_id=${fileId}`,
+            { 'Authorization': `Bearer ${MINIMAX_API_KEY}` }
+          );
+          const downloadUrl = fileRes?.file?.download_url;
+          return downloadUrl
+            ? `✅ Video ready!\n\nDownload: ${downloadUrl}\n\nTask ID: ${taskId}`
+            : `✅ Video generated (task: ${taskId}) but download URL not available. File ID: ${fileId}`;
+        }
+
+        if (status === 'Failed' || status === 'failed') {
+          return `❌ Video generation failed. Task: ${taskId}. Error: ${statusRes?.err_msg || 'Unknown error'}`;
+        }
+
+        // Still processing — continue polling
+        console.log(`[CeoBot] Video task ${taskId} still processing (attempt ${attempt + 1}, status: ${status})`);
+      }
+
+      return `⏱ Video generation timed out after 5 minutes. Task ID: ${taskId}\nCheck status manually at MiniMax dashboard.`;
+
+    } catch (err: any) {
+      return `Error generating video: ${err.message}`;
+    }
+  }
+
+  return `Unknown tool: ${name}`;
+}
+
+// ─── Claude with Tool Use ─────────────────────────────────────────────────────
+
+const conversationHistory = new Map<number, Message[]>();
+
+async function callClaudeWithTools(userId: number, userMessage: string, onToolCall?: (name: string) => void): Promise<string> {
+  if (!conversationHistory.has(userId)) conversationHistory.set(userId, []);
+  const history = conversationHistory.get(userId)!;
+  history.push({ role: 'user', content: userMessage });
+  if (history.length > 20) history.splice(0, history.length - 20);
+
+  // Agentic loop — keep calling Claude until no more tool calls
+  let iterations = 0;
+  while (iterations < 10) {
+    iterations++;
+
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      tools: TOOLS,
+      messages: history,
+    });
+
+    const response = await httpsPost(
+      'api.anthropic.com',
+      '/v1/messages',
+      {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body
+    );
+
+    const stopReason = response?.stop_reason;
+    const content: ContentBlock[] = response?.content || [];
+
+    // Push assistant message to history
+    history.push({ role: 'assistant', content });
+
+    if (stopReason === 'tool_use') {
+      // Execute all tool calls in parallel
+      const toolUseBlocks = content.filter((b: ContentBlock) => b.type === 'tool_use');
+      const toolResults: ContentBlock[] = [];
+
+      for (const toolBlock of toolUseBlocks) {
+        const toolName = toolBlock.name!;
+        const toolInput = toolBlock.input as Record<string, unknown>;
+        console.log(`[CeoBot] Tool call: ${toolName}`, toolInput);
+        if (onToolCall) onToolCall(toolName);
+
+        const result = await executeTool(toolName, toolInput);
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: toolBlock.id,
+          content: result,
+        });
+      }
+
+      // Add tool results to history and continue loop
+      history.push({ role: 'user', content: toolResults });
+      continue;
+    }
+
+    // End of agentic loop — extract text response
+    const textBlock = content.find((b: ContentBlock) => b.type === 'text');
+    const reply = textBlock?.text || 'No response.';
+    // Update last history entry with clean text
+    history[history.length - 1] = { role: 'assistant', content: reply };
+    return reply;
+  }
+
+  return '⚠️ Reached max tool call iterations.';
+}
+
+// ─── System Status ────────────────────────────────────────────────────────────
+
+async function getSystemStatus(): Promise<string> {
+  return `📊 *System Status*\n\nEnvironment: ${process.env.NODE_ENV || 'production'}\nUptime: ${Math.floor(process.uptime() / 60)}m ${Math.floor(process.uptime() % 60)}s\nMemory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB used\nAPI: https://invoica.wp1.host/v1/health`;
+}
+
+// ─── Telegram Update Handler ──────────────────────────────────────────────────
+
 async function handleUpdate(update: TelegramUpdate): Promise<void> {
   if (!update.message?.text) return;
   const { chat, from, text } = update.message;
@@ -130,14 +387,11 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   if (text === '/start') {
-    // Store owner chat ID for wallet alerts
-    if (from.id === ALLOWED_USER_ID) {
-      process.env.OWNER_TELEGRAM_CHAT_ID = chatId.toString();
-    }
+    if (from.id === ALLOWED_USER_ID) process.env.OWNER_TELEGRAM_CHAT_ID = chatId.toString();
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `👋 Welcome back, ${from.first_name}.\n\nI'm your Invoica executive assistant, powered by Claude.\n\n*Commands:*\n/status — System health & metrics\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve & execute a USDC top-up\n/reject_topup <id> — Reject a top-up request\n/clear — Clear conversation history\n/help — Show this menu\n\nOr just talk to me naturally.`,
+      text: `👋 Welcome back, ${from.first_name}.\n\nInvoica CEO assistant.\n\n*Commands:*\n/status — System health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Clear conversation\n/help — Show menu\n\nOr chat naturally — I can also generate videos via MiniMax.`,
     });
     return;
   }
@@ -150,7 +404,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
 
   if (text === '/clear') {
     conversationHistory.delete(from.id);
-    await telegramSend('sendMessage', { chat_id: chatId, text: '🧹 Conversation history cleared.' });
+    await telegramSend('sendMessage', { chat_id: chatId, text: '🧹 Conversation cleared.' });
     return;
   }
 
@@ -158,7 +412,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `📋 *CEO Bot Commands*\n\n/status — Platform health & uptime\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve & execute a USDC top-up\n/reject_topup <id> — Reject a top-up request\n/clear — Reset conversation\n/help — This menu\n\nOr send any message to chat with Claude AI.`,
+      text: `📋 *Commands*\n\n/status — Platform health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Reset conversation\n\n*Available AI capabilities:*\n• Generate videos (MiniMax Hailuo-02)\n• Check live wallet balances\n• General questions & planning\n\n*What I cannot do:*\n• Execute trades or transactions\n• Access external APIs beyond my tools\n• Generate images\n• Post to social media`,
     });
     return;
   }
@@ -190,7 +444,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       const { approveTopupRequest } = await import('../../../scripts/wallet-service');
       const { executeTopup } = await import('../../../scripts/wallet-topup');
       await approveTopupRequest(requestId);
-      await telegramSend('sendMessage', { chat_id: chatId, text: `✅ Top-up approved. Executing transfer...` });
+      await telegramSend('sendMessage', { chat_id: chatId, text: `✅ Approved. Executing transfer...` });
       const txHash = await executeTopup(requestId);
       await telegramSend('sendMessage', {
         chat_id: chatId,
@@ -210,17 +464,33 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
         process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
       await supabase.from('agent_topup_requests').update({ status: 'rejected' }).eq('id', requestId);
-      await telegramSend('sendMessage', { chat_id: chatId, text: `🚫 Top-up request ${requestId.slice(0,8)}... rejected.` });
+      await telegramSend('sendMessage', { chat_id: chatId, text: `🚫 Top-up ${requestId.slice(0, 8)}... rejected.` });
     } catch (err: any) {
       await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Error: ${err.message}` });
     }
     return;
   }
 
+  // ── Default: Claude with tools ──
   await telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' });
 
   try {
-    const reply = await callClaude(from.id, text);
+    // For video generation, warn it'll take a few minutes
+    const isVideoRequest = /video|generate.*video|create.*video|make.*video|film|animation/i.test(text);
+    if (isVideoRequest) {
+      await telegramSend('sendMessage', {
+        chat_id: chatId,
+        text: '🎬 Generating video via MiniMax... this takes 2-5 minutes. I\'ll send it when ready.',
+      });
+    }
+
+    const reply = await callClaudeWithTools(from.id, text, (toolName) => {
+      if (toolName === 'generate_video') {
+        console.log('[CeoBot] Starting MiniMax video generation...');
+      }
+    });
+
+    // Split long messages
     if (reply.length > 4000) {
       const chunks = reply.match(/.{1,4000}/gs) || [reply];
       for (const chunk of chunks) {
@@ -230,35 +500,27 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       await telegramSend('sendMessage', { chat_id: chatId, text: reply });
     }
   } catch (err) {
-    console.error('[CeoBot] Claude error:', err);
-    await telegramSend('sendMessage', { chat_id: chatId, text: '⚠️ Error calling Claude. Check ANTHROPIC_API_KEY.' });
+    console.error('[CeoBot] Error:', err);
+    await telegramSend('sendMessage', { chat_id: chatId, text: '⚠️ Error. Check ANTHROPIC_API_KEY.' });
   }
 }
 
-async function startWalletMonitor(): Promise<void> {
-  const POLL_INTERVAL_MS = 60_000; // check every 60 seconds
+// ─── Wallet Monitor ───────────────────────────────────────────────────────────
 
+async function startWalletMonitor(): Promise<void> {
   const checkWallets = async () => {
     try {
       const ownerChatId = process.env.OWNER_TELEGRAM_CHAT_ID;
-      if (!ownerChatId) return; // no owner chat registered yet
-
+      if (!ownerChatId) return;
       const { getAgentWallets } = await import('../../../scripts/wallet-service');
       const wallets = await getAgentWallets();
       if (!wallets) return;
-
       for (const w of wallets) {
         if (Number(w.usdc_balance) < Number(w.low_balance_threshold)) {
-          const msg =
-            `🔴 *Low Wallet Alert*\n\n` +
-            `Agent: \`${w.agent_name}\`\n` +
-            `Balance: $${Number(w.usdc_balance).toFixed(2)} USDC\n` +
-            `Threshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\n` +
-            `Use /approve_topup <request_id> to fund this wallet.`;
           await telegramSend('sendMessage', {
             chat_id: ownerChatId,
             parse_mode: 'Markdown',
-            text: msg,
+            text: `🔴 *Low Wallet Alert*\n\nAgent: \`${w.agent_name}\`\nBalance: $${Number(w.usdc_balance).toFixed(2)} USDC\nThreshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\nUse /approve_topup <request_id> to fund.`,
           });
         }
       }
@@ -266,24 +528,18 @@ async function startWalletMonitor(): Promise<void> {
       console.error('[CeoBot] Wallet monitor error:', err);
     }
   };
-
-  // Delay first check by 30 seconds to let the process warm up
-  setTimeout(() => {
-    checkWallets();
-    setInterval(checkWallets, POLL_INTERVAL_MS);
-  }, 30_000);
-
-  console.log('[CeoBot] Wallet monitor background task started (60s interval).');
+  setTimeout(() => { checkWallets(); setInterval(checkWallets, 60_000); }, 30_000);
+  console.log('[CeoBot] Wallet monitor started (60s interval).');
 }
+
+// ─── Entry Point ──────────────────────────────────────────────────────────────
 
 export async function startCeoBot(): Promise<void> {
   if (!TELEGRAM_TOKEN) {
     console.log('[CeoBot] CEO_TELEGRAM_BOT_TOKEN not set — skipping');
     return;
   }
-  console.log('[CeoBot] Starting CEO executive bot...');
-
-  // Start wallet monitoring background task
+  console.log('[CeoBot] Starting CEO executive bot with tool use (MiniMax video + wallet checks)...');
   startWalletMonitor();
 
   let offset = 0;
