@@ -35,6 +35,7 @@ export default function Footer() {
               <li><a href="https://invoica.mintlify.app/quickstart" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Quickstart</a></li>
               <li><a href="https://invoica.mintlify.app/guides/create-invoice" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Guides</a></li>
               <li><a href="https://invoica.mintlify.app/concepts/x402-protocol" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">x402 Protocol</a></li>
+              <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">GitHub</a></li>
               <li><a href="/status" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">System Status</a></li>
             </ul>
           </div>
@@ -44,7 +45,8 @@ export default function Footer() {
             <h4 className="text-xs font-semibold text-invoica-gray-300 uppercase tracking-wider mb-5">Company</h4>
             <ul className="space-y-3">
               <li><a href="https://twitter.com/NexusCollectv" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Twitter / X</a></li>
-<li><a href="mailto:hello@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Contact</a></li>
+              <li><a href="https://github.com/skingem1/Invoica" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Open Source</a></li>
+              <li><a href="mailto:hello@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Contact</a></li>
               <li><a href="mailto:support@invoica.ai" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Support</a></li>
               <li><a href="/terms" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Terms of Service</a></li>
               <li><a href="/privacy" className="text-sm text-invoica-gray-400 hover:text-white transition-colors duration-200">Privacy Policy</a></li>
