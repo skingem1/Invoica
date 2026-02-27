@@ -92,10 +92,10 @@ export default function Enterprise() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-6 mb-10">
               {[
-                { value: '40+', label: 'Tax jurisdictions supported' },
-                { value: '99.99%', label: 'Uptime SLA' },
-                { value: '<10ms', label: 'Webhook P99 latency' },
-                { value: '100%', label: 'On-chain audit coverage' },
+                { value: 'EU+US', label: 'Tax jurisdictions' },
+                { value: 'Base', label: 'Mainnet settlement' },
+                { value: '100%', label: 'On-chain audit trail' },
+                { value: 'Custom', label: 'SLA on request' },
               ].map((stat) => (
                 <div key={stat.label} className="p-4 rounded-xl border border-invoica-gray-100 bg-invoica-gray-50">
                   <div className="text-3xl font-bold text-invoica-blue mb-1 tracking-tight">{stat.value}</div>

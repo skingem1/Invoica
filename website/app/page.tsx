@@ -5,7 +5,6 @@ import Features from '@/components/Features';
 import CodeExample from '@/components/CodeExample';
 import Enterprise from '@/components/Enterprise';
 import SocialProof from '@/components/SocialProof';
-import Pricing from '@/components/Pricing';
 import BetaBanner from '@/components/BetaBanner';
 import Footer from '@/components/Footer';
 
@@ -50,10 +49,7 @@ export default function HomePage() {
         {/* 6. Social proof — stats + testimonials */}
         <SocialProof />
 
-        {/* 7. Pricing — Developer (free) / Growth (0.5%) / Enterprise (custom) */}
-        <Pricing />
-
-        {/* 8. Closing CTA */}
+        {/* 7. Closing CTA */}
         <BetaBanner />
       </main>
       <Footer />
