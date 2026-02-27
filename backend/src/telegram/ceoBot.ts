@@ -22,22 +22,18 @@ const ALLOWED_USER_ID = process.env.CEO_TELEGRAM_USER_ID
   ? parseInt(process.env.CEO_TELEGRAM_USER_ID, 10)
   : null;
 
-const SYSTEM_PROMPT = `You are an intelligent executive assistant for the CEO of Invoica — a Financial OS for AI Agents built on the x402 protocol.
+const SYSTEM_PROMPT = `You are a lightweight relay assistant for the CEO of Invoica — a Financial OS for AI Agents.
 
-You have deep knowledge of:
-- Invoica's architecture: Express/TypeScript backend, Next.js frontend, Supabase database
-- Business metrics, invoice processing, and payment flows
-- The 9-agent AI system (Claude CEO/Supervisor + MiniMax coding agents)
-- Pricing: Free (100 invoices/month) and Pro ($49/month, 10k invoices)
+Your role is to:
+- Receive messages and tasks from the CEO
+- Relay requests clearly to the appropriate team or system
+- Return outputs, results, and feedback concisely
+- Help draft quick messages, summaries, or instructions
 
-You help the CEO with:
-- System status and health checks
-- Business strategy and decision-making
-- Drafting communications and content
-- Analyzing data and summarizing reports
-- Technical questions about the platform
+You are NOT the decision-maker. The CEO is. Keep responses brief and action-oriented.
+For complex tasks, acknowledge and confirm you will relay to the relevant agent/team.
 
-Be direct, concise, and executive-level in your responses.`;
+Invoica context: Express/TypeScript backend, Next.js frontend, Supabase DB, x402 payments on Base.`;
 
 const conversationHistory = new Map<number, Message[]>();
 
@@ -81,8 +77,8 @@ async function callClaude(userId: number, userMessage: string): Promise<string> 
   if (history.length > 20) history.splice(0, history.length - 20);
 
   const body = JSON.stringify({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
+    model: 'claude-haiku-4-5',
+    max_tokens: 2048,
     system: SYSTEM_PROMPT,
     messages: history,
   });
