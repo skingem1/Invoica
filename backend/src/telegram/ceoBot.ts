@@ -303,17 +303,18 @@ async function telegramSend(method: string, params: object): Promise<any> {
 
 // ─── Tool Execution ───────────────────────────────────────────────────────────
 
-async function getLiveUsdcBalance(address: string): Promise<number> {
-  // Use https.request (not fetch) — fetch against Base public RPC is unreliable
-  // and intermittently returns 0x0. https.request is stable.
-  const padded = '0'.repeat(24) + address.toLowerCase().slice(2); // 64-char lowercase hex
+// Multiple RPC endpoints — queried in parallel, highest non-zero result wins
+const BASE_RPC_HOSTS = ['mainnet.base.org', 'base.llamarpc.com'];
+
+function rpcBalanceOf(hostname: string, address: string): Promise<number> {
+  const padded = '0'.repeat(24) + address.toLowerCase().slice(2);
   const body = JSON.stringify({
     jsonrpc: '2.0', id: 1, method: 'eth_call',
     params: [{ to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: '0x70a08231' + padded }, 'latest'],
   });
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const req = https.request(
-      { hostname: 'mainnet.base.org', path: '/', method: 'POST',
+      { hostname, path: '/', method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
       (res) => {
         let data = '';
@@ -322,14 +323,21 @@ async function getLiveUsdcBalance(address: string): Promise<number> {
           try {
             const json = JSON.parse(data) as { result?: string };
             resolve(Number(BigInt(json.result || '0x0')) / 1_000_000);
-          } catch (e) { reject(e); }
+          } catch { resolve(0); }
         });
       }
     );
-    req.on('error', reject);
+    req.setTimeout(8000, () => { req.destroy(); resolve(0); });
+    req.on('error', () => resolve(0));
     req.write(body);
     req.end();
   });
+}
+
+async function getLiveUsdcBalance(address: string): Promise<number> {
+  // Query all RPCs in parallel, take the highest value (avoids stale-zero from flaky nodes)
+  const results = await Promise.all(BASE_RPC_HOSTS.map(h => rpcBalanceOf(h, address)));
+  return Math.max(...results);
 }
 
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
