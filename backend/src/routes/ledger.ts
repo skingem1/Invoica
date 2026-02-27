@@ -96,8 +96,34 @@ router.post('/v1/ledger/send-verification', async (req: Request, res: Response):
     return;
   }
 
-  const customerEmail = matched.customerEmail || `${matched.customerId}@agents.invoica.ai`;
+  const rawEmail = matched.customerEmail || '';
+  const isAgentEmail = !rawEmail || rawEmail.endsWith('@agents.invoica.ai');
   const companyId = matched.customerId;
+
+  // Web3 / agent key - no real email, skip OTP and grant access directly
+  if (isAgentEmail) {
+    // Store a pre-verified entry with a special bypass code
+    const bypassCode = crypto.randomBytes(16).toString('hex');
+    verificationStore.set(keyPrefix, {
+      code: bypassCode,
+      companyId,
+      customerEmail: rawEmail || `${companyId}@agents.invoica.ai`,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      attempts: 0,
+    });
+    res.json({
+      success: true,
+      data: {
+        skipVerification: true,
+        bypassCode,
+        maskedEmail: null,
+        expiresIn: 600,
+      },
+    });
+    return;
+  }
+
+  const customerEmail = rawEmail;
 
   // Generate 6-digit code
   const code = crypto.randomInt(100000, 999999).toString();
@@ -123,6 +149,7 @@ router.post('/v1/ledger/send-verification', async (req: Request, res: Response):
   res.json({
     success: true,
     data: {
+      skipVerification: false,
       maskedEmail: maskEmail(customerEmail),
       expiresIn: 600, // seconds
     },

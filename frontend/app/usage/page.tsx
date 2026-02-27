@@ -132,7 +132,7 @@ export default function UsagePage() {
               href="/billing"
               className="px-5 py-2.5 bg-white text-[#635BFF] rounded-lg text-sm font-semibold hover:bg-white/90 transition-colors"
             >
-              Upgrade to Pro
+              Beta — All features included
             </a>
           )}
         </div>

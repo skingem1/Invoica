@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://65.108.90.178:3001';
+// Empty string = relative path, handled by Next.js rewrites (no mixed content)
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 const KEY_STORAGE  = 'invoica_api_key';
 const VERIFIED_STORAGE = 'invoica_ledger_verified';
 
@@ -35,11 +36,11 @@ interface AgentBalance {
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
-    COMPLETED: 'bg-green-50 text-green-700',
-    SETTLED:   'bg-blue-50  text-blue-700',
-    PROCESSING:'bg-yellow-50 text-yellow-700',
-    PENDING:   'bg-gray-50  text-gray-600',
-    REFUNDED:  'bg-red-50   text-red-700',
+    COMPLETED:  'bg-green-50 text-green-700',
+    SETTLED:    'bg-blue-50  text-blue-700',
+    PROCESSING: 'bg-yellow-50 text-yellow-700',
+    PENDING:    'bg-gray-50  text-gray-600',
+    REFUNDED:   'bg-red-50   text-red-700',
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-50 text-gray-600'}`}>
@@ -53,7 +54,7 @@ function fmt(amount: number, currency = 'USD') {
 }
 
 export default function LedgerPage() {
-  const [step, setStep] = useState<Step>('loading');
+  const [step, setStep]           = useState<Step>('loading');
   const [apiKey, setApiKey]       = useState('');
   const [code, setCode]           = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
@@ -66,7 +67,6 @@ export default function LedgerPage() {
   const [meta, setMeta]           = useState({ total: 0, limit: 50, offset: 0, hasMore: false });
   const [loadingData, setLoadingData] = useState(false);
 
-  // On mount: check if already verified this session
   useEffect(() => {
     const storedKey = localStorage.getItem(KEY_STORAGE);
     const verified  = sessionStorage.getItem(VERIFIED_STORAGE);
@@ -86,7 +86,6 @@ export default function LedgerPage() {
         fetch(`${BACKEND_URL}/v1/ledger/summary`,           { headers: { Authorization: `Bearer ${key}` } }),
       ]);
       if (ledgerRes.status === 401) {
-        // Key no longer valid — clear everything
         localStorage.removeItem(KEY_STORAGE);
         sessionStorage.removeItem(VERIFIED_STORAGE);
         setStep('enter-key');
@@ -122,12 +121,37 @@ export default function LedgerPage() {
         setError(data.error?.message || 'Failed to send verification code');
         return;
       }
+      // Web3 / agent key — no email, skip OTP entirely
+      if (data.data.skipVerification && data.data.bypassCode) {
+        await handleAutoVerify(data.data.bypassCode);
+        return;
+      }
       setMaskedEmail(data.data.maskedEmail);
       setStep('enter-code');
     } catch {
       setError('Network error. Please try again.');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleAutoVerify(bypassCode: string) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/v1/ledger/confirm-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: apiKey.trim(), code: bypassCode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem(KEY_STORAGE, apiKey.trim());
+        sessionStorage.setItem(VERIFIED_STORAGE, 'true');
+        fetchLedger(apiKey.trim());
+      } else {
+        setError('Verification failed. Please try again.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
     }
   }
 
@@ -146,7 +170,6 @@ export default function LedgerPage() {
         setError(data.error?.message || 'Invalid code. Please try again.');
         return;
       }
-      // Verified — store key + session flag
       localStorage.setItem(KEY_STORAGE, apiKey.trim());
       sessionStorage.setItem(VERIFIED_STORAGE, 'true');
       fetchLedger(apiKey.trim());
@@ -174,14 +197,10 @@ export default function LedgerPage() {
   function handleSwitchKey() {
     localStorage.removeItem(KEY_STORAGE);
     sessionStorage.removeItem(VERIFIED_STORAGE);
-    setApiKey('');
-    setCode('');
-    setError('');
-    setMaskedEmail('');
+    setApiKey(''); setCode(''); setError(''); setMaskedEmail('');
     setStep('enter-key');
   }
 
-  // ── Render: loading spinner ──
   if (step === 'loading') {
     return (
       <div className="flex items-center justify-center h-64">
@@ -190,10 +209,14 @@ export default function LedgerPage() {
     );
   }
 
-  // ── Render: enter API key ──
   if (step === 'enter-key') {
     return (
-      <div className="max-w-md mx-auto mt-16">
+      <div className="max-w-md mx-auto mt-12">
+        {/* Beta banner */}
+        <div className="mb-4 flex items-center gap-2 bg-[#635BFF]/10 border border-[#635BFF]/20 rounded-xl px-4 py-3">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#635BFF] text-white">BETA</span>
+          <p className="text-sm text-[#635BFF] font-medium">You're using Invoica during our private beta. All features are free while we're in beta.</p>
+        </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-[#635BFF]/10 rounded-xl flex items-center justify-center">
@@ -218,7 +241,7 @@ export default function LedgerPage() {
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#635BFF]/30 focus:border-[#635BFF]"
                 autoFocus
               />
-              <p className="mt-1.5 text-xs text-gray-400">Any active API key belonging to your company will work.</p>
+              <p className="mt-1.5 text-xs text-gray-400">Any active API key from your company will work.</p>
             </div>
             {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
             <button
@@ -226,9 +249,9 @@ export default function LedgerPage() {
               disabled={sending || !apiKey.trim()}
               className="w-full py-2.5 bg-[#635BFF] text-white rounded-xl text-sm font-medium hover:bg-[#5249e0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              {sending ? (
-                <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Sending code...</>
-              ) : 'Send Verification Code'}
+              {sending
+                ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Verifying...</>
+                : 'Access Ledger'}
             </button>
           </div>
         </div>
@@ -236,10 +259,9 @@ export default function LedgerPage() {
     );
   }
 
-  // ── Render: enter verification code ──
   if (step === 'enter-code') {
     return (
-      <div className="max-w-md mx-auto mt-16">
+      <div className="max-w-md mx-auto mt-12">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
@@ -273,15 +295,13 @@ export default function LedgerPage() {
               disabled={verifying || code.length !== 6}
               className="w-full py-2.5 bg-[#635BFF] text-white rounded-xl text-sm font-medium hover:bg-[#5249e0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              {verifying ? (
-                <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Verifying...</>
-              ) : 'Confirm Access'}
+              {verifying
+                ? <><span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Verifying...</>
+                : 'Confirm Access'}
             </button>
-            <button
-              onClick={() => { setStep('enter-key'); setCode(''); setError(''); }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Back to API key
+            <button onClick={() => { setStep('enter-key'); setCode(''); setError(''); }}
+              className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              Back to key entry
             </button>
           </div>
         </div>
@@ -289,7 +309,6 @@ export default function LedgerPage() {
     );
   }
 
-  // ── Render: error ──
   if (step === 'error') {
     return (
       <div className="max-w-md mx-auto mt-16 text-center">
@@ -299,29 +318,26 @@ export default function LedgerPage() {
     );
   }
 
-  // ── Render: ledger data ──
   const totalDebits  = entries.reduce((s, e) => s + e.debit,  0);
   const totalCredits = entries.reduce((s, e) => s + e.credit, 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Beta banner */}
+      <div className="flex items-center gap-3 bg-[#635BFF]/[0.06] border border-[#635BFF]/15 rounded-xl px-4 py-3">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#635BFF] text-white shrink-0">BETA</span>
+        <p className="text-sm text-[#635BFF]">You're in the private beta. All Invoica features are <strong>free during beta</strong>. No upgrade required.</p>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Company Ledger</h1>
           <p className="text-sm text-gray-500 mt-0.5">Immutable record of all agent transactions</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleSwitchKey}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Switch key
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
+          <button onClick={handleSwitchKey} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Switch key</button>
+          <button onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -330,12 +346,11 @@ export default function LedgerPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Agents',    value: agents.length.toString(),  sub: 'with transactions' },
-          { label: 'Total Debits',    value: fmt(totalDebits),           sub: 'across all agents' },
-          { label: 'Total Entries',   value: meta.total.toString(),      sub: 'transaction records' },
+          { label: 'Total Agents',  value: agents.length.toString(), sub: 'with transactions' },
+          { label: 'Total Debits',  value: fmt(totalDebits),          sub: 'across all agents' },
+          { label: 'Total Entries', value: meta.total.toString(),     sub: 'transaction records' },
         ].map(c => (
           <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-sm text-gray-500 font-medium">{c.label}</p>
@@ -345,20 +360,15 @@ export default function LedgerPage() {
         ))}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
         {(['ledger', 'balances'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             {t === 'ledger' ? 'Transaction Ledger' : 'Agent Balances'}
           </button>
         ))}
       </div>
 
-      {/* Transaction Ledger table */}
       {tab === 'ledger' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -371,27 +381,24 @@ export default function LedgerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {entries.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-sm">No transactions found for this company.</td></tr>
-                ) : entries.map(e => (
-                  <tr key={e.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">{new Date(e.date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700">#{e.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-gray-700 max-w-[120px] truncate" title={e.agentName}>{e.agentName}</td>
-                    <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate" title={e.description}>{e.description || '—'}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{e.debit > 0 ? fmt(e.debit, e.currency) : '—'}</td>
-                    <td className="px-4 py-3 font-medium text-green-700">{e.credit > 0 ? fmt(e.credit, e.currency) : '—'}</td>
-                    <td className="px-4 py-3">{statusBadge(e.status)}</td>
-                    <td className="px-4 py-3">
-                      {e.txHash ? (
-                        <a href={`https://basescan.org/tx/${e.txHash}`} target="_blank" rel="noopener noreferrer"
-                           className="font-mono text-xs text-[#635BFF] hover:underline">
-                          {e.txHash.slice(0, 8)}...{e.txHash.slice(-4)}
-                        </a>
-                      ) : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {entries.length === 0
+                  ? <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-sm">No transactions found for this company.</td></tr>
+                  : entries.map(e => (
+                    <tr key={e.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">{new Date(e.date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700">#{e.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-gray-700 max-w-[120px] truncate" title={e.agentName}>{e.agentName}</td>
+                      <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate" title={e.description}>{e.description || '—'}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{e.debit > 0 ? fmt(e.debit, e.currency) : '—'}</td>
+                      <td className="px-4 py-3 font-medium text-green-700">{e.credit > 0 ? fmt(e.credit, e.currency) : '—'}</td>
+                      <td className="px-4 py-3">{statusBadge(e.status)}</td>
+                      <td className="px-4 py-3">
+                        {e.txHash
+                          ? <a href={`https://basescan.org/tx/${e.txHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-[#635BFF] hover:underline">{e.txHash.slice(0, 8)}...{e.txHash.slice(-4)}</a>
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
               {entries.length > 0 && (
                 <tfoot>
@@ -408,7 +415,6 @@ export default function LedgerPage() {
         </div>
       )}
 
-      {/* Agent Balances table */}
       {tab === 'balances' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -421,22 +427,22 @@ export default function LedgerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {agents.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-sm">No agent data found.</td></tr>
-                ) : agents.map(a => (
-                  <tr key={a.agentId} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{a.agentName}</div>
-                      <div className="text-xs text-gray-400 font-mono">{a.agentId}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{a.txCount}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{fmt(a.debit, a.currency)}</td>
-                    <td className="px-4 py-3 font-medium text-green-700">{fmt(a.credit, a.currency)}</td>
-                    <td className={`px-4 py-3 font-bold ${a.net >= 0 ? 'text-gray-900' : 'text-green-700'}`}>
-                      {fmt(Math.abs(a.net), a.currency)}{a.net < 0 ? ' CR' : ''}
-                    </td>
-                  </tr>
-                ))}
+                {agents.length === 0
+                  ? <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-sm">No agent data found.</td></tr>
+                  : agents.map(a => (
+                    <tr key={a.agentId} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{a.agentName}</div>
+                        <div className="text-xs text-gray-400 font-mono">{a.agentId}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{a.txCount}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{fmt(a.debit, a.currency)}</td>
+                      <td className="px-4 py-3 font-medium text-green-700">{fmt(a.credit, a.currency)}</td>
+                      <td className={`px-4 py-3 font-bold ${a.net >= 0 ? 'text-gray-900' : 'text-green-700'}`}>
+                        {fmt(Math.abs(a.net), a.currency)}{a.net < 0 ? ' CR' : ''}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
