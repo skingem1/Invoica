@@ -49,11 +49,23 @@ export default function Hero() {
                 <svg className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
               </a>
               <a
-                href="https://docs.invoica.ai"
+                href="mailto:sales@invoica.ai"
                 className="inline-flex items-center px-8 py-4 text-sm font-semibold text-invoica-blue border-2 border-invoica-gray-200 rounded-full hover:bg-invoica-purple/5 hover:border-invoica-purple hover:text-invoica-purple transition-all duration-300"
               >
-                Read the Docs
+                Contact Sales
               </a>
+            </div>
+
+            {/* Dual-funnel labels */}
+            <div className="flex flex-wrap gap-6 mt-5">
+              <p className="text-xs text-invoica-gray-400 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-invoica-purple" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                Free tier — first invoice in &lt;10 min
+              </p>
+              <p className="text-xs text-invoica-gray-400 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-invoica-purple" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                Enterprise — RBAC, compliance &amp; SLA
+              </p>
             </div>
           </div>
 

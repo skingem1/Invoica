@@ -2,54 +2,66 @@
 
 const tiers = [
   {
-    name: 'Free',
-    price: '$0',
-    period: '/month',
-    description: 'Perfect for experimenting and building your first integration.',
+    name: 'Developer',
+    price: 'Free',
+    period: '',
+    description: 'Everything you need to build and test your first AI agent integration.',
+    badge: null,
     features: [
-      '100 invoices per month',
-      'Basic tax calculation',
+      'Up to 1,000 invoices / month',
+      '$10K processed volume / month',
+      'x402 payment settlement',
       'Webhook notifications',
-      'Community support',
+      'Full API & SDK access',
       'Sandbox environment',
+      'Community support',
     ],
-    cta: 'Start Free',
-    href: 'https://invoica.wp1.host',
+    cta: 'Start Building →',
+    href: 'https://app.invoica.ai/api-keys',
     highlighted: false,
+    ctaClass: 'bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white hover:shadow-lg hover:shadow-invoica-purple/30 hover:-translate-y-0.5',
   },
   {
-    name: 'Pro',
-    price: '$49',
-    period: '/month',
-    description: 'For production AI agent platforms with growing transaction volume.',
+    name: 'Growth',
+    price: '0.5%',
+    period: 'of volume',
+    description: 'For production deployments with growing agent transaction volume.',
+    badge: 'Most Popular',
     features: [
-      '10,000 invoices per month',
+      'Unlimited invoices',
+      'Unlimited processed volume',
+      'Advanced settlement dashboard',
       'Multi-jurisdiction tax compliance',
-      'Budget enforcement',
+      'Budget enforcement per agent',
       'Priority webhook delivery',
-      'Email support',
+      'Email & Slack support',
       'Advanced analytics',
     ],
-    cta: 'Start Pro Trial',
-    href: 'https://invoica.wp1.host',
+    cta: 'Start for Free →',
+    href: 'https://app.invoica.ai/api-keys',
     highlighted: true,
+    ctaClass: 'bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white hover:shadow-lg hover:shadow-invoica-purple/30 hover:-translate-y-0.5',
   },
   {
     name: 'Enterprise',
     price: 'Custom',
     period: '',
-    description: 'For large-scale agent deployments with custom compliance needs.',
+    description: 'For large-scale agent fleets with compliance, RBAC, and SLA requirements.',
+    badge: null,
     features: [
-      'Unlimited invoices',
+      'Everything in Growth',
+      'RBAC & team permissions',
       'Custom tax jurisdiction rules',
       'Dedicated settlement monitoring',
-      'SLA guarantees',
+      'SLA guarantees (99.99% uptime)',
       'Dedicated account manager',
-      'Custom integrations',
+      'Custom integrations & contracts',
+      'On-chain audit trails',
     ],
     cta: 'Contact Sales',
     href: 'mailto:sales@invoica.ai',
     highlighted: false,
+    ctaClass: 'border-2 border-invoica-gray-200 text-invoica-blue hover:border-invoica-purple hover:text-invoica-purple hover:bg-invoica-purple/5',
   },
 ];
 
@@ -67,7 +79,7 @@ export default function Pricing() {
             Simple, transparent pricing
           </h2>
           <p className="text-lg text-invoica-gray-500 max-w-2xl mx-auto">
-            Start free. Scale as your agents grow. No hidden fees.
+            Start free. Pay as your agents scale. No hidden fees, no invoices for your invoices.
           </p>
         </div>
 
@@ -81,17 +93,19 @@ export default function Pricing() {
                   : 'bg-white shadow-sm border border-invoica-gray-200 hover:shadow-lg hover:border-invoica-gray-300'
               }`}
             >
-              {tier.highlighted && (
+              {tier.badge && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white text-xs font-semibold rounded-full shadow-lg shadow-invoica-purple/30">
-                  Most Popular
+                  {tier.badge}
                 </div>
               )}
 
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-invoica-blue mb-2">{tier.name}</h3>
-                <div className="flex items-baseline gap-1 mb-3">
+                <div className="flex items-baseline gap-1.5 mb-3">
                   <span className="text-5xl font-bold text-invoica-blue tracking-tight">{tier.price}</span>
-                  <span className="text-invoica-gray-400 text-sm">{tier.period}</span>
+                  {tier.period && (
+                    <span className="text-invoica-gray-400 text-sm">{tier.period}</span>
+                  )}
                 </div>
                 <p className="text-sm text-invoica-gray-500">{tier.description}</p>
               </div>
@@ -109,17 +123,19 @@ export default function Pricing() {
 
               <a
                 href={tier.href}
-                className={`block w-full text-center py-3.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                  tier.highlighted
-                    ? 'bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white hover:shadow-lg hover:shadow-invoica-purple/30 hover:-translate-y-0.5'
-                    : 'border-2 border-invoica-gray-200 text-invoica-blue hover:border-invoica-purple hover:text-invoica-purple hover:bg-invoica-purple/5'
-                }`}
+                className={`block w-full text-center py-3.5 rounded-xl text-sm font-semibold transition-all duration-300 ${tier.ctaClass}`}
               >
                 {tier.cta}
               </a>
             </div>
           ))}
         </div>
+
+        {/* Bottom note */}
+        <p className="text-center text-sm text-invoica-gray-400 mt-12">
+          All plans include full API access, webhook support, and on-chain settlement detection.{' '}
+          <a href="https://docs.invoica.ai" className="text-invoica-purple hover:underline">Read the docs →</a>
+        </p>
       </div>
     </section>
   );
