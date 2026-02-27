@@ -66,7 +66,7 @@ async function recordPaymentInvoice(payment: NonNullable<Request['x402Payment']>
     const now = new Date().toISOString();
 
     // Get next invoice number via sequence
-    const { data: seqData } = await sb.rpc('nextval', { seq: 'invoice_number_seq' }).single().catch(() => ({ data: null }));
+    let seqData: any = null; try { const seqRes = await sb.rpc('nextval', { seq: 'invoice_number_seq' }).single(); seqData = seqRes.data; } catch {}
     const invoiceNum = seqData || Math.floor(Date.now() / 1000);
 
     const { data, error } = await sb.from('Invoice').insert({
