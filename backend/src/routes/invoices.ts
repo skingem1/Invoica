@@ -14,7 +14,7 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
 // IMPORTANT: /number/:number MUST be before /:id to avoid Express matching "number" as an id
 router.get('/v1/invoices/number/:number', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const invoiceNumber = parseInt(req.params.number, 10);
+    const invoiceNumber = parseInt(req.params.number as string, 10);
     if (isNaN(invoiceNumber)) {
       res.status(400).json({ success: false, error: { message: 'Invalid invoice number', code: 'INVALID_NUMBER' } });
       return;
@@ -30,7 +30,7 @@ router.get('/v1/invoices/number/:number', async (req: Request, res: Response, ne
 
 router.get('/v1/invoices/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const invoice = await getInvoiceById(req.params.id);
+    const invoice = await getInvoiceById(req.params.id as string);
     if (!invoice) {
       res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
       return;
