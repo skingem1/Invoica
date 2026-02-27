@@ -107,6 +107,21 @@ async function getSystemStatus(): Promise<string> {
   return `📊 *System Status*\n\nEnvironment: ${process.env.NODE_ENV || 'production'}\nUptime: ${Math.floor(process.uptime() / 60)}m ${Math.floor(process.uptime() % 60)}s\nMemory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB used\nAPI: https://invoica.wp1.host/v1/health`;
 }
 
+
+async function getLiveUsdcBalance(address: string): Promise<number> {
+  const padded = address.slice(2).padStart(64, '0');
+  const res = await fetch('https://mainnet.base.org', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'eth_call',
+      params: [{ to: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', data: '0x70a08231' + padded }, 'latest']
+    })
+  });
+  const json = await res.json() as { result: string };
+  return Number(BigInt(json.result || '0x0')) / 1_000_000;
+}
+
 async function handleUpdate(update: TelegramUpdate): Promise<void> {
   if (!update.message?.text) return;
   const { chat, from, text } = update.message;
@@ -119,10 +134,14 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   }
 
   if (text === '/start') {
+    // Store owner chat ID for wallet alerts
+    if (from.id === ALLOWED_USER_ID) {
+      process.env.OWNER_TELEGRAM_CHAT_ID = chatId.toString();
+    }
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `👋 Welcome back, ${from.first_name}.\n\nI'm your Invoica executive assistant, powered by Claude.\n\n*Commands:*\n/status — System health & metrics\n/clear — Clear conversation history\n/help — Show this menu\n\nOr just talk to me naturally.`,
+      text: `👋 Welcome back, ${from.first_name}.\n\nI'm your Invoica executive assistant, powered by Claude.\n\n*Commands:*\n/status — System health & metrics\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve & execute a USDC top-up\n/reject_topup <id> — Reject a top-up request\n/clear — Clear conversation history\n/help — Show this menu\n\nOr just talk to me naturally.`,
     });
     return;
   }
@@ -143,8 +162,62 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `📋 *CEO Bot Commands*\n\n/status — Platform health & uptime\n/clear — Reset conversation\n/help — This menu\n\nOr send any message to chat with Claude AI.`,
+      text: `📋 *CEO Bot Commands*\n\n/status — Platform health & uptime\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve & execute a USDC top-up\n/reject_topup <id> — Reject a top-up request\n/clear — Reset conversation\n/help — This menu\n\nOr send any message to chat with Claude AI.`,
     });
+    return;
+  }
+
+  if (text === '/wallets') {
+    await telegramSend('sendMessage', { chat_id: chatId, text: '🔄 Fetching live on-chain balances...' });
+    try {
+      const { getAgentWallets, updateBalance } = await import('../../../scripts/wallet-service');
+      const wallets = await getAgentWallets();
+      const lines = ['💳 *Agent Wallet Balances (Live)*\n'];
+      for (const w of wallets!) {
+        const liveBalance = await getLiveUsdcBalance(w.address);
+        await updateBalance(w.agent_name, liveBalance);
+        const icon = liveBalance < Number(w.low_balance_threshold) ? '🔴' : '🟢';
+        const treasury = w.is_treasury ? ' (treasury)' : '';
+        lines.push(`${icon} \`${w.agent_name}\`${treasury}: $${liveBalance.toFixed(2)} USDC`);
+      }
+      lines.push('\n_Live from Base mainnet RPC_');
+      await telegramSend('sendMessage', { chat_id: chatId, parse_mode: 'Markdown', text: lines.join('\n') });
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `⚠️ Could not fetch wallets: ${err.message}` });
+    }
+    return;
+  }
+
+  if (text?.startsWith('/approve_topup ')) {
+    const requestId = text.replace('/approve_topup ', '').trim();
+    try {
+      const { approveTopupRequest } = await import('../../../scripts/wallet-service');
+      const { executeTopup } = await import('../../../scripts/wallet-topup');
+      await approveTopupRequest(requestId);
+      await telegramSend('sendMessage', { chat_id: chatId, text: `✅ Top-up approved. Executing transfer...` });
+      const txHash = await executeTopup(requestId);
+      await telegramSend('sendMessage', {
+        chat_id: chatId,
+        parse_mode: 'Markdown',
+        text: `✅ *Top-up complete!*\n\nTX: \`${txHash}\`\n[View on BaseScan](https://basescan.org/tx/${txHash})`
+      });
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Top-up failed: ${err.message}` });
+    }
+    return;
+  }
+
+  if (text?.startsWith('/reject_topup ')) {
+    const requestId = text.replace('/reject_topup ', '').trim();
+    try {
+      const supabase = (await import('@supabase/supabase-js')).createClient(
+        process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      await supabase.from('agent_topup_requests').update({ status: 'rejected' }).eq('id', requestId);
+      await telegramSend('sendMessage', { chat_id: chatId, text: `🚫 Top-up request ${requestId.slice(0,8)}... rejected.` });
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Error: ${err.message}` });
+    }
     return;
   }
 
@@ -166,12 +239,56 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   }
 }
 
+async function startWalletMonitor(): Promise<void> {
+  const POLL_INTERVAL_MS = 60_000; // check every 60 seconds
+
+  const checkWallets = async () => {
+    try {
+      const ownerChatId = process.env.OWNER_TELEGRAM_CHAT_ID;
+      if (!ownerChatId) return; // no owner chat registered yet
+
+      const { getAgentWallets } = await import('../../../scripts/wallet-service');
+      const wallets = await getAgentWallets();
+      if (!wallets) return;
+
+      for (const w of wallets) {
+        if (Number(w.usdc_balance) < Number(w.low_balance_threshold)) {
+          const msg =
+            `🔴 *Low Wallet Alert*\n\n` +
+            `Agent: \`${w.agent_name}\`\n` +
+            `Balance: $${Number(w.usdc_balance).toFixed(2)} USDC\n` +
+            `Threshold: $${Number(w.low_balance_threshold).toFixed(2)} USDC\n\n` +
+            `Use /approve_topup <request_id> to fund this wallet.`;
+          await telegramSend('sendMessage', {
+            chat_id: ownerChatId,
+            parse_mode: 'Markdown',
+            text: msg,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[CeoBot] Wallet monitor error:', err);
+    }
+  };
+
+  // Delay first check by 30 seconds to let the process warm up
+  setTimeout(() => {
+    checkWallets();
+    setInterval(checkWallets, POLL_INTERVAL_MS);
+  }, 30_000);
+
+  console.log('[CeoBot] Wallet monitor background task started (60s interval).');
+}
+
 export async function startCeoBot(): Promise<void> {
   if (!TELEGRAM_TOKEN) {
     console.log('[CeoBot] CEO_TELEGRAM_BOT_TOKEN not set — skipping');
     return;
   }
   console.log('[CeoBot] Starting CEO executive bot...');
+
+  // Start wallet monitoring background task
+  startWalletMonitor();
 
   let offset = 0;
   const poll = async (): Promise<void> => {

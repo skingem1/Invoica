@@ -31,6 +31,8 @@ model Invoice {
   customerEmail   String
   /// Customer name
   customerName    String
+  /// Company/organization identifier for multi-tenant scoping
+  companyId       String?
   /// Payment details stored as JSON (e.g., payment method, transaction ID)
   paymentDetails  Json?
   /// Timestamp when invoice was settled
@@ -43,6 +45,7 @@ model Invoice {
   updatedAt       DateTime      @updatedAt
 
   @@index([status])
+  @@index([companyId])
   @@index([customerEmail])
   @@index([invoiceNumber])
 }

@@ -44,6 +44,7 @@ export const CreateInvoiceInputSchema = z.object({
   currency: z.string().length(3, 'Currency must be a 3-letter code').default('USD'),
   customerEmail: z.string().email('Invalid email address'),
   customerName: z.string().min(1, 'Customer name is required'),
+  companyId: z.string().optional(),
   paymentDetails: z.record(z.unknown()).optional(),
 });
 
@@ -135,6 +136,7 @@ export async function createPendingInvoice(
         currency: validatedInput.currency,
         customerEmail: validatedInput.customerEmail,
         customerName: validatedInput.customerName,
+        companyId: validatedInput.companyId ?? null,
         paymentDetails: validatedInput.paymentDetails ?? undefined,
       },
     });

@@ -38,7 +38,7 @@ export interface ApiKey {
  */
 export const createApiKeySchema = z.object({
   customerId: z.string().min(1, 'Customer ID is required'),
-  customerEmail: z.string().email('Valid email is required'),
+  customerEmail: z.string().email('Valid email is required').optional(),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   tier: z.string().default('free'),
   plan: z.string().default('basic'),
@@ -229,7 +229,7 @@ export const createApiKey = async (input: CreateApiKeyInput): Promise<ApiKeyResp
   // Create in database
   const createdKey = await apiKeyRepository.create({
     customerId: validatedInput.customerId,
-    customerEmail: validatedInput.customerEmail,
+    customerEmail: validatedInput.customerEmail || `${validatedInput.customerId}@agents.invoica.ai`,
     keyHash,
     keyPrefix,
     name: validatedInput.name,
@@ -383,3 +383,11 @@ export default {
   setApiKeyRepository,
   getApiKeyRepository,
 };
+
+// ─── Supabase Repository Bootstrap ─────────────────────────────────────────
+// Auto-wire Supabase-backed repository when env vars are available.
+// This replaces the in-memory repository at startup.
+import { SupabaseApiKeyRepository } from './api-key-repo-supabase';
+if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  setApiKeyRepository(new SupabaseApiKeyRepository());
+}
