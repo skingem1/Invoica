@@ -21,6 +21,16 @@ import * as path from 'path';
 import { postTweet, postThread } from './x-post-utility';
 import 'dotenv/config';
 
+// ─── Credential Remap ────────────────────────────────────────────────
+// Override X_* vars with INVOICA_X_* so x-post-utility posts to @invoica_ai.
+// loadCredentials() in x-post-utility is called lazily (inside postTweet/postThread),
+// so setting process.env here before any API call is sufficient.
+if (process.env.INVOICA_X_API_KEY)            process.env.X_API_KEY            = process.env.INVOICA_X_API_KEY;
+if (process.env.INVOICA_X_API_SECRET)         process.env.X_API_SECRET         = process.env.INVOICA_X_API_SECRET;
+if (process.env.INVOICA_X_ACCESS_TOKEN)       process.env.X_ACCESS_TOKEN       = process.env.INVOICA_X_ACCESS_TOKEN;
+if (process.env.INVOICA_X_ACCESS_TOKEN_SECRET) process.env.X_ACCESS_TOKEN_SECRET = process.env.INVOICA_X_ACCESS_TOKEN_SECRET;
+if (process.env.INVOICA_X_BEARER_TOKEN)       process.env.X_BEARER_TOKEN       = process.env.INVOICA_X_BEARER_TOKEN;
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 interface ScheduledPost {
