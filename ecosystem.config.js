@@ -50,12 +50,48 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 9 * * *",
+      args: "full-scan",
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
       },
       error_file: "/home/invoica/apps/Invoica/logs/cto-scan-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/cto-scan-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
+      name: "heartbeat",
+      script: "./scripts/heartbeat-daemon.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "*/15 * * * *",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/heartbeat-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/heartbeat-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
+      name: "cmo-daily-watch",
+      script: "./scripts/run-cmo-fixed.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "0 8 * * *",
+      args: "market-watch",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/cmo-watch-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/cmo-watch-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     }
   ]
