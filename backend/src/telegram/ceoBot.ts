@@ -824,8 +824,49 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `👋 Welcome back, ${from.first_name}.\n\nInvoica CEO assistant.\n\n*Commands:*\n/status — System health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Clear conversation\n/help — Show menu\n\nOr chat naturally — I can also generate videos via MiniMax.`,
+      text: `👋 Welcome back, ${from.first_name}.\n\nInvoica CEO assistant.\n\n*Commands:*\n/status — System health\n/wallets — Agent wallet balances\n/update — Pull latest code + restart (no AI needed)\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Clear conversation\n/help — Show menu\n\nOr chat naturally — I can also generate videos via MiniMax.`,
     });
+    return;
+  }
+
+  // ── /update — self-deploy without needing Anthropic API ──
+  // This works even when the AI backend is broken, so the owner can always recover.
+  if (text === '/update') {
+    await telegramSend('sendMessage', { chat_id: chatId, text: '🔄 Pulling latest code and restarting...' });
+    try {
+      const gitPull = spawnSync('git', ['pull', 'origin', 'main'], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        timeout: 30_000,
+        env: { ...process.env, HOME: '/home/invoica', PATH: '/home/invoica/.nodejs/bin:/usr/local/bin:/usr/bin:/bin' },
+      });
+      const pullOut = (gitPull.stdout || '').trim() || gitPull.stderr?.trim() || '(no output)';
+
+      const build = spawnSync('npm', ['run', 'build'], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        timeout: 60_000,
+        env: { ...process.env, HOME: '/home/invoica', PATH: '/home/invoica/.nodejs/bin:/usr/local/bin:/usr/bin:/bin' },
+      });
+      const buildOk = build.status === 0;
+      const buildOut = buildOk ? 'Build ✅' : `Build ❌\n${(build.stderr || '').slice(0, 300)}`;
+
+      // Send status before restart (PM2 restart kills this process)
+      await telegramSend('sendMessage', {
+        chat_id: chatId,
+        text: `📦 Git: ${pullOut}\n${buildOut}\n\n♻️ Restarting backend now...`,
+      });
+
+      // Restart via PM2 (will kill and relaunch this process)
+      spawnSync('pm2', ['restart', 'backend'], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        timeout: 15_000,
+        env: { ...process.env, HOME: '/home/invoica', PATH: '/home/invoica/.nodejs/bin:/usr/local/bin:/usr/bin:/bin' },
+      });
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Update failed: ${err.message}` });
+    }
     return;
   }
 
