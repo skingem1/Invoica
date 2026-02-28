@@ -747,6 +747,18 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
       body
     );
 
+    // Detect API-level errors (auth failure, rate limit, overloaded, etc.)
+    // These come back as HTTP 200 with { type: 'error', error: { type, message } }
+    // and would otherwise silently produce 'No response.'
+    if (response?.type === 'error' || (!response?.stop_reason && !response?.content)) {
+      const errType = response?.error?.type || 'unknown';
+      const errMsg = response?.error?.message || JSON.stringify(response).slice(0, 300);
+      console.error(`[CeoBot] Anthropic API error (${errType}):`, errMsg);
+      // Pop the bad user message from history to avoid corrupting context
+      history.pop();
+      return `❌ AI error (${errType}): ${errMsg}`;
+    }
+
     const stopReason = response?.stop_reason;
     const content: ContentBlock[] = response?.content || [];
 
@@ -779,7 +791,7 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
 
     // End of agentic loop — extract text response
     const textBlock = content.find((b: ContentBlock) => b.type === 'text');
-    const reply = textBlock?.text || 'No response.';
+    const reply = textBlock?.text || `(stop_reason: ${stopReason}, content types: ${content.map(b => b.type).join(', ') || 'none'})`;
     // Update last history entry with clean text
     history[history.length - 1] = { role: 'assistant', content: reply };
     return reply;
