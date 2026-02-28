@@ -41,17 +41,19 @@ const ALLOWED_USER_ID = process.env.CEO_TELEGRAM_USER_ID
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'skingem1/Invoica';
 
-// ─── Real Wallet Addresses (from Supabase agent_wallets) ────────────────────
+// ─── Agent Wallet Addresses — loaded from env, never hardcoded in source ─────
+// Add to .env: WALLET_CEO, WALLET_CFO, WALLET_CTO, WALLET_CMO,
+//              WALLET_BIZDEV, WALLET_CODE, WALLET_FAST, WALLET_SUPPORT
 const AGENT_WALLETS = {
-  ceo:     { address: '0x9E0e342e4E2Df813B27F078AD0119eD6c289643f', treasury: true },
-  cfo:     { address: '0x7B5BE6D949bC3FcD5BBc62fc6cB03a406e187571', treasury: false },
-  cto:     { address: '0x3e127c918C83714616CF2416f8A620F1340C19f1', treasury: false },
-  cmo:     { address: '0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0', treasury: false },
-  bizdev:  { address: '0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546', treasury: false },
-  code:    { address: '0xB6C18ec7b13649756436913856eA9F82c13c5c25', treasury: false },
-  fast:    { address: '0xfB7792E7CaEa2c96570d1eD62e205B8Dc7320d45', treasury: false },
-  support: { address: '0x51A96753db8709AAf9974689DC17fd9B77830aaC', treasury: false },
-} as const;
+  ceo:     { address: process.env.WALLET_CEO     || '', treasury: true },
+  cfo:     { address: process.env.WALLET_CFO     || '', treasury: false },
+  cto:     { address: process.env.WALLET_CTO     || '', treasury: false },
+  cmo:     { address: process.env.WALLET_CMO     || '', treasury: false },
+  bizdev:  { address: process.env.WALLET_BIZDEV  || '', treasury: false },
+  code:    { address: process.env.WALLET_CODE    || '', treasury: false },
+  fast:    { address: process.env.WALLET_FAST    || '', treasury: false },
+  support: { address: process.env.WALLET_SUPPORT || '', treasury: false },
+};
 
 const SYSTEM_PROMPT = `You ARE the CEO of Invoica. Not an assistant. Not an interface. The Chief Executive Officer.
 
@@ -84,14 +86,14 @@ Execution: backend-core, backend-tax, backend-ledger, frontend, security, devops
 ═══════════════════════════════════════════
 AGENT WALLET ADDRESSES
 ═══════════════════════════════════════════
-CEO (treasury):  0x9E0e342e4E2Df813B27F078AD0119eD6c289643f
-CFO:             0x7B5BE6D949bC3FcD5BBc62fc6cB03a406e187571
-CTO:             0x3e127c918C83714616CF2416f8A620F1340C19f1
-CMO:             0xEDc68bBC5dF3f0873d33d6654921594Fe42dcbc0
-BizDev:          0xfd9CF7e2F1C7e5E937F740a0D8398cef7C44a546
-Code:            0xB6C18ec7b13649756436913856eA9F82c13c5c25
-Fast:            0xfB7792E7CaEa2c96570d1eD62e205B8Dc7320d45
-Support:         0x51A96753db8709AAf9974689DC17fd9B77830aaC
+CEO (treasury):  ${AGENT_WALLETS.ceo.address     || '(not set — add WALLET_CEO to .env)'}
+CFO:             ${AGENT_WALLETS.cfo.address     || '(not set — add WALLET_CFO to .env)'}
+CTO:             ${AGENT_WALLETS.cto.address     || '(not set — add WALLET_CTO to .env)'}
+CMO:             ${AGENT_WALLETS.cmo.address     || '(not set — add WALLET_CMO to .env)'}
+BizDev:          ${AGENT_WALLETS.bizdev.address  || '(not set — add WALLET_BIZDEV to .env)'}
+Code:            ${AGENT_WALLETS.code.address    || '(not set — add WALLET_CODE to .env)'}
+Fast:            ${AGENT_WALLETS.fast.address    || '(not set — add WALLET_FAST to .env)'}
+Support:         ${AGENT_WALLETS.support.address || '(not set — add WALLET_SUPPORT to .env)'}
 Network: Base (chain ID 8453) | USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
 
 ═══════════════════════════════════════════

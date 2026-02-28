@@ -10,8 +10,10 @@ import { base } from 'viem/chains';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const;
 const BASE_RPC = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
 
-// Seller wallet receives payment (CTO agent wallet)
-const SELLER_WALLET = (process.env.X402_SELLER_WALLET || process.env.SELLER_WALLET || '0x3e127c918C83714616CF2416f8A620F1340C19f1') as `0x${string}`;
+// Seller wallet receives payment — must be set via X402_SELLER_WALLET in .env
+// Never hardcode the address in source (public repo).
+const SELLER_WALLET = (process.env.X402_SELLER_WALLET || process.env.SELLER_WALLET || '') as `0x${string}`;
+if (!SELLER_WALLET) console.error('[x402] WARNING: X402_SELLER_WALLET not set in .env — all payment verifications will fail');
 
 // Price per inference call (default: 0.001 USDC = 1000 atomic units)
 const PRICE_ATOMIC = BigInt(process.env.X402_PRICE_ATOMIC || '1000');
