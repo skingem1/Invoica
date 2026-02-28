@@ -342,7 +342,7 @@ async function getLiveUsdcBalance(address: string): Promise<number> {
   return Math.max(...results);
 }
 
-async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function executeTool(name: string, input: Record<string, unknown>, recentHistory: Message[] = []): Promise<string> {
   if (name === 'check_wallet_balance') {
     const agent = input.agent as keyof typeof AGENT_WALLETS;
     const wallet = AGENT_WALLETS[agent];
@@ -601,6 +601,23 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
       return `Blocked: command looks dangerous. Refusing to execute.`;
     }
 
+    // Guard: git push / commit / reset --hard require the owner to have
+    // said "confirm" (or similar) in a recent message. This prevents the
+    // CEO from committing/pushing based on a misread freeform instruction.
+    const GUARDED_GIT = /git\s+(push|commit|reset\s+--hard|rebase\b|checkout\s+--)/;
+    if (GUARDED_GIT.test(cmd)) {
+      // Look at the last few *user* messages in this conversation for explicit sign-off
+      const recentUserMessages = recentHistory
+        .filter(m => m.role === 'user' && typeof m.content === 'string')
+        .slice(-4)
+        .map(m => m.content as string);
+      const CONFIRM_RE = /\bconfirm\b|\byes[,.]?\s*(commit|push|do it|go ahead|proceed)\b|\bgo ahead\b|\bdo it\b/i;
+      const confirmed = recentUserMessages.some(msg => CONFIRM_RE.test(msg));
+      if (!confirmed) {
+        return `⚠️ *Confirmation required* before running:\n\`${cmd}\`\n\nReply with "confirm" to proceed, or rephrase if this wasn't intentional.`;
+      }
+    }
+
     try {
       console.log(`[CeoBot] run_shell: ${cmd}`);
       const result = spawnSync('/bin/bash', ['-c', cmd], {
@@ -776,7 +793,7 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
         console.log(`[CeoBot] Tool call: ${toolName}`, toolInput);
         if (onToolCall) onToolCall(toolName);
 
-        const result = await executeTool(toolName, toolInput);
+        const result = await executeTool(toolName, toolInput, history.slice(-8));
         toolResults.push({
           type: 'tool_result',
           tool_use_id: toolBlock.id,
@@ -943,7 +960,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     return;
   }
 
-  if (text === '/clear') {
+  if (text === '/clear' || text === '/clean') {
     conversationHistory.delete(from.id);
     await telegramSend('sendMessage', { chat_id: chatId, text: '🧹 Conversation cleared.' });
     return;
