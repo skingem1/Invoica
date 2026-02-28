@@ -77,6 +77,23 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
+      name: "x-admin-post",
+      script: "./scripts/run-x-admin.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "*/30 * * * *",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/x-admin-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/x-admin-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
       name: "cmo-daily-watch",
       script: "./scripts/run-cmo-fixed.ts",
       interpreter: "node",
