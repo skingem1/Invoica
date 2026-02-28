@@ -891,8 +891,8 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       parse_mode: 'Markdown',
       text: `📋 *Sprint Week-${num}* loaded\n*Theme:* ${sprintData.theme || 'N/A'}\n*Tasks:* ${sprintData.tasks?.length || 0}\n\n${taskSummary}\n\n⏳ Asking Claude to spawn agents...`,
     });
-    // Inject sprint spec into Claude so it can spawn the agents
-    const injected = `Launch sprint week-${num}. Here is the sprint spec JSON — read it, then use sessions_spawn to start each agent on their assigned tasks. Confirm which agents were started and what they are working on.\n\n\`\`\`json\n${sprintJson}\n\`\`\``;
+    // Inject sprint spec into Claude — instruct it to use real available tools
+    const injected = `Sprint week-${num} is now active. Here is the full sprint spec JSON:\n\n\`\`\`json\n${sprintJson}\n\`\`\`\n\nYour job as CEO is to kick off this sprint using the tools you have. For EACH task in the sprint:\n1. Use create_github_issue to create a detailed implementation ticket — include the task id, description, acceptance criteria, and any context from the sprint JSON. If the issue already exists (check github_issue field), skip creation but note it.\n2. Use run_shell to: git checkout -b sprint-${num}/<task-id> for the first coding task, then push it.\n3. After processing all tasks, use write_file to write a sprint launch report to reports/sprint-${num}-launch.md summarising: tasks kicked off, GitHub issue links, branch names, and which agent handles each.\n4. Use run_shell to git add + commit + push the launch report.\n\nDo NOT say you cannot do this. You have create_github_issue, run_shell, and write_file. Work through the task list one by one. Start now.`;
     await telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' });
     const typingInterval = setInterval(() => {
       telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
