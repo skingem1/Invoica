@@ -725,7 +725,7 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
 
   // Agentic loop — keep calling Claude until no more tool calls
   let iterations = 0;
-  while (iterations < 10) {
+  while (iterations < 25) {
     iterations++;
 
     const body = JSON.stringify({
@@ -797,7 +797,7 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
     return reply;
   }
 
-  return '⚠️ Reached max tool call iterations.';
+  return '⚠️ Reached max tool call iterations (25). Break this into smaller requests.';
 }
 
 // ─── System Status ────────────────────────────────────────────────────────────
