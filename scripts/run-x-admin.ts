@@ -13,7 +13,7 @@
  * State file: reports/invoica-x-admin/posted-ids.json
  * Post logs:  reports/invoica-x-admin/post-log-YYYY-MM-DD.md
  *
- * Schedule: PM2 cron_restart: "*/30 * * * *"
+ * Schedule: PM2 cron_restart every 30 minutes
  */
 
 import * as fs from 'fs';
