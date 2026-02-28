@@ -3,62 +3,70 @@
 /**
  * run-x-admin.ts — Invoica X/Twitter Autonomous Posting Agent
  *
- * Reads the content calendar, checks which posts are due, and publishes
- * any that haven't been posted yet. Designed to run every 30 minutes via
- * PM2 cron so no scheduled post is ever missed by more than 30 minutes.
+ * Reads the content calendar, reviews each post with CEO (vision/tone)
+ * and CTO (technical accuracy for technical posts), then publishes
+ * approved content to @invoica_ai.
  *
- * All times in the calendar are CET (UTC+1 in winter, UTC+2 in summer).
- * This script converts to UTC automatically.
+ * Review flow:
+ *   1. CEO reviews every post (company vision + communication plan alignment)
+ *   2. CTO reviews technical posts (accuracy of x402/API/blockchain claims)
+ *   3. Only APPROVED posts are published
+ *   4. Rejected drafts saved to reports/invoica-x-admin/drafts/rejected/
+ *
+ * Schedule: PM2 cron_restart every 30 minutes
  *
  * State file: reports/invoica-x-admin/posted-ids.json
  * Post logs:  reports/invoica-x-admin/post-log-YYYY-MM-DD.md
- *
- * Schedule: PM2 cron_restart every 30 minutes
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
 import { postTweet, postThread } from './x-post-utility';
 import 'dotenv/config';
 
 // ─── Credential Remap ────────────────────────────────────────────────
 // Override X_* vars with INVOICA_X_* so x-post-utility posts to @invoica_ai.
-// loadCredentials() in x-post-utility is called lazily (inside postTweet/postThread),
-// so setting process.env here before any API call is sufficient.
-if (process.env.INVOICA_X_API_KEY)            process.env.X_API_KEY            = process.env.INVOICA_X_API_KEY;
-if (process.env.INVOICA_X_API_SECRET)         process.env.X_API_SECRET         = process.env.INVOICA_X_API_SECRET;
-if (process.env.INVOICA_X_ACCESS_TOKEN)       process.env.X_ACCESS_TOKEN       = process.env.INVOICA_X_ACCESS_TOKEN;
+if (process.env.INVOICA_X_API_KEY)             process.env.X_API_KEY             = process.env.INVOICA_X_API_KEY;
+if (process.env.INVOICA_X_API_SECRET)          process.env.X_API_SECRET          = process.env.INVOICA_X_API_SECRET;
+if (process.env.INVOICA_X_ACCESS_TOKEN)        process.env.X_ACCESS_TOKEN        = process.env.INVOICA_X_ACCESS_TOKEN;
 if (process.env.INVOICA_X_ACCESS_TOKEN_SECRET) process.env.X_ACCESS_TOKEN_SECRET = process.env.INVOICA_X_ACCESS_TOKEN_SECRET;
-if (process.env.INVOICA_X_BEARER_TOKEN)       process.env.X_BEARER_TOKEN       = process.env.INVOICA_X_BEARER_TOKEN;
+if (process.env.INVOICA_X_BEARER_TOKEN)        process.env.X_BEARER_TOKEN        = process.env.INVOICA_X_BEARER_TOKEN;
 
 // ─── Types ───────────────────────────────────────────────────────────
 
 interface ScheduledPost {
-  id: string;         // unique slug, e.g. "2026-02-28-post1"
+  id: string;
   date: string;       // YYYY-MM-DD
-  hourUTC: number;    // UTC hour to post at (0–23)
-  minuteUTC: number;  // UTC minute (usually 0)
+  hourUTC: number;
+  minuteUTC: number;
   type: 'tweet' | 'thread';
-  label: string;      // human-readable description for logs
-  content: string[];  // single tweet → [text], thread → [tweet1, tweet2, ...]
+  label: string;
+  technical: boolean; // true = CTO review required
+  content: string[];
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+interface ReviewResult {
+  approved: boolean;
+  feedback: string;
+}
 
-const ROOT = path.resolve(__dirname, '..');
-const REPORTS_DIR = path.join(ROOT, 'reports', 'invoica-x-admin');
-const STATE_FILE = path.join(REPORTS_DIR, 'posted-ids.json');
+// ─── Paths ───────────────────────────────────────────────────────────
+
+const ROOT          = path.resolve(__dirname, '..');
+const REPORTS_DIR   = path.join(ROOT, 'reports', 'invoica-x-admin');
+const DRAFTS_DIR    = path.join(REPORTS_DIR, 'drafts');
+const REJECTED_DIR  = path.join(DRAFTS_DIR, 'rejected');
+const STATE_FILE    = path.join(REPORTS_DIR, 'posted-ids.json');
+const CMO_PLAN      = path.join(ROOT, 'reports', 'cmo', 'communication-plan.md');
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function loadPostedIds(): Set<string> {
-  try {
-    return new Set(JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8')));
-  } catch {
-    return new Set();
-  }
+  try { return new Set(JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'))); }
+  catch { return new Set(); }
 }
 
 function savePostedIds(ids: Set<string>) {
@@ -70,31 +78,126 @@ function appendPostLog(entry: string) {
   ensureDir(REPORTS_DIR);
   const today = new Date().toISOString().slice(0, 10);
   const logFile = path.join(REPORTS_DIR, `post-log-${today}.md`);
-  const timestamp = new Date().toISOString();
-  const block = `\n## ${timestamp}\n\n${entry}\n`;
-  if (!fs.existsSync(logFile)) {
-    fs.writeFileSync(logFile, `# X Post Log — ${today}\n\n`);
-  }
+  const block = `\n## ${new Date().toISOString()}\n\n${entry}\n`;
+  if (!fs.existsSync(logFile)) fs.writeFileSync(logFile, `# X Post Log — ${today}\n\n`);
   fs.appendFileSync(logFile, block);
 }
 
-function log(msg: string) {
-  console.log(`[x-admin] ${msg}`);
+function log(msg: string) { console.log(`[x-admin] ${msg}`); }
+
+function loadCommPlan(): string {
+  try { return fs.readFileSync(CMO_PLAN, 'utf-8').slice(0, 3000); }
+  catch { return 'Be professional, developer-focused, and authentic. No hype. Educate about x402.'; }
 }
 
-// ─── Content Calendar ────────────────────────────────────────────────
-// All times are UTC (CET = UTC+1 in winter, so subtract 1 hour).
-// Posts are only published if their scheduled time has passed AND they
-// haven't been posted before.
+// ─── LLM Helpers ─────────────────────────────────────────────────────
+
+function httpsPost(hostname: string, path: string, headers: Record<string, string>, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      { hostname, path, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => data += c);
+        res.on('end', () => resolve(data));
+      }
+    );
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// ─── CEO Review (Claude via Anthropic) ───────────────────────────────
+
+async function reviewWithCEO(post: ScheduledPost, commPlan: string): Promise<ReviewResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return { approved: true, feedback: 'CEO review skipped — no ANTHROPIC_API_KEY' };
+
+  const postText = post.content.join('\n\n---\n\n');
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 300,
+    system: `You are the CEO of Invoica — the Financial OS for AI Agents. You review proposed X/Twitter posts for @invoica_ai before they go live. Your job is to ensure every post aligns with company vision, brand voice, and the communication plan. Be decisive and brief.`,
+    messages: [{
+      role: 'user',
+      content: `## Communication Plan (excerpt)\n${commPlan}\n\n## Draft Post\nLabel: ${post.label}\nType: ${post.type}\n\n${postText}\n\n## Task\nDoes this post align with Invoica's vision, brand voice, and communication plan? Is the messaging accurate and appropriate?\n\nRespond ONLY with JSON: {"approved": true/false, "feedback": "brief reason"}`,
+    }],
+  });
+
+  try {
+    const raw = await httpsPost('api.anthropic.com', '/v1/messages',
+      { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body);
+    const res = JSON.parse(raw);
+    const text = res?.content?.[0]?.text || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      return { approved: !!parsed.approved, feedback: parsed.feedback || '' };
+    }
+    return { approved: true, feedback: 'CEO review: could not parse response, defaulting to approved' };
+  } catch (e) {
+    return { approved: true, feedback: `CEO review failed (${(e as Error).message}), defaulting to approved` };
+  }
+}
+
+// ─── CTO Review (MiniMax) ────────────────────────────────────────────
+
+async function reviewWithCTO(post: ScheduledPost): Promise<ReviewResult> {
+  const apiKey = process.env.MINIMAX_API_KEY;
+  const groupId = process.env.MINIMAX_GROUP_ID;
+  if (!apiKey || !groupId) return { approved: true, feedback: 'CTO review skipped — no MINIMAX credentials' };
+
+  const postText = post.content.join('\n\n---\n\n');
+  const body = JSON.stringify({
+    model: 'MiniMax-M2.5',
+    max_tokens: 300,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are the CTO of Invoica — an AI agent financial infrastructure company. You review X/Twitter posts for technical accuracy. Invoica provides x402 invoice middleware, USDC settlement detection on Base mainnet, and agent wallet infrastructure. Be decisive and brief.',
+      },
+      {
+        role: 'user',
+        content: `## Draft Post\nLabel: ${post.label}\n\n${postText}\n\n## Task\nAre all technical claims in this post accurate for Invoica's actual product? Check x402, blockchain, payment, and agent infrastructure claims.\n\nRespond ONLY with JSON: {"approved": true/false, "feedback": "brief reason"}`,
+      },
+    ],
+  });
+
+  try {
+    const raw = await httpsPost(`api.minimax.io`, `/v1/text/chatcompletion_v2?GroupId=${groupId}`,
+      { 'Authorization': `Bearer ${apiKey}`, 'content-type': 'application/json' }, body);
+    const res = JSON.parse(raw);
+    const text = res?.choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      return { approved: !!parsed.approved, feedback: parsed.feedback || '' };
+    }
+    return { approved: true, feedback: 'CTO review: could not parse response, defaulting to approved' };
+  } catch (e) {
+    return { approved: true, feedback: `CTO review failed (${(e as Error).message}), defaulting to approved` };
+  }
+}
+
+function saveRejected(post: ScheduledPost, reason: string) {
+  ensureDir(REJECTED_DIR);
+  const file = path.join(REJECTED_DIR, `${post.id}.md`);
+  fs.writeFileSync(file,
+    `# Rejected Draft: ${post.id}\n\n` +
+    `**Label:** ${post.label}\n**Date:** ${post.date}\n**Reason:** ${reason}\n\n` +
+    `## Content\n\n${post.content.join('\n\n---\n\n')}\n`
+  );
+}
+
+// ─── Content Calendar ─────────────────────────────────────────────────
 
 const CALENDAR: ScheduledPost[] = [
   // ── Day 1: Feb 26 — Beta Launch Day ──────────────────────────────
   {
-    id: '2026-02-26-post1',
-    date: '2026-02-26',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET
-    type: 'thread',
-    label: 'Beta Launch Thread',
+    id: '2026-02-26-post1', date: '2026-02-26', hourUTC: 9, minuteUTC: 0,
+    type: 'thread', label: 'Beta Launch Thread', technical: false,
     content: [
       'Invoica is now in private beta. We built the missing financial layer for AI agents — x402 invoice middleware that lets agents earn, spend, invoice, and settle payments autonomously.',
       'If your AI agent completes a task, it can now get paid. If it needs to pay for a service, it can do that too. No human in the loop. No manual reconciliation.',
@@ -103,33 +206,24 @@ const CALENDAR: ScheduledPost[] = [
     ],
   },
   {
-    id: '2026-02-26-post2',
-    date: '2026-02-26',
-    hourUTC: 14, minuteUTC: 0,  // 15:00 CET
-    type: 'tweet',
-    label: 'x402 Education',
+    id: '2026-02-26-post2', date: '2026-02-26', hourUTC: 14, minuteUTC: 0,
+    type: 'tweet', label: 'x402 Education', technical: true,
     content: [
       'x402 is to AI agent payments what Stripe was to web payments — infrastructure that makes the hard thing trivially easy. We\'re betting it becomes the default financial rail for the agentic economy.',
     ],
   },
   {
-    id: '2026-02-26-post3',
-    date: '2026-02-26',
-    hourUTC: 18, minuteUTC: 0,  // 19:00 CET
-    type: 'tweet',
-    label: 'Engagement Question',
+    id: '2026-02-26-post3', date: '2026-02-26', hourUTC: 18, minuteUTC: 0,
+    type: 'tweet', label: 'Engagement Question', technical: false,
     content: [
       'What financial operations do your AI agents need that don\'t exist yet? Genuinely curious — we\'re building Invoica around real use cases.',
     ],
   },
 
-  // ── Day 2: Feb 27 — How It Works ─────────────────────────────────
+  // ── Day 2: Feb 27 ─────────────────────────────────────────────────
   {
-    id: '2026-02-27-post1',
-    date: '2026-02-27',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET
-    type: 'thread',
-    label: 'Technical Education Thread',
+    id: '2026-02-27-post1', date: '2026-02-27', hourUTC: 9, minuteUTC: 0,
+    type: 'thread', label: 'Technical Education Thread', technical: true,
     content: [
       'How Invoica works in 3 steps: 1. Your agent calls our API when it completes a task 2. Invoica generates an x402-compliant invoice 3. The paying agent settles via stablecoin. Done. No bank account needed.',
       'The invoice is machine-readable. The settlement is automatic. The reconciliation is instant. Your agent doesn\'t need to know anything about payments — it just calls one endpoint.',
@@ -137,23 +231,17 @@ const CALENDAR: ScheduledPost[] = [
     ],
   },
   {
-    id: '2026-02-27-post2',
-    date: '2026-02-27',
-    hourUTC: 15, minuteUTC: 0,  // 16:00 CET
-    type: 'tweet',
-    label: 'Building in Public',
+    id: '2026-02-27-post2', date: '2026-02-27', hourUTC: 15, minuteUTC: 0,
+    type: 'tweet', label: 'Building in Public', technical: false,
     content: [
       'Beta day 2. Working on the x402 transaction webhook system so agents can react instantly when they get paid. The agentic economy needs real-time financial events.',
     ],
   },
 
-  // ── Day 3: Feb 28 — Use Cases ────────────────────────────────────
+  // ── Day 3: Feb 28 ─────────────────────────────────────────────────
   {
-    id: '2026-02-28-post1',
-    date: '2026-02-28',
-    hourUTC: 10, minuteUTC: 0,  // 11:00 CET
-    type: 'thread',
-    label: 'Use Cases Thread',
+    id: '2026-02-28-post1', date: '2026-02-28', hourUTC: 10, minuteUTC: 0,
+    type: 'thread', label: 'Use Cases Thread', technical: false,
     content: [
       'What can an AI agent actually do with Invoica? Let\'s make it concrete.',
       'A research agent that bills per report. A coding agent that charges per PR. A data agent that earns per query answered. All automated, all settled on-chain.',
@@ -162,23 +250,17 @@ const CALENDAR: ScheduledPost[] = [
     ],
   },
 
-  // ── Week 2 onward: Monday Mar 2 ───────────────────────────────────
+  // ── Week 2 ───────────────────────────────────────────────────────
   {
-    id: '2026-03-02-post1',
-    date: '2026-03-02',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET — Monday: Week in AI agents
-    type: 'tweet',
-    label: 'Week in AI Agents',
+    id: '2026-03-02-post1', date: '2026-03-02', hourUTC: 9, minuteUTC: 0,
+    type: 'tweet', label: 'Week in AI Agents', technical: false,
     content: [
       'Week 2 of beta. The multi-agent economy is moving fast — orchestrators, sub-agents, task markets. Invoica is building the financial rails underneath all of it. What are you building?',
     ],
   },
   {
-    id: '2026-03-03-post1',
-    date: '2026-03-03',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET — Tuesday: x402 deep dive
-    type: 'thread',
-    label: 'x402 Deep Dive',
+    id: '2026-03-03-post1', date: '2026-03-03', hourUTC: 9, minuteUTC: 0,
+    type: 'thread', label: 'x402 Deep Dive', technical: true,
     content: [
       'x402 deep dive: what actually happens when an agent invoice is settled?',
       '1. Agent completes task and calls POST /invoices. Invoica creates a USDC invoice tied to a Base wallet address.',
@@ -187,21 +269,15 @@ const CALENDAR: ScheduledPost[] = [
     ],
   },
   {
-    id: '2026-03-04-post1',
-    date: '2026-03-04',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET — Wednesday: building in public
-    type: 'tweet',
-    label: 'Beta Update',
+    id: '2026-03-04-post1', date: '2026-03-04', hourUTC: 9, minuteUTC: 0,
+    type: 'tweet', label: 'Beta Update', technical: false,
     content: [
       'Beta day 7. One week in. The API is stable, the settlement detection is live, and the first x402 transactions are flowing. Building the financial layer for the agentic economy, one block at a time.',
     ],
   },
   {
-    id: '2026-03-05-post1',
-    date: '2026-03-05',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET — Thursday: use case spotlight
-    type: 'thread',
-    label: 'Use Case: Code Agent',
+    id: '2026-03-05-post1', date: '2026-03-05', hourUTC: 9, minuteUTC: 0,
+    type: 'thread', label: 'Use Case: Code Agent', technical: false,
     content: [
       'Use case spotlight: a fully autonomous coding agent that earns its own compute budget.',
       'The agent takes GitHub issues. Completes PRs. Invoica invoices the client per PR merged. USDC lands in the agent\'s wallet.',
@@ -210,24 +286,21 @@ const CALENDAR: ScheduledPost[] = [
     ],
   },
   {
-    id: '2026-03-06-post1',
-    date: '2026-03-06',
-    hourUTC: 9, minuteUTC: 0,  // 10:00 CET — Friday: community engagement
-    type: 'tweet',
-    label: 'Community Question',
+    id: '2026-03-06-post1', date: '2026-03-06', hourUTC: 9, minuteUTC: 0,
+    type: 'tweet', label: 'Community Question', technical: false,
     content: [
       'If your AI agent could have one financial superpower it doesn\'t have today, what would it be? Asking for a roadmap.',
     ],
   },
 ];
 
-// ─── Main ────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
   log('Starting X posting check...');
 
   const now = new Date();
-  const todayUTC = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const todayUTC = now.toISOString().slice(0, 10);
   const currentHourUTC = now.getUTCHours();
   const currentMinuteUTC = now.getUTCMinutes();
 
@@ -236,23 +309,17 @@ async function main() {
   const postedIds = loadPostedIds();
   log(`Already posted: ${postedIds.size} posts`);
 
-  // Find all posts that are due: date <= today AND time has passed AND not yet posted
-  const duePosts = CALENDAR.filter(post => {
-    if (post.id && postedIds.has(post.id)) return false; // already posted
+  const commPlan = loadCommPlan();
 
-    // Allow catch-up: post anything from the last 7 days that was missed
+  // Find due posts: within last 7 days, scheduled time passed, not yet posted
+  const duePosts = CALENDAR.filter(post => {
+    if (postedIds.has(post.id)) return false;
     const postDate = new Date(post.date + 'T00:00:00Z');
     const daysDiff = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysDiff > 7 || daysDiff < 0) return false; // too old or future
-
-    // If it's today, check the hour:minute
+    if (daysDiff > 7 || daysDiff < 0) return false;
     if (post.date === todayUTC) {
-      const postMinuteTotal = post.hourUTC * 60 + post.minuteUTC;
-      const nowMinuteTotal = currentHourUTC * 60 + currentMinuteUTC;
-      return nowMinuteTotal >= postMinuteTotal;
+      return (currentHourUTC * 60 + currentMinuteUTC) >= (post.hourUTC * 60 + post.minuteUTC);
     }
-
-    // Past days — catch up unconditionally
     return post.date < todayUTC;
   });
 
@@ -261,32 +328,69 @@ async function main() {
     return;
   }
 
-  log(`${duePosts.length} post(s) to publish.`);
+  log(`${duePosts.length} post(s) due. Running review gate...`);
 
   for (const post of duePosts) {
-    log(`Publishing: ${post.id} — ${post.label}`);
+    log(`\nReviewing: ${post.id} — ${post.label}`);
+
+    // ── CEO Review ──────────────────────────────────────────────────
+    log(`  → CEO review...`);
+    const ceoReview = await reviewWithCEO(post, commPlan);
+    log(`  CEO: ${ceoReview.approved ? '✅ APPROVED' : '❌ REJECTED'} — ${ceoReview.feedback}`);
+
+    if (!ceoReview.approved) {
+      log(`  Skipping post — CEO rejected.`);
+      saveRejected(post, `CEO: ${ceoReview.feedback}`);
+      appendPostLog(
+        `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
+        `**STATUS:** ❌ REJECTED by CEO\n**Reason:** ${ceoReview.feedback}\n`
+      );
+      // Mark as posted so we don't retry forever — save rejected state
+      postedIds.add(`rejected:${post.id}`);
+      savePostedIds(postedIds);
+      continue;
+    }
+
+    // ── CTO Review (technical posts only) ──────────────────────────
+    if (post.technical) {
+      log(`  → CTO review (technical post)...`);
+      const ctoReview = await reviewWithCTO(post);
+      log(`  CTO: ${ctoReview.approved ? '✅ APPROVED' : '❌ REJECTED'} — ${ctoReview.feedback}`);
+
+      if (!ctoReview.approved) {
+        log(`  Skipping post — CTO rejected.`);
+        saveRejected(post, `CTO: ${ctoReview.feedback}`);
+        appendPostLog(
+          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
+          `**STATUS:** ❌ REJECTED by CTO\n**Reason:** ${ctoReview.feedback}\n`
+        );
+        postedIds.add(`rejected:${post.id}`);
+        savePostedIds(postedIds);
+        continue;
+      }
+    }
+
+    // ── Publish ──────────────────────────────────────────────────────
+    log(`  Publishing ${post.type}...`);
     try {
       if (post.type === 'tweet') {
         const result = await postTweet(post.content[0]);
-        log(`✅ Tweet posted: ${result.id} — https://x.com/i/status/${result.id}`);
+        log(`  ✅ Tweet posted: ${result.id} — https://x.com/i/status/${result.id}`);
         appendPostLog(
-          `**Post ID:** ${post.id}\n` +
-          `**Label:** ${post.label}\n` +
-          `**Type:** tweet\n` +
-          `**Tweet ID:** ${result.id}\n` +
-          `**URL:** https://x.com/i/status/${result.id}\n` +
+          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n**STATUS:** ✅ PUBLISHED\n` +
+          `**CEO:** ${ceoReview.feedback}\n` +
+          `**Tweet ID:** ${result.id}\n**URL:** https://x.com/i/status/${result.id}\n` +
           `**Text:** ${post.content[0]}\n`
         );
       } else {
         const result = await postThread(post.content);
         const firstId = result.ids[0];
-        log(`✅ Thread posted (${result.ids.length} tweets): ${firstId} — https://x.com/i/status/${firstId}`);
+        log(`  ✅ Thread posted (${result.ids.length} tweets): https://x.com/i/status/${firstId}`);
         appendPostLog(
-          `**Post ID:** ${post.id}\n` +
-          `**Label:** ${post.label}\n` +
-          `**Type:** thread (${result.ids.length} tweets)\n` +
-          `**First Tweet ID:** ${firstId}\n` +
-          `**URL:** https://x.com/i/status/${firstId}\n` +
+          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n**STATUS:** ✅ PUBLISHED\n` +
+          `**CEO:** ${ceoReview.feedback}\n` +
+          (post.technical ? `**CTO:** approved\n` : '') +
+          `**First Tweet ID:** ${firstId}\n**URL:** https://x.com/i/status/${firstId}\n` +
           `**Tweets:**\n${post.content.map((t, i) => `  ${i + 1}. ${t}`).join('\n')}\n`
         );
       }
@@ -294,24 +398,21 @@ async function main() {
       postedIds.add(post.id);
       savePostedIds(postedIds);
 
-      // Pause between posts to avoid rate limits
       if (duePosts.indexOf(post) < duePosts.length - 1) {
-        log('Waiting 5s before next post...');
+        log('  Waiting 5s before next post...');
         await new Promise(r => setTimeout(r, 5000));
       }
     } catch (err) {
       const msg = (err as Error).message;
-      log(`❌ Failed to post ${post.id}: ${msg}`);
+      log(`  ❌ Failed to post ${post.id}: ${msg}`);
       appendPostLog(
-        `**Post ID:** ${post.id}\n` +
-        `**Label:** ${post.label}\n` +
-        `**FAILED:** ${msg}\n`
+        `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
+        `**STATUS:** ❌ PUBLISH FAILED\n**Error:** ${msg}\n`
       );
-      // Continue to next post — don't mark as posted so it retries next run
     }
   }
 
-  log('Done.');
+  log('\nDone.');
 }
 
 main().catch(err => {
