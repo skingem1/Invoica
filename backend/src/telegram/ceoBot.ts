@@ -268,7 +268,7 @@ const TOOLS = [
 
 // ─── HTTP Helpers ─────────────────────────────────────────────────────────────
 
-function httpsPost(hostname: string, path: string, headers: Record<string, string>, body: string): Promise<any> {
+function httpsPost(hostname: string, path: string, headers: Record<string, string>, body: string, timeoutMs = 90_000): Promise<any> {
   return new Promise((resolve, reject) => {
     const req = https.request(
       { hostname, path, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } },
@@ -278,19 +278,21 @@ function httpsPost(hostname: string, path: string, headers: Record<string, strin
         res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
       }
     );
+    req.setTimeout(timeoutMs, () => { req.destroy(new Error(`httpsPost timeout after ${timeoutMs}ms`)); });
     req.on('error', reject);
     req.write(body);
     req.end();
   });
 }
 
-function httpsGet(hostname: string, path: string, headers?: Record<string, string>): Promise<any> {
+function httpsGet(hostname: string, path: string, headers?: Record<string, string>, timeoutMs = 40_000): Promise<any> {
   return new Promise((resolve, reject) => {
     const req = https.request({ hostname, path, method: 'GET', headers: headers || {} }, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
     });
+    req.setTimeout(timeoutMs, () => { req.destroy(new Error(`httpsGet timeout after ${timeoutMs}ms`)); });
     req.on('error', reject);
     req.end();
   });
@@ -892,6 +894,10 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
 
   // ── Default: Claude with tools ──
   await telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' });
+  // Keep typing indicator alive every 4s while Claude is working
+  const typingInterval = setInterval(() => {
+    telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+  }, 4000);
 
   try {
     // For video generation, warn it'll take a few minutes
@@ -909,6 +915,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       }
     });
 
+    clearInterval(typingInterval);
     // Split long messages
     if (reply.length > 4000) {
       const chunks = reply.match(/.{1,4000}/gs) || [reply];
@@ -919,8 +926,9 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
       await telegramSend('sendMessage', { chat_id: chatId, text: reply });
     }
   } catch (err) {
+    clearInterval(typingInterval);
     console.error('[CeoBot] Error:', err);
-    await telegramSend('sendMessage', { chat_id: chatId, text: '⚠️ Error. Check ANTHROPIC_API_KEY.' });
+    await telegramSend('sendMessage', { chat_id: chatId, text: '⚠️ Error processing request. Try again in a moment.' });
   }
 }
 
@@ -1016,9 +1024,23 @@ export async function startCeoBot(): Promise<void> {
   startWalletMonitor();
 
   let offset = 0;
+  let lastPollAt = Date.now();
+
+  // Watchdog: if poll loop goes silent for >2 minutes, log a warning (PM2 will restart on crash)
+  const watchdog = setInterval(() => {
+    const silentMs = Date.now() - lastPollAt;
+    if (silentMs > 120_000) {
+      console.error(`[CeoBot] WATCHDOG: poll loop silent for ${Math.round(silentMs / 1000)}s — forcing process exit for PM2 restart`);
+      process.exit(1);
+    }
+  }, 30_000);
+  watchdog.unref();
+
   const poll = async (): Promise<void> => {
     try {
-      const result = await httpsGet('api.telegram.org', `/bot${TELEGRAM_TOKEN}/getUpdates?offset=${offset}&timeout=25`);
+      lastPollAt = Date.now();
+      const result = await httpsGet('api.telegram.org', `/bot${TELEGRAM_TOKEN}/getUpdates?offset=${offset}&timeout=25`, undefined, 35_000);
+      lastPollAt = Date.now();
       if (result?.ok && Array.isArray(result.result)) {
         for (const update of result.result as TelegramUpdate[]) {
           offset = update.update_id + 1;
