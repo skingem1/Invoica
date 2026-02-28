@@ -824,8 +824,75 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `👋 Welcome back, ${from.first_name}.\n\nInvoica CEO assistant.\n\n*Commands:*\n/status — System health\n/wallets — Agent wallet balances\n/update — Pull latest code + restart (no AI needed)\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Clear conversation\n/help — Show menu\n\nOr chat naturally — I can also generate videos via MiniMax.`,
+      text: `👋 Welcome back, ${from.first_name}.\n\nInvoica CEO assistant.\n\n*Commands:*\n/status — System health\n/wallets — Agent wallet balances\n/pull — Git pull latest code\n/sprint <N> — Launch sprint week-N\n/update — Pull + build + restart (no AI needed)\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Clear conversation\n/help — Show menu\n\nOr chat naturally — I can also generate videos via MiniMax.`,
     });
+    return;
+  }
+
+  // ── /pull — git pull without needing Anthropic API ──
+  if (text === '/pull') {
+    await telegramSend('sendMessage', { chat_id: chatId, text: '📥 Pulling latest code...' });
+    try {
+      const result = spawnSync('git', ['pull', 'origin', 'main'], {
+        cwd: ROOT,
+        encoding: 'utf-8',
+        timeout: 30_000,
+        env: { ...process.env, HOME: '/home/invoica', PATH: '/home/invoica/.nodejs/bin:/usr/local/bin:/usr/bin:/bin' },
+      });
+      const out = ((result.stdout || '') + (result.status !== 0 ? (result.stderr || '') : '')).trim() || '(no output)';
+      const ok = result.status === 0;
+      await telegramSend('sendMessage', { chat_id: chatId, text: ok ? `✅ ${out}` : `❌ git pull failed:\n${out}` });
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Pull failed: ${err.message}` });
+    }
+    return;
+  }
+
+  // ── /sprint <N> — read sprint JSON and ask Claude to launch it ──
+  if (text?.startsWith('/sprint ')) {
+    const num = text.replace('/sprint ', '').trim();
+    const sprintPath = path.join(ROOT, `sprints/week-${num}.json`);
+    if (!existsSync(sprintPath)) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Sprint file not found: sprints/week-${num}.json\n\nTry /pull first if the sprint was just created.` });
+      return;
+    }
+    let sprintJson: string;
+    try {
+      sprintJson = readFileSync(sprintPath, 'utf-8');
+    } catch (err: any) {
+      await telegramSend('sendMessage', { chat_id: chatId, text: `❌ Could not read sprint file: ${err.message}` });
+      return;
+    }
+    const sprintData = JSON.parse(sprintJson);
+    const taskSummary = (sprintData.tasks || [])
+      .map((t: any) => `  • ${t.id} [${t.priority}] → ${t.agent}: ${t.type}`)
+      .join('\n');
+    await telegramSend('sendMessage', {
+      chat_id: chatId,
+      parse_mode: 'Markdown',
+      text: `📋 *Sprint Week-${num}* loaded\n*Theme:* ${sprintData.theme || 'N/A'}\n*Tasks:* ${sprintData.tasks?.length || 0}\n\n${taskSummary}\n\n⏳ Asking Claude to spawn agents...`,
+    });
+    // Inject sprint spec into Claude so it can spawn the agents
+    const injected = `Launch sprint week-${num}. Here is the sprint spec JSON — read it, then use sessions_spawn to start each agent on their assigned tasks. Confirm which agents were started and what they are working on.\n\n\`\`\`json\n${sprintJson}\n\`\`\``;
+    await telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' });
+    const typingInterval = setInterval(() => {
+      telegramSend('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {});
+    }, 4000);
+    try {
+      const reply = await callClaudeWithTools(from.id, injected);
+      clearInterval(typingInterval);
+      if (reply.length > 4000) {
+        const chunks = reply.match(/.{1,4000}/gs) || [reply];
+        for (const chunk of chunks) {
+          await telegramSend('sendMessage', { chat_id: chatId, text: chunk });
+        }
+      } else {
+        await telegramSend('sendMessage', { chat_id: chatId, text: reply });
+      }
+    } catch (err) {
+      clearInterval(typingInterval);
+      await telegramSend('sendMessage', { chat_id: chatId, text: '⚠️ Error launching sprint. Try again in a moment.' });
+    }
     return;
   }
 
@@ -886,7 +953,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
     await telegramSend('sendMessage', {
       chat_id: chatId,
       parse_mode: 'Markdown',
-      text: `📋 *Commands*\n\n/status — Platform health\n/wallets — Agent wallet balances\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Reset conversation\n\n*Executive capabilities:*\n• Create GitHub issues (real execution)\n• Write files & commit to git\n• Restart PM2 services\n• Check wallet balances (live on-chain)\n• Generate videos (MiniMax Hailuo-02)\n• Read reports, sprints, health data\n• Query Supabase user signups\n\n*Examples:*\n• "Create tickets for Polygon and Solana support"\n• "Write an ADR for multi-chain strategy"\n• "Restart the backend"\n• "Show me today's signup count"`,
+      text: `📋 *Commands*\n\n/status — Platform health\n/wallets — Agent wallet balances\n/pull — Git pull latest code (no AI needed)\n/sprint <N> — Launch sprint week-N and spawn agents\n/update — Pull + build + restart backend (no AI needed)\n/approve_topup <id> — Approve top-up\n/reject_topup <id> — Reject top-up\n/clear — Reset conversation\n\n*Executive capabilities:*\n• Create GitHub issues (real execution)\n• Write files & commit to git\n• Restart PM2 services\n• Check wallet balances (live on-chain)\n• Generate videos (MiniMax Hailuo-02)\n• Read reports, sprints, health data\n• Query Supabase user signups\n\n*Examples:*\n• /pull then /sprint 10\n• "Create tickets for Polygon and Solana support"\n• "Write an ADR for multi-chain strategy"\n• "Show me today's signup count"`,
     });
     return;
   }
