@@ -34,11 +34,21 @@ export interface ManusMessage {
   content: string;
 }
 
+export interface ManusOutputItem {
+  id: string;
+  status: string;
+  role: 'user' | 'assistant';
+  type: string;
+  content: Array<{ type: string; text: string }>;
+}
+
 export interface ManusTaskStatus {
   id: string;
   status: 'running' | 'pending' | 'completed' | 'error';
-  messages?: ManusMessage[];
+  output?: ManusOutputItem[];      // New API format (2026+)
+  messages?: ManusMessage[];       // Legacy format (kept for compat)
   error?: string;
+  credit_usage?: number;
 }
 
 export interface ManusTaskResult {
@@ -121,7 +131,10 @@ export class ManusClient {
         const status = await this.getTaskStatus(taskId);
 
         if (status.status === 'completed') {
-          const output = this.extractOutput(status.messages || []);
+          // Support both new format (output[]) and legacy format (messages[])
+          const output = status.output
+            ? this.extractFromOutput(status.output)
+            : this.extractOutput(status.messages || []);
           return {
             taskId,
             status: 'completed',
@@ -179,6 +192,31 @@ export class ManusClient {
     return messages.length > 0
       ? (messages[messages.length - 1]?.content || '')
       : 'No output from Manus task';
+  }
+
+  private extractFromOutput(output: ManusOutputItem[]): string {
+    // New Manus API format: output[].content[0].text
+    // Strategy: concatenate ALL text from ALL output items (Manus may spread response across messages)
+    const allText = output
+      .flatMap(item => item.content || [])
+      .filter(c => c.type === 'output_text' && c.text?.trim())
+      .map(c => c.text)
+      .join('\n');
+    
+    if (allText.trim()) return allText;
+    
+    // Fallback: last non-empty assistant message
+    for (let i = output.length - 1; i >= 0; i--) {
+      if (output[i].role === 'assistant') {
+        const text = output[i].content
+          ?.filter(c => c.type === 'output_text')
+          ?.map(c => c.text)
+          ?.join('')
+          ?.trim();
+        if (text) return text;
+      }
+    }
+    return 'No output from Manus task';
   }
 
   /**
