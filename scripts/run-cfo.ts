@@ -18,6 +18,27 @@ import * as https from 'https';
 import { spawn } from 'child_process';
 import 'dotenv/config';
 
+// ── Cron guard: prevent PM2 reload from triggering this script off-schedule ──
+(function checkCronGuard() {
+  const _guardFile = require('path').join(process.cwd(), 'logs', 'cron-guard-cfo-weekly.json');
+  const _minMs = 160 * 60 * 60 * 1000;
+  try {
+    const _last = require('fs').existsSync(_guardFile)
+      ? JSON.parse(require('fs').readFileSync(_guardFile, 'utf-8')).lastRun
+      : 0;
+    if (Date.now() - new Date(_last).getTime() < _minMs) {
+      const _ago = Math.round((Date.now() - new Date(_last).getTime()) / 3600000);
+      console.log(`[CronGuard] cfo-weekly: last run ${_ago}h ago (min interval 160h) — skipping`);
+      process.exit(0);
+    }
+  } catch { /* first run or stale guard */ }
+  // Update last-run timestamp
+  try {
+    require('fs').writeFileSync(_guardFile, JSON.stringify({ lastRun: new Date().toISOString() }));
+  } catch { /* non-fatal */ }
+})();
+
+
 const ROOT = path.resolve(__dirname, '..');
 const REPORTS_DIR = path.join(ROOT, 'reports', 'cfo');
 const LOGS_DIR    = path.join(ROOT, 'logs');
