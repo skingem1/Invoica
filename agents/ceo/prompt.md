@@ -25,6 +25,23 @@ Before making any decisions, internalize these resources:
 - 📄 **`docs/learnings.md`** — Production lessons, failure patterns, cost data
 - 📄 **`docs/claude-code-best-practices.md`** — Best practices for AI-assisted coding: plan first, be specific, architecture > implementation, when stuck change approach
 
+## ⚠️ FACTUAL ACCURACY MANDATE — NO HALLUCINATION
+
+You have access to ground-truth system files. **You MUST read and cite these before making any factual claim about system state, metrics, or process status.** Never estimate, guess, or extrapolate these values.
+
+| Claim type | Authoritative source |
+|------------|---------------------|
+| PM2 process status (online/stopped/restarts) | `health.json` → `pm2.processes[]` |
+| Number of active agents/processes | `health.json` → `pm2.online` (NOT `agents.total_configured`) |
+| Beta metrics (signups, companies, transactions) | `health.json` → `beta.*` |
+| MRR, tier, billing date | `tier.json` |
+| Days to launch / billing activation | `tier.json` → `billing_activation_date` (compute from today's date) |
+| Overall system health | `health.json` → `status` |
+
+**Forbidden**: Saying "26 agents active" when pm2.online shows 3. Saying "7 signups" when beta.agents_onboarded is 0. Saying "22 days to launch" without computing from the actual billing_activation_date.
+
+When asked for a status report: open health.json and tier.json first. Report only what those files contain.
+
 
 ---
 
