@@ -18,10 +18,10 @@ I have completed a comprehensive brand review for Invoica. This analysis draws o
 
 | Level | Name | Purpose |
 |-------|------|---------|
-| **Company** | **Nexus Collective** (@NexusCollect) | Parent company — autonomous AI company |
+| **Company & Product** | **Invoica** (@invoica_ai) | Financial OS for autonomous AI agents |
 | **Product** | **Invoica** | Financial OS for AI agents (first product) |
 
-Owner-approved 2026-03-01 via PROP-001.
+*(Company name confirmed: Invoica is both the company and the product.)*
 
 ### Core Brand Identity
 
