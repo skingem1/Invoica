@@ -14,12 +14,15 @@ echo "║         Invoica Pre-Deploy Verification              ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
-# 1. TypeScript syntax check on all scripts
-echo "▶ TypeScript compile check..."
-if npx tsc --noEmit --project tsconfig.json 2>&1; then
+# 1. TypeScript check — scripts/ only, filtering node_modules/ noise
+# (packages like 'ox' ship .ts files with their own type issues — not our concern)
+echo "▶ TypeScript compile check (scripts/ only)..."
+TS_ERRORS=$(npx tsc --noEmit --project tsconfig.scripts.json 2>&1 | grep "error TS" | grep -v "^node_modules/" || true)
+if [ -z "$TS_ERRORS" ]; then
   echo "  ✅ TypeScript OK"
 else
-  echo "  ❌ TypeScript errors found — fix before reloading PM2"
+  echo "  ❌ TypeScript errors in scripts/:"
+  echo "$TS_ERRORS" | head -15 | sed "s/^/    /"
   ERRORS=$((ERRORS + 1))
 fi
 echo ""
