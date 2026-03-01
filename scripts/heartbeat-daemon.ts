@@ -1,21 +1,72 @@
 /**
  * Heartbeat Daemon — Conway Governance Layer
  *
- * Runs every 15 minutes via PM2 cron.
+ * Runs every 6 hours via PM2 cron.
  * Monitors: MRR, agent health, API status, gas reserves, beta metrics.
+ * Also: PM2 cron service watchdog — detects stale/crashed services.
  * Writes state to health.json and tier.json.
  * Appends alerts to audit.log.
+ * Sends Telegram alerts for any anomaly.
  *
- * @version 2.0.0 — Conway Edition
+ * @version 2.1.0 — Service Watchdog Edition
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
 
 const ROOT = path.resolve(__dirname, '..');
 const HEALTH_FILE = path.join(ROOT, 'health.json');
 const TIER_FILE = path.join(ROOT, 'tier.json');
 const AUDIT_LOG = path.join(ROOT, 'audit.log');
+const LOGS_DIR = path.join(ROOT, 'logs');
+
+// ─── PM2 Cron Service Registry ───────────────────────────────────────
+// Maps PM2 service name → { logFile, staleAfterHours, donePattern }
+// staleAfterHours: how long before we consider the service overdue
+const CRON_SERVICES: Array<{
+  name: string;
+  outLog: string;
+  staleAfterHours: number;  // alert if no success in this many hours
+  donePattern: RegExp;      // regex to detect a successful run in the out log
+}> = [
+  {
+    name: 'cto-email-support',
+    outLog: path.join(LOGS_DIR, 'email-support-out.log'),
+    staleAfterHours: 1,  // runs every 5min; alert if silent for 1h
+    donePattern: /No new emails|Replied to|email processed/i,
+  },
+  {
+    name: 'cto-daily-scan',
+    outLog: path.join(LOGS_DIR, 'cto-scan-out.log'),
+    staleAfterHours: 30,  // runs daily 9 UTC; alert if silent for 30h
+    donePattern: /Report:|full-scan-\d{4}/i,
+  },
+  {
+    name: 'x-admin-post',
+    outLog: path.join(LOGS_DIR, 'x-admin-out.log'),
+    staleAfterHours: 2,  // runs every 30min; alert if silent for 2h
+    donePattern: /Done\.|posted|rejected/i,
+  },
+  {
+    name: 'cmo-daily-watch',
+    outLog: path.join(LOGS_DIR, 'cmo-watch-out.log'),
+    staleAfterHours: 30,  // runs daily 8 UTC; alert if silent for 30h
+    donePattern: /Report:|market-watch-\d{4}/i,
+  },
+  {
+    name: 'tax-watchdog-us',
+    outLog: path.join(LOGS_DIR, 'tax-us-out.log'),
+    staleAfterHours: 200,  // runs Monday 7 UTC; alert if silent for 8+ days
+    donePattern: /Done\. New entries:/i,
+  },
+  {
+    name: 'tax-watchdog-eu-japan',
+    outLog: path.join(LOGS_DIR, 'tax-eu-japan-out.log'),
+    staleAfterHours: 200,  // runs Monday 8 UTC; alert if silent for 8+ days
+    donePattern: /Done\. New:/i,
+  },
+];
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -81,6 +132,73 @@ function appendAudit(message: string): void {
   const timestamp = new Date().toISOString();
   const line = `[${timestamp}] [HEARTBEAT] ${message}\n`;
   fs.appendFileSync(AUDIT_LOG, line);
+}
+
+// ─── Telegram Alert ──────────────────────────────────────────────────
+
+async function sendTelegram(message: string): Promise<void> {
+  const token = process.env.CEO_TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.OWNER_TELEGRAM_CHAT_ID || process.env.CEO_TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return; // silently skip if not configured
+  const body = JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' });
+  return new Promise(resolve => {
+    const req = https.request(
+      { hostname: 'api.telegram.org', path: `/bot${token}/sendMessage`, method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+      () => resolve()
+    );
+    req.on('error', () => resolve()); // never throw — alerting must not crash heartbeat
+    req.write(body);
+    req.end();
+  });
+}
+
+// ─── PM2 Cron Service Watchdog ───────────────────────────────────────
+
+interface ServiceHealth {
+  name: string;
+  status: 'ok' | 'stale' | 'no_log';
+  lastSuccessAt: string | null;  // ISO timestamp of last matching line
+  hoursAgo: number | null;
+  staleThresholdHours: number;
+}
+
+function getLastSuccessTimestamp(logFile: string, pattern: RegExp): Date | null {
+  if (!fs.existsSync(logFile)) return null;
+  try {
+    const content = fs.readFileSync(logFile, 'utf-8');
+    const lines = content.split('\n').reverse(); // most recent first
+    for (const line of lines) {
+      if (!pattern.test(line)) continue;
+      // PM2 out log format: "2026-03-01 08:06:12 +00:00: ..."
+      const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) [+-]\d{2}:\d{2}/);
+      if (tsMatch) return new Date(tsMatch[1].replace(' ', 'T') + 'Z');
+    }
+  } catch {}
+  return null;
+}
+
+function checkCronServices(): ServiceHealth[] {
+  const now = Date.now();
+  return CRON_SERVICES.map(svc => {
+    if (!fs.existsSync(svc.outLog)) {
+      return { name: svc.name, status: 'no_log' as const, lastSuccessAt: null,
+               hoursAgo: null, staleThresholdHours: svc.staleAfterHours };
+    }
+    const lastSuccess = getLastSuccessTimestamp(svc.outLog, svc.donePattern);
+    if (!lastSuccess) {
+      return { name: svc.name, status: 'stale' as const, lastSuccessAt: null,
+               hoursAgo: null, staleThresholdHours: svc.staleAfterHours };
+    }
+    const hoursAgo = (now - lastSuccess.getTime()) / (1000 * 60 * 60);
+    const status = hoursAgo > svc.staleAfterHours ? 'stale' : 'ok';
+    return {
+      name: svc.name, status,
+      lastSuccessAt: lastSuccess.toISOString(),
+      hoursAgo: Math.round(hoursAgo * 10) / 10,
+      staleThresholdHours: svc.staleAfterHours,
+    };
+  });
 }
 
 function calculateDayNumber(betaStartDate: string): number {
@@ -309,7 +427,7 @@ async function heartbeat(): Promise<void> {
     console.log(`[Heartbeat] ⚠️ TIER CHANGE: ${currentTier.current_tier} → ${newTier}`);
   }
 
-  // 11. Log alerts
+  // 11. Log alerts for infra checks
   const downServices = Object.entries(checks).filter(([, v]) => v !== 'operational');
   if (downServices.length > 0) {
     const services = downServices.map(([k]) => k).join(', ');
@@ -338,8 +456,35 @@ async function heartbeat(): Promise<void> {
     }
   } catch {}
 
+  // 14. PM2 cron service watchdog ──────────────────────────────────────
+  const serviceHealths = checkCronServices();
+  const staleServices = serviceHealths.filter(s => s.status !== 'ok');
+
+  for (const svc of serviceHealths) {
+    const icon = svc.status === 'ok' ? '✅' : '🔴';
+    const ago = svc.hoursAgo !== null ? `${svc.hoursAgo}h ago` : 'never';
+    console.log(`[Heartbeat] ${icon} ${svc.name}: last success ${ago} (threshold: ${svc.staleThresholdHours}h)`);
+  }
+
+  if (staleServices.length > 0) {
+    const lines = staleServices.map(s => {
+      const ago = s.hoursAgo !== null ? `${s.hoursAgo}h ago` : 'never/no log';
+      return `  • *${s.name}*: last success ${ago} (threshold ${s.staleThresholdHours}h)`;
+    }).join('\n');
+    const telegramMsg = `🚨 *Invoica Service Alert*\n\n${staleServices.length} cron service(s) appear stale:\n${lines}\n\n_Fix: ssh invoica@server + pm2 logs <name> + pm2 restart <name>_`;
+    appendAudit(`[ALERT] Stale cron services: ${staleServices.map(s => s.name).join(', ')}`);
+    console.log(`[Heartbeat] 🚨 Stale services detected — sending Telegram alert`);
+    await sendTelegram(telegramMsg);
+  }
+
+  // 15. Send Telegram alert for infra failures (if any)
+  if (downServices.length > 0) {
+    const infraMsg = `⚠️ *Invoica Infra Alert*\n\nDown: ${downServices.map(([k]) => k).join(', ')}\nStatus: *${healthStatus}*\nDay ${dayNumber} | MRR $${mrr}`;
+    await sendTelegram(infraMsg);
+  }
+
   const elapsed = Date.now() - startTime;
-  console.log(`[Heartbeat] Complete in ${elapsed}ms — Status: ${healthStatus}, Phase: ${phase}, Day: ${dayNumber}, Tier: ${newTier}`);
+  console.log(`[Heartbeat] Complete in ${elapsed}ms — Status: ${healthStatus}, Phase: ${phase}, Day: ${dayNumber}, Tier: ${newTier}, Cron services: ${serviceHealths.filter(s => s.status === 'ok').length}/${serviceHealths.length} ok`);
 }
 
 // ─── Execute ─────────────────────────────────────────────────────────
