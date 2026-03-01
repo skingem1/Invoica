@@ -17,21 +17,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci
 
       - name: TypeScript check — scripts/ (PM2 cron processes)
         run: |
           echo "Checking TypeScript in scripts/ only..."
-          TS_ERRORS=$(npx tsc --noEmit --project tsconfig.scripts.json 2>&1 | grep "error TS" | grep -v "^node_modules/" || true)
-          if [ -z "$TS_ERRORS" ]; then
-            echo "✅ TypeScript OK"
-          else
-            echo "❌ TypeScript errors in scripts/:"
-            echo "$TS_ERRORS"
-            exit 1
-          fi
+          npx tsc --noEmit --project tsconfig.scripts.json
+          echo "✅ TypeScript OK"
 
   ecosystem-verify:
     name: Ecosystem Script Existence Check

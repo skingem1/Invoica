@@ -39,7 +39,7 @@ const ROOT         = path.resolve(__dirname, '..');
 const REPORTS_DIR  = path.join(ROOT, 'reports', 'invoica-x-admin');
 const STATE_FILE   = path.join(REPORTS_DIR, 'daily-state.json');
 const LOG_DIR      = path.join(REPORTS_DIR, 'logs');
-const REJECTED_DIR = path.join(REPORTS_DIR, 'rejected');
+const REJECTED_DIR = path.join(REPORTS_DIR, 'drafts', 'rejected');
 const SOUL_FILE    = path.join(ROOT, 'SOUL.md');
 const COMM_PLAN    = path.join(ROOT, 'reports', 'cmo', 'invoica-communication-plan.md');
 
