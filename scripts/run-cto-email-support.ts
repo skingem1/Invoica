@@ -123,7 +123,7 @@ async function main() {
 
     const lock = await client.getMailboxLock('INBOX');
     try {
-      for await (const msg of client.fetch({ unseen: true }, { uid: true, envelope: true, bodyParts: ['TEXT'] })) {
+      for await (const msg of client.fetch({ seen: false }, { uid: true, envelope: true, bodyParts: ['TEXT'] })) {
         const uidStr = String(msg.uid);
         if (processedIds.has(uidStr)) continue;
         const from = msg.envelope?.from?.[0]?.address || 'unknown';
