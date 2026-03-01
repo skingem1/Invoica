@@ -14,6 +14,15 @@ I have completed a comprehensive brand review for Invoica. This analysis draws o
 
 **2. Executive Summary** — A concise overview for CEO decision-making with immediate, short-term, and long-term action items.
 
+### Company & Product Identity
+
+| Level | Name | Purpose |
+|-------|------|---------|
+| **Company** | **Nexus Collective** (@NexusCollect) | Parent company — autonomous AI company |
+| **Product** | **Invoica** | Financial OS for AI agents (first product) |
+
+Owner-approved 2026-03-01 via PROP-001.
+
 ### Core Brand Identity
 
 **Color Palette:**

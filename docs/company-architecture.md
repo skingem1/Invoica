@@ -1,4 +1,14 @@
-# Company Architecture — Autonomous AI Company
+# Company Architecture — Nexus Collective
+
+## Identity (Authoritative)
+
+| Field | Value |
+|-------|-------|
+| **Company Name** | **Nexus Collective** |
+| **Handle** | @NexusCollect |
+| **Domain targets** | nexuscollective.ai, nexuscollective.com |
+| **First Product** | Invoica (financial OS for AI agents) |
+| **Approved by Owner** | 2026-03-01 (PROP-001) |
 
 ## Company Classification (Authoritative)
 

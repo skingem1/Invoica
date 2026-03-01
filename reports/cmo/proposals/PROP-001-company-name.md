@@ -1,8 +1,11 @@
 # CMO Proposal: PROP-001 — Company Name Selection
 
-**Status**: CEO REVIEWED
+**Status**: APPROVED BY OWNER ✅
 **Date**: 2026-02-18
+**Decision Date**: 2026-03-01
 **Priority**: Critical (blocks public communication)
+
+**Owner Decision**: **Nexus Collective** — approved. Handle: @NexusCollect. Domain targets: nexuscollective.ai, nexuscollective.com.
 
 # CMO Research Report: Company Name Candidates
 
