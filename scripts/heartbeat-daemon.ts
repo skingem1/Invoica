@@ -451,7 +451,7 @@ async function heartbeat(): Promise<void> {
     const prevHealth = readJSON<HealthState>(HEALTH_FILE);
     const lastBeat = new Date(prevHealth.last_heartbeat).getTime();
     const gapMinutes = (Date.now() - lastBeat) / (1000 * 60);
-    if (gapMinutes > 30) {
+    if (gapMinutes > 90) {
       appendAudit(`[WARNING] Heartbeat gap detected: ${Math.floor(gapMinutes)} minutes since last beat`);
     }
   } catch {}
@@ -486,7 +486,23 @@ async function heartbeat(): Promise<void> {
   const elapsed = Date.now() - startTime;
   console.log(`[Heartbeat] Complete in ${elapsed}ms — Status: ${healthStatus}, Phase: ${phase}, Day: ${dayNumber}, Tier: ${newTier}, Cron services: ${serviceHealths.filter(s => s.status === 'ok').length}/${serviceHealths.length} ok`);
 
-  // 16. Dead-man's switch ping — proves heartbeat is alive to external monitor
+  // 16. 6-hour Telegram summary (fires at 00:xx, 06:xx, 12:xx, 18:xx UTC)
+  const utcHour = new Date().getUTCHours();
+  if (utcHour % 6 === 0) {
+    const cronOk = serviceHealths.filter(s => s.status === 'ok').length;
+    const cronTotal = serviceHealths.length;
+    const infraOk = downServices.length === 0;
+    const statusIcon = healthStatus === 'healthy' ? '✅' : '⚠️';
+    const summaryLines = serviceHealths.map(s => {
+      const ago = s.hoursAgo !== null ? `${s.hoursAgo}h ago` : 'never';
+      const icon = s.status === 'ok' ? '✅' : '🔴';
+      return `  ${icon} ${s.name}: ${ago}`;
+    }).join('\n');
+    const summaryMsg = `${statusIcon} *Invoica 6h Summary* — ${new Date().toISOString().slice(0, 16)}UTC\n\nCron agents: ${cronOk}/${cronTotal} ok\n${summaryLines}\n\nInfra: ${infraOk ? '✅ all operational' : '⚠️ ' + downServices.map(([k]) => k).join(', ')}\nMRR: $${mrr} | Day ${dayNumber} | ${phase}`;
+    await sendTelegram(summaryMsg);
+  }
+
+  // 17. Dead-man's switch ping — proves heartbeat is alive to external monitor (1h period)
   const pingUrl = process.env.HEALTHCHECK_PING_URL;
   if (pingUrl) {
     try {
