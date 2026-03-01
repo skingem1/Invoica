@@ -503,7 +503,49 @@ async function heartbeat(): Promise<void> {
     await sendTelegram(telegramMsg);
   }
 
-  // 15. Send Telegram alert for infra failures (if any)
+  // 15. Port-conflict guard — detect duplicate PM2 / orphan process on critical ports
+  const CRITICAL_PORTS: Array<{ name: string; port: number }> = [
+    { name: 'backend-api',      port: 3001  },
+    { name: 'openclaw-gateway', port: 18789 },
+  ];
+  const portConflicts: string[] = [];
+
+  for (const { name, port } of CRITICAL_PORTS) {
+    try {
+      const ssOut = execSync(`ss -tlnp | grep ':${port} '`, { timeout: 5000, stdio: 'pipe' }).toString();
+      // Count distinct PIDs listening on this port
+      const pidMatches = [...ssOut.matchAll(/pid=(\d+)/g)];
+      const uniquePids = new Set(pidMatches.map(m => m[1]));
+      if (uniquePids.size > 1) {
+        const msg = `Port ${port} (${name}): ${uniquePids.size} conflicting listeners — PIDs ${[...uniquePids].join(', ')}`;
+        portConflicts.push(msg);
+        appendAudit(`[PORT_CONFLICT] ${msg}`);
+        console.log(`[Heartbeat] 🔴 PORT CONFLICT: ${msg}`);
+
+        // Self-heal: stop root PM2 entry for this port if root PM2 is running
+        try {
+          execSync(`sudo pm2 delete ${name} 2>/dev/null && sudo pm2 save --force 2>/dev/null`, { timeout: 10000, stdio: 'pipe' });
+          appendAudit(`[SELF_HEAL] Removed ${name} from root PM2 to resolve port conflict`);
+          console.log(`[Heartbeat] ✅ Removed ${name} from root PM2`);
+        } catch { /* root PM2 may not be running — that's fine */ }
+      } else {
+        console.log(`[Heartbeat] ✅ Port ${port} (${name}): single owner, no conflict`);
+      }
+    } catch {
+      // grep returns exit 1 when no match = port not in use at all (process may be stopped)
+      console.log(`[Heartbeat] ℹ️  Port ${port} (${name}): not listening`);
+    }
+  }
+
+  if (portConflicts.length > 0) {
+    await sendTelegram(
+      `🔴 *Port Conflict Detected*\n\nTwo processes fighting for the same port:\n` +
+      portConflicts.map(c => `• ${c}`).join('\n') +
+      `\n\nAttempted auto-fix. Check \`pm2 list\` + \`sudo pm2 list\`.`
+    );
+  }
+
+  // 16. Send Telegram alert for infra failures (if any)
   if (downServices.length > 0) {
     const infraMsg = `⚠️ *Invoica Infra Alert*\n\nDown: ${downServices.map(([k]) => k).join(', ')}\nStatus: *${healthStatus}*\nDay ${dayNumber} | MRR $${mrr}`;
     await sendTelegram(infraMsg);
