@@ -191,6 +191,34 @@ async function main(): Promise<void> {
 
   log(`Finished. Done: ${doneCount}/${sprint.total}, Pending: ${pendingCount}, Exit: ${exitCode}, Time: ${elapsed}min`);
   sendTelegram(summary);
+
+  // ── Post-Sprint Pipeline: tests → CTO review → deploy ───────────────────
+  // Only run pipeline if sprint made progress (at least some tasks done)
+  if (exitCode === 0 && doneCount > 0 && pendingCount === 0) {
+    log('All tasks done — launching post-sprint pipeline (test → CTO review → deploy)...');
+    sendTelegram(`🔬 *Post-sprint pipeline started for ${sprintName}*\nRunning tests → CTO review → auto-deploy`);
+
+    try {
+      const pipelineResult = spawnSync(
+        'npx',
+        ['ts-node', '--transpile-only', 'scripts/post-sprint-pipeline.ts', sprint.file],
+        {
+          cwd: ROOT,
+          stdio: 'inherit',
+          timeout: 15 * 60 * 1000, // 15 min max for tests + deploy
+          env: { ...process.env },
+        }
+      );
+      if (pipelineResult.error) throw pipelineResult.error;
+      log(`Post-sprint pipeline exited: ${pipelineResult.status}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`Post-sprint pipeline error: ${msg}`);
+      sendTelegram(`⚠️ *Post-sprint pipeline error*: ${msg}`);
+    }
+  } else if (pendingCount > 0) {
+    log(`${pendingCount} tasks still pending — skipping post-sprint pipeline (will re-run next cycle)`);
+  }
 }
 
 main().catch((err: unknown) => {
