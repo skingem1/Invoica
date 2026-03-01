@@ -262,7 +262,7 @@ async function runHealthChecks(): Promise<HealthState['checks']> {
   const [apiOk, dbOk, edgeFnOk, dashboardOk, websiteOk] = await Promise.all([
     checkEndpoint(`${SUPABASE_URL}/rest/v1/`),
     checkEndpoint(`${SUPABASE_URL}/rest/v1/`), // DB accessible through REST API
-    checkEndpoint(`${SUPABASE_URL}/functions/v1/api/health`),
+    checkEndpoint(`${SUPABASE_URL}/functions/v1/api/v1/health`),
     checkEndpoint(DASHBOARD_URL),
     checkEndpoint(WEBSITE_URL),
   ]);
@@ -485,6 +485,17 @@ async function heartbeat(): Promise<void> {
 
   const elapsed = Date.now() - startTime;
   console.log(`[Heartbeat] Complete in ${elapsed}ms — Status: ${healthStatus}, Phase: ${phase}, Day: ${dayNumber}, Tier: ${newTier}, Cron services: ${serviceHealths.filter(s => s.status === 'ok').length}/${serviceHealths.length} ok`);
+
+  // 16. Dead-man's switch ping — proves heartbeat is alive to external monitor
+  const pingUrl = process.env.HEALTHCHECK_PING_URL;
+  if (pingUrl) {
+    try {
+      await fetch(pingUrl, { method: 'GET', signal: AbortSignal.timeout(5000) });
+      console.log('[Heartbeat] ✅ Dead-man ping sent');
+    } catch {
+      console.log('[Heartbeat] ⚠️ Dead-man ping failed (check HEALTHCHECK_PING_URL)');
+    }
+  }
 }
 
 // ─── Execute ─────────────────────────────────────────────────────────
