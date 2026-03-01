@@ -254,7 +254,7 @@ export const createRateLimiter = (
 export const rateLimiters: Record<CustomerTier, ReturnType<typeof createRateLimiter>> = {
   [CustomerTier.FREE]: createRateLimiter({ customerTier: CustomerTier.FREE }),
   [CustomerTier.BASIC]: createRateLimiter({ customerTier: CustomerTier.BASIC }),
-  [CustomerTier.PREMIUM]: createRateLimiter({ customerTier: CustomerTier.PREMIUM),
+  [CustomerTier.PREMIUM]: createRateLimiter({ customerTier: CustomerTier.PREMIUM }),
   [CustomerTier.ENTERPRISE]: createRateLimiter({ customerTier: CustomerTier.ENTERPRISE }),
 };
 
