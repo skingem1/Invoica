@@ -71,7 +71,7 @@ module.exports = {
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
-        HEALTHCHECK_PING_URL: process.env.HEALTHCHECK_PING_URL || ""
+        HEALTHCHECK_PING_URL: "https://hc-ping.com/0f88f15e-5f06-43fa-ba26-a32719bb3682"
       },
       error_file: "/home/invoica/apps/Invoica/logs/heartbeat-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/heartbeat-out.log",
