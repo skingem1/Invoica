@@ -303,7 +303,17 @@ Focus on genuine new developments, practical Invoica impact, and concrete produc
     const closeBraces = (jsonStr.match(/\}/g) || []).length;
     if (openBrackets > closeBrackets) jsonStr += ']'.repeat(openBrackets - closeBrackets);
     if (openBraces > closeBraces) jsonStr += '}'.repeat(openBraces - closeBraces);
-    return JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
+    // Normalize: ensure all array fields are actually arrays (LLM may omit them)
+    return {
+      newEntries:     Array.isArray(parsed.newEntries)     ? parsed.newEntries     : [],
+      updatedEntries: Array.isArray(parsed.updatedEntries) ? parsed.updatedEntries : [],
+      summary:        parsed.summary        || 'No summary provided.',
+      invoicaImpact:  parsed.invoicaImpact  || 'See raw research in report.',
+      gaps:           Array.isArray(parsed.gaps)           ? parsed.gaps           : [],
+      priorities:     Array.isArray(parsed.priorities)     ? parsed.priorities     : [],
+      vatRates:       parsed.vatRates && typeof parsed.vatRates === 'object' ? parsed.vatRates : {},
+    };
   } catch {
     return {
       newEntries: [], updatedEntries: [],
@@ -443,9 +453,9 @@ async function main() {
   // Analyze
   const analysis = await analyzeWithClaude(euResearch, jpResearch, kb);
 
-  // Update KB
-  kb.entries.push(...analysis.newEntries);
-  for (const u of analysis.updatedEntries) {
+  // Update KB (defensive guards in case LLM omits arrays)
+  kb.entries.push(...(analysis.newEntries || []));
+  for (const u of (analysis.updatedEntries || [])) {
     const idx = kb.entries.findIndex(e => e.id === u.id);
     if (idx >= 0) kb.entries[idx] = { ...kb.entries[idx], ...u, lastUpdated: TODAY };
   }
