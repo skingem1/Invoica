@@ -1,421 +1,543 @@
 #!/usr/bin/env ts-node
 
 /**
- * run-x-admin.ts — Invoica X/Twitter Autonomous Posting Agent
+ * run-x-admin.ts — Invoica X/Twitter Autonomous Posting Agent v2
  *
- * Reads the content calendar, reviews each post with CEO (vision/tone)
- * and CTO (technical accuracy for technical posts), then publishes
- * approved content to @invoica_ai.
+ * Posts 3 times per day to @invoica_ai:
+ *   09:00 UTC — Educational: agentic economy / x402 / tax compliance (web-researched)
+ *   13:00 UTC — Invoica Updates: recent code, SDKs, webhooks (from git log)
+ *   17:00 UTC — Vision: long-term mission, positioning (from SOUL.md)
  *
- * Review flow:
- *   1. CEO reviews every post (company vision + communication plan alignment)
- *   2. CTO reviews technical posts (accuracy of x402/API/blockchain claims)
- *   3. Only APPROVED posts are published
- *   4. Rejected drafts saved to reports/invoica-x-admin/drafts/rejected/
+ * Each post:
+ *   1. Content generated dynamically by AI
+ *   2. CEO reviews (Anthropic claude-sonnet-4-5) for brand/vision alignment
+ *   3. CTO reviews technical posts (MiniMax M2.5) for accuracy
+ *   4. CMO generates branded image via DALL-E 3
+ *   5. Image uploaded to X, post published with media
  *
  * Schedule: PM2 cron_restart every 30 minutes
- *
- * State file: reports/invoica-x-admin/posted-ids.json
- * Post logs:  reports/invoica-x-admin/post-log-YYYY-MM-DD.md
+ * State: reports/invoica-x-admin/daily-state.json (tracks what posted today)
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
-import { postTweet, postThread } from './x-post-utility';
+import * as http from 'http';
+import * as crypto from 'crypto';
+import { execSync } from 'child_process';
 import 'dotenv/config';
 
-// ─── Credential Remap ────────────────────────────────────────────────
-// Override X_* vars with INVOICA_X_* so x-post-utility posts to @invoica_ai.
+// Credential Remap — override X_* with INVOICA_X_* so utility posts to @invoica_ai
 if (process.env.INVOICA_X_API_KEY)             process.env.X_API_KEY             = process.env.INVOICA_X_API_KEY;
 if (process.env.INVOICA_X_API_SECRET)          process.env.X_API_SECRET          = process.env.INVOICA_X_API_SECRET;
 if (process.env.INVOICA_X_ACCESS_TOKEN)        process.env.X_ACCESS_TOKEN        = process.env.INVOICA_X_ACCESS_TOKEN;
 if (process.env.INVOICA_X_ACCESS_TOKEN_SECRET) process.env.X_ACCESS_TOKEN_SECRET = process.env.INVOICA_X_ACCESS_TOKEN_SECRET;
 if (process.env.INVOICA_X_BEARER_TOKEN)        process.env.X_BEARER_TOKEN        = process.env.INVOICA_X_BEARER_TOKEN;
 
-// ─── Types ───────────────────────────────────────────────────────────
+// Paths
+const ROOT         = path.resolve(__dirname, '..');
+const REPORTS_DIR  = path.join(ROOT, 'reports', 'invoica-x-admin');
+const STATE_FILE   = path.join(REPORTS_DIR, 'daily-state.json');
+const LOG_DIR      = path.join(REPORTS_DIR, 'logs');
+const REJECTED_DIR = path.join(REPORTS_DIR, 'rejected');
+const SOUL_FILE    = path.join(ROOT, 'SOUL.md');
+const COMM_PLAN    = path.join(ROOT, 'reports', 'cmo', 'invoica-communication-plan.md');
 
-interface ScheduledPost {
-  id: string;
-  date: string;       // YYYY-MM-DD
-  hourUTC: number;
-  minuteUTC: number;
-  type: 'tweet' | 'thread';
-  label: string;
-  technical: boolean; // true = CTO review required
-  content: string[];
-}
+// Post slots: 3 per day
+const POST_SLOTS = [
+  { key: 'educational', hourUTC: 9,  label: 'Educational (Agentic Economy / x402 / Tax)',  technical: true  },
+  { key: 'updates',     hourUTC: 13, label: 'Invoica Updates (Code / SDKs / Webhooks)',     technical: true  },
+  { key: 'vision',      hourUTC: 17, label: 'Vision & Long-term Positioning',               technical: false },
+];
 
-interface ReviewResult {
-  approved: boolean;
-  feedback: string;
-}
+// State management
+interface DailyState { date: string; posted: Record<string, boolean>; }
 
-// ─── Paths ───────────────────────────────────────────────────────────
+function ensureDir(d: string) { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); }
 
-const ROOT          = path.resolve(__dirname, '..');
-const REPORTS_DIR   = path.join(ROOT, 'reports', 'invoica-x-admin');
-const DRAFTS_DIR    = path.join(REPORTS_DIR, 'drafts');
-const REJECTED_DIR  = path.join(DRAFTS_DIR, 'rejected');
-const STATE_FILE    = path.join(REPORTS_DIR, 'posted-ids.json');
-const CMO_PLAN      = path.join(ROOT, 'reports', 'cmo', 'communication-plan.md');
-
-function ensureDir(dir: string) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-function loadPostedIds(): Set<string> {
-  try { return new Set(JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'))); }
-  catch { return new Set(); }
-}
-
-function savePostedIds(ids: Set<string>) {
-  ensureDir(REPORTS_DIR);
-  fs.writeFileSync(STATE_FILE, JSON.stringify([...ids], null, 2));
-}
-
-function appendPostLog(entry: string) {
-  ensureDir(REPORTS_DIR);
+function loadState(): DailyState {
   const today = new Date().toISOString().slice(0, 10);
-  const logFile = path.join(REPORTS_DIR, `post-log-${today}.md`);
-  const block = `\n## ${new Date().toISOString()}\n\n${entry}\n`;
-  if (!fs.existsSync(logFile)) fs.writeFileSync(logFile, `# X Post Log — ${today}\n\n`);
-  fs.appendFileSync(logFile, block);
+  try {
+    const s: DailyState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+    if (s.date === today) return s;
+  } catch { /* reset on new day or parse error */ }
+  return { date: today, posted: {} };
 }
 
-function log(msg: string) { console.log(`[x-admin] ${msg}`); }
-
-function loadCommPlan(): string {
-  try { return fs.readFileSync(CMO_PLAN, 'utf-8').slice(0, 3000); }
-  catch { return 'Be professional, developer-focused, and authentic. No hype. Educate about x402.'; }
+function saveState(s: DailyState) {
+  ensureDir(REPORTS_DIR);
+  fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
 }
 
-// ─── LLM Helpers ─────────────────────────────────────────────────────
-
-function httpsPost(hostname: string, path: string, headers: Record<string, string>, body: string): Promise<string> {
+// HTTP helper
+function apiCall(
+  method: string, hostname: string, urlPath: string,
+  headers: Record<string, string>, body?: string | Buffer
+): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const req = https.request(
-      { hostname, path, method: 'POST', headers: { ...headers, 'Content-Length': Buffer.byteLength(body) } },
-      (res) => {
-        let data = '';
-        res.on('data', (c) => data += c);
-        res.on('end', () => resolve(data));
-      }
-    );
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('timeout')); });
+    const opts: https.RequestOptions = {
+      hostname, port: 443, path: urlPath, method,
+      headers: { ...headers, ...(body ? { 'Content-Length': Buffer.byteLength(body).toString() } : {}) },
+    };
+    const req = https.request(opts, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode!, body: Buffer.concat(chunks).toString() }));
+      res.on('error', reject);
+    });
     req.on('error', reject);
-    req.write(body);
+    if (body) req.write(body);
     req.end();
   });
 }
 
-// ─── CEO Review (Claude via Anthropic) ───────────────────────────────
-
-async function reviewWithCEO(post: ScheduledPost, commPlan: string): Promise<ReviewResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return { approved: true, feedback: 'CEO review skipped — no ANTHROPIC_API_KEY' };
-
-  const postText = post.content.join('\n\n---\n\n');
-  const body = JSON.stringify({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 300,
-    system: `You are the CEO of Invoica — the Financial OS for AI Agents. You review proposed X/Twitter posts for @invoica_ai before they go live. Your job is to ensure every post aligns with company vision, brand voice, and the communication plan. Be decisive and brief.`,
-    messages: [{
-      role: 'user',
-      content: `## Communication Plan (excerpt)\n${commPlan}\n\n## Draft Post\nLabel: ${post.label}\nType: ${post.type}\n\n${postText}\n\n## Task\nDoes this post align with Invoica's vision, brand voice, and communication plan? Is the messaging accurate and appropriate?\n\nRespond ONLY with JSON: {"approved": true/false, "feedback": "brief reason"}`,
-    }],
+// Download URL to buffer (follows redirects)
+function downloadUrl(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? https : http;
+    (mod as typeof https).get(url, (res) => {
+      if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+        return resolve(downloadUrl(res.headers.location));
+      }
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
   });
+}
 
+// OAuth 1.0a
+function pct(s: string) {
+  return encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
+function buildOAuthHeader(
+  method: string, url: string,
+  creds: { apiKey: string; apiSecret: string; accessToken: string; accessTokenSecret: string },
+  extraParams: Record<string, string> = {}
+): string {
+  const op: Record<string, string> = {
+    oauth_consumer_key:     creds.apiKey,
+    oauth_nonce:            crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp:        Math.floor(Date.now() / 1000).toString(),
+    oauth_token:            creds.accessToken,
+    oauth_version:          '1.0',
+  };
+  const all = { ...op, ...extraParams };
+  const base = [
+    method.toUpperCase(),
+    pct(url),
+    pct(Object.keys(all).sort().map(k => `${pct(k)}=${pct(all[k])}`).join('&')),
+  ].join('&');
+  const sigKey = `${pct(creds.apiSecret)}&${pct(creds.accessTokenSecret)}`;
+  op['oauth_signature'] = crypto.createHmac('sha1', sigKey).update(base).digest('base64');
+  return 'OAuth ' + Object.keys(op).sort().map(k => `${pct(k)}="${pct(op[k])}"`).join(', ');
+}
+
+function getXCreds() {
+  return {
+    apiKey:            process.env.X_API_KEY!,
+    apiSecret:         process.env.X_API_SECRET!,
+    accessToken:       process.env.X_ACCESS_TOKEN!,
+    accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET!,
+  };
+}
+
+// X: Upload media (multipart/form-data with OAuth 1.0a)
+async function uploadImageToX(imgBuf: Buffer): Promise<string | null> {
   try {
-    const raw = await httpsPost('api.anthropic.com', '/v1/messages',
-      { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body);
-    const res = JSON.parse(raw);
-    const text = res?.content?.[0]?.text || '';
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      return { approved: !!parsed.approved, feedback: parsed.feedback || '' };
+    const creds = getXCreds();
+    const uploadUrl = 'https://upload.twitter.com/1.1/media/upload.json';
+    const boundary = '----InvoicaBoundary' + crypto.randomBytes(8).toString('hex');
+    const prefix = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media"\r\nContent-Type: image/png\r\n\r\n`);
+    const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body = Buffer.concat([prefix, imgBuf, suffix]);
+    // For multipart, OAuth does NOT include body params in signature
+    const auth = buildOAuthHeader('POST', uploadUrl, creds);
+    const parsed = new URL(uploadUrl);
+    const res = await apiCall('POST', parsed.hostname, parsed.pathname, {
+      Authorization: auth,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    }, body);
+    if (res.status === 200 || res.status === 201) {
+      const data = JSON.parse(res.body);
+      console.log(`  [image] Uploaded to X — media_id: ${data.media_id_string}`);
+      return data.media_id_string;
     }
-    return { approved: true, feedback: 'CEO review: could not parse response, defaulting to approved' };
-  } catch (e) {
-    return { approved: true, feedback: `CEO review failed (${(e as Error).message}), defaulting to approved` };
+    console.log(`  [image] X upload failed ${res.status}: ${res.body.slice(0, 200)}`);
+    return null;
+  } catch (e: any) {
+    console.log(`  [image] X upload error: ${e.message}`);
+    return null;
   }
 }
 
-// ─── CTO Review (MiniMax) ────────────────────────────────────────────
+// X: Post tweet with optional media
+async function postTweetWithMedia(text: string, mediaId: string | null): Promise<string | null> {
+  const creds = getXCreds();
+  const url = 'https://api.twitter.com/2/tweets';
+  const auth = buildOAuthHeader('POST', url, creds);
+  const payload: any = { text };
+  if (mediaId) payload.media = { media_ids: [mediaId] };
+  const res = await apiCall('POST', 'api.twitter.com', '/2/tweets', {
+    Authorization: auth, 'Content-Type': 'application/json',
+  }, JSON.stringify(payload));
+  if (res.status === 201) return JSON.parse(res.body).data?.id || null;
+  console.log(`  [tweet] Failed ${res.status}: ${res.body.slice(0, 300)}`);
+  return null;
+}
 
-async function reviewWithCTO(post: ScheduledPost): Promise<ReviewResult> {
-  const apiKey = process.env.MINIMAX_API_KEY;
-  const groupId = process.env.MINIMAX_GROUP_ID;
-  if (!apiKey || !groupId) return { approved: true, feedback: 'CTO review skipped — no MINIMAX credentials' };
+// X: Post thread (first tweet gets media)
+async function postThreadWithMedia(tweets: string[], mediaId: string | null): Promise<string | null> {
+  let replyToId: string | null = null;
+  let firstId: string | null = null;
+  for (let i = 0; i < tweets.length; i++) {
+    const creds = getXCreds();
+    const url = 'https://api.twitter.com/2/tweets';
+    const auth = buildOAuthHeader('POST', url, creds);
+    const payload: any = { text: tweets[i] };
+    if (i === 0 && mediaId) payload.media = { media_ids: [mediaId] };
+    if (replyToId) payload.reply = { in_reply_to_tweet_id: replyToId };
+    console.log(`  [${i + 1}/${tweets.length}] Posting...`);
+    const res = await apiCall('POST', 'api.twitter.com', '/2/tweets', {
+      Authorization: auth, 'Content-Type': 'application/json',
+    }, JSON.stringify(payload));
+    if (res.status === 201) {
+      replyToId = JSON.parse(res.body).data?.id;
+      if (i === 0) firstId = replyToId;
+      console.log(`  [${i + 1}/${tweets.length}] Posted: ${replyToId}`);
+      if (i < tweets.length - 1) await new Promise(r => setTimeout(r, 1200));
+    } else {
+      console.log(`  [${i + 1}/${tweets.length}] Failed ${res.status}: ${res.body.slice(0, 200)}`);
+      break;
+    }
+  }
+  return firstId;
+}
 
-  const postText = post.content.join('\n\n---\n\n');
+// Anthropic Claude call
+async function callClaude(system: string, user: string, maxTokens = 1400): Promise<string> {
   const body = JSON.stringify({
-    model: 'MiniMax-M2.5',
-    max_tokens: 300,
+    model: 'claude-sonnet-4-5', max_tokens: maxTokens,
+    system, messages: [{ role: 'user', content: user }],
+  });
+  const res = await apiCall('POST', 'api.anthropic.com', '/v1/messages', {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.ANTHROPIC_API_KEY!,
+    'anthropic-version': '2023-06-01',
+  }, body);
+  return JSON.parse(res.body).content?.[0]?.text || '';
+}
+
+// Grok web search
+async function searchWithGrok(query: string): Promise<string> {
+  try {
+    const body = JSON.stringify({
+      model: 'grok-3-latest',
+      messages: [
+        { role: 'system', content: 'You are a research assistant with live web search. Find recent, accurate, specific facts with numbers and dates.' },
+        { role: 'user', content: query },
+      ],
+      max_tokens: 1500,
+    });
+    const baseUrl = (process.env.XAI_BASE_URL || 'https://api.x.ai/v1').replace(/\/$/, '');
+    const parsed = new URL(baseUrl + '/chat/completions');
+    const res = await apiCall('POST', parsed.hostname, parsed.pathname + parsed.search, {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.XAI_API_KEY}`,
+    }, body);
+    return JSON.parse(res.body).choices?.[0]?.message?.content || '(no results)';
+  } catch (e: any) {
+    return `(Grok search unavailable: ${e.message})`;
+  }
+}
+
+// DALL-E 3 image generation
+async function generateBrandedImage(imagePrompt: string): Promise<Buffer | null> {
+  try {
+    if (!process.env.OPENAI_API_KEY) return null;
+    const body = JSON.stringify({
+      model: 'dall-e-3',
+      prompt: `${imagePrompt}. Style: Clean modern fintech brand. Dark background (#0a0a0f), Invoica brand purple (#8b5cf6) and white accents. Professional and minimalist. No text or typography in the image.`,
+      n: 1, size: '1024x1024', response_format: 'url',
+    });
+    const res = await apiCall('POST', 'api.openai.com', '/v1/images/generations', {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    }, body);
+    if (res.status !== 200) { console.log(`  [image] DALL-E ${res.status}`); return null; }
+    const imageUrl = JSON.parse(res.body).data?.[0]?.url;
+    if (!imageUrl) return null;
+    console.log(`  [image] Generated — downloading...`);
+    const buf = await downloadUrl(imageUrl);
+    console.log(`  [image] ${Math.round(buf.length / 1024)}KB ready`);
+    return buf;
+  } catch (e: any) {
+    console.log(`  [image] Error: ${e.message}`);
+    return null;
+  }
+}
+
+// Content generators
+
+function loadContext() {
+  const soul = fs.existsSync(SOUL_FILE) ? fs.readFileSync(SOUL_FILE, 'utf-8').slice(0, 2000) : '';
+  const plan = fs.existsSync(COMM_PLAN) ? fs.readFileSync(COMM_PLAN, 'utf-8').slice(0, 1000) : '';
+  return { soul, plan };
+}
+
+// Rotate topic by day-of-year to avoid repetition
+function rotateBy<T>(arr: T[]): T {
+  const doy = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  return arr[doy % arr.length];
+}
+
+async function generateEducationalPost() {
+  const topic = rotateBy([
+    'latest developments in the agentic economy: AI agents transacting autonomously in 2026',
+    'x402 payment protocol: how HTTP 402 enables micropayments for AI agent APIs',
+    'VAT and digital services tax compliance for AI agent transactions: 2026 regulatory landscape',
+    'USDC and stablecoins as settlement layer for autonomous AI agent commerce',
+    'on-chain payment authorization via EIP-712 for agent-to-agent transactions',
+  ]);
+
+  console.log(`  [edu] Researching: ${topic}`);
+  const research = await searchWithGrok(`Find recent news, statistics, and expert analysis about: ${topic}. Focus on 2025-2026 developments.`);
+  const { soul, plan } = loadContext();
+
+  const raw = await callClaude(
+    `You write educational X/Twitter content for @invoica_ai — the Financial OS for AI Agents ("Stripe for AI Agents").
+Audience: AI/Web3 builders and founders. Voice: confident, technical, insightful. Max 280 chars per tweet.
+Format: 2-4 tweet thread OR single tweet depending on depth needed.
+Return ONLY valid JSON: {"tweets": ["tweet1", "tweet2"], "imagePrompt": "abstract visual description for DALL-E"}`,
+    `## Invoica Context\n${soul.slice(0, 800)}\n\n## Comm Plan\n${plan.slice(0, 500)}\n\n## Research\n${research}\n\nWrite an educational post about: ${topic}. Use specific facts. End with Invoica's relevance and a beta CTA (invoica.ai).`
+  );
+
+  try {
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)![0]);
+    return { tweets: parsed.tweets as string[], imagePrompt: parsed.imagePrompt as string, technical: true };
+  } catch {
+    return {
+      tweets: [`The agentic economy is here. AI agents are invoicing, paying, and settling on-chain autonomously. @invoica_ai is the financial infrastructure making this possible — x402 middleware, tax compliance, settlement detection. Beta: invoica.ai`],
+      imagePrompt: 'Network of glowing AI agent nodes exchanging digital payments, purple and white on dark background',
+      technical: true,
+    };
+  }
+}
+
+async function generateUpdatesPost() {
+  let commits = '';
+  let changedFiles = '';
+  try {
+    commits = execSync(`git -C ${ROOT} log --oneline --since="7 days ago" --no-merges --format="%s" 2>/dev/null | head -15`, { encoding: 'utf-8', timeout: 8000 }).trim();
+    changedFiles = execSync(`git -C ${ROOT} diff --name-only HEAD~5 HEAD 2>/dev/null | head -20`, { encoding: 'utf-8', timeout: 8000 }).trim();
+  } catch { /* ignore */ }
+
+  const { soul } = loadContext();
+  const raw = await callClaude(
+    `You write "building in public" posts for @invoica_ai — an autonomous AI company (Invoica) building the Financial OS for AI Agents.
+Voice: transparent, builder-focused, shows velocity. Max 280 chars per tweet. 1-3 tweets.
+Return ONLY valid JSON: {"tweets": ["tweet1"], "imagePrompt": "abstract tech/code visual for DALL-E"}`,
+    `## Recent Commits (7 days)\n${commits || '(no commits found)'}\n\n## Changed Files\n${changedFiles || '(unavailable)'}\n\n## Invoica Context\n${soul.slice(0, 600)}\n\nWrite a "what we shipped" post. Be specific about features if visible in commits. Mention x402, tax engine, SDKs, or webhooks if relevant. Show that an autonomous agent team ships fast.`
+  );
+
+  try {
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)![0]);
+    return { tweets: parsed.tweets as string[], imagePrompt: parsed.imagePrompt as string, technical: true };
+  } catch {
+    return {
+      tweets: [`⚡ Invoica update: autonomous agent team shipped this week. x402 middleware, tax compliance engine, and SDK updates — all deployed without a single standup. This is how an AI company builds. Beta live: invoica.ai`],
+      imagePrompt: 'Code flowing through purple circuit pathways representing rapid autonomous software development',
+      technical: true,
+    };
+  }
+}
+
+async function generateVisionPost() {
+  const theme = rotateBy([
+    'every AI agent will need financial infrastructure — the TAM for agent-native financial rails',
+    'why Invoica is the default financial layer for the autonomous economy and what makes it defensible',
+    'the future: agents earn, pay, invoice, and file taxes without any human touching the money',
+    'x402 + on-chain settlement + tax compliance — why this full-stack matters more than point solutions',
+    'Conway governance: a self-improving, survival-driven financial OS for the long-term agent economy',
+  ]);
+
+  const { soul } = loadContext();
+  const constitution = fs.existsSync(path.join(ROOT, 'constitution.md'))
+    ? fs.readFileSync(path.join(ROOT, 'constitution.md'), 'utf-8').slice(0, 1000) : '';
+
+  const raw = await callClaude(
+    `You are writing visionary, CEO-voice posts for @invoica_ai. Think in decades. Be bold and specific.
+No buzzwords. Real market opportunity. Confident but not arrogant. Max 280 chars per tweet. 2-4 tweets.
+Return ONLY valid JSON: {"tweets": ["tweet1", "tweet2"], "imagePrompt": "abstract futuristic visual for DALL-E"}`,
+    `## Strategy & Vision\n${soul.slice(0, 1500)}\n\n## Constitutional Principles\n${constitution.slice(0, 600)}\n\nTheme: ${theme}\n\nWrite a visionary post. Ground it in Invoica's actual capabilities. Make it shareable for founders and VCs.`
+  );
+
+  try {
+    const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)![0]);
+    return { tweets: parsed.tweets as string[], imagePrompt: parsed.imagePrompt as string, technical: false };
+  } catch {
+    return {
+      tweets: [
+        `The next generation of startups won't hire accountants or payment teams.`,
+        `Their AI agents will invoice, settle on-chain, and handle tax compliance autonomously. @invoica_ai is building that infrastructure today — for every autonomous system that needs to transact. invoica.ai`,
+      ],
+      imagePrompt: 'Futuristic autonomous city where AI agents form an invisible financial network, purple light trails on dark background',
+      technical: false,
+    };
+  }
+}
+
+// Review gates
+interface ReviewResult { approved: boolean; feedback: string; }
+
+async function ceoReview(tweets: string[], label: string): Promise<ReviewResult> {
+  const { soul, plan } = loadContext();
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-5', max_tokens: 500,
+    system: `You are the CEO of Invoica — the Financial OS for AI Agents. You have extremely high standards for brand voice and content quality. You are protective of the brand and reject anything that could embarrass Invoica or mislead the audience.
+
+REJECT posts that:
+- Make unverifiable claims: "private beta", specific user/revenue numbers not publicly announced, "launching soon" without confirmed date
+- Use weak engagement bait: "What do you think?", "Drop a comment", "Agree?", "Let me know your thoughts", "Thoughts?"
+- Contain hollow buzzwords without substance: "disrupting", "revolutionizing", "game-changer", "changing everything", "the future is here"
+- Are generic and could apply to any fintech/AI startup (must be specific to x402, Base, AI agents, USDC invoicing, or tax compliance)
+- Mention any brand other than Invoica or @invoica_ai
+- Are rambling, padded, or over-long per tweet
+- Make vague technical claims about x402, EIP-712, Base network, USDC, or VAT/tax
+- Feel like AI-generated marketing copy rather than authentic founder/builder voice
+- Reference product capabilities Invoica doesn't clearly have yet, without framing as roadmap/vision
+- Include unnecessary hashtags (#) that look spammy
+
+APPROVE posts that:
+- Are specific and grounded: reference real technology (x402 protocol, EIP-712, Base network, USDC settlement, VAT reverse charge, etc.)
+- Sound like a confident, knowledgeable technical founder — not a social media manager
+- Include real substance: actual mechanisms, real numbers if available, real market dynamics
+- Are genuinely educational (teach something) or boldly visionary (specific vision, not vague)
+- Are concise and dense — every sentence earns its place
+- Show Invoica's unique position (Financial OS for AI Agents, autonomous agent financial infrastructure)
+
+Return ONLY valid JSON: {"approved": true/false, "feedback": "specific reason — what's wrong or what's good"}`,
+    messages: [{ role: 'user', content: `## Communication Strategy\n${plan}\n\n## Invoica Strategy & Capabilities\n${soul.slice(0, 800)}\n\n## Post Type: ${label}\n\n## Content to Review\n${tweets.map((t, i) => `[${i + 1}] ${t}`).join('\n\n')}\n\nReview strictly. Reject anything mediocre or off-brand. Return JSON only: {"approved": true/false, "feedback": "..."}` }],
+  });
+  try {
+    const res = await apiCall('POST', 'api.anthropic.com', '/v1/messages', {
+      'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01',
+    }, body);
+    const text = JSON.parse(res.body).content?.[0]?.text || '';
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch { /* fall through */ }
+  return { approved: true, feedback: 'review unavailable — defaulting approved' };
+}
+
+async function ctoReview(tweets: string[]): Promise<ReviewResult> {
+  const body = JSON.stringify({
+    model: process.env.MINIMAX_DEFAULT_MODEL || 'MiniMax-M1-40k',
     messages: [
-      {
-        role: 'system',
-        content: 'You are the CTO of Invoica — an AI agent financial infrastructure company. You review X/Twitter posts for technical accuracy. Invoica provides x402 invoice middleware, USDC settlement detection on Base mainnet, and agent wallet infrastructure. Be decisive and brief.',
-      },
-      {
-        role: 'user',
-        content: `## Draft Post\nLabel: ${post.label}\n\n${postText}\n\n## Task\nAre all technical claims in this post accurate for Invoica's actual product? Check x402, blockchain, payment, and agent infrastructure claims.\n\nRespond ONLY with JSON: {"approved": true/false, "feedback": "brief reason"}`,
-      },
+      { role: 'system', content: 'You are the CTO of Invoica. Check technical accuracy of posts about x402, EIP-712, Base network, USDC, tax compliance. JSON only.' },
+      { role: 'user', content: `${tweets.map((t, i) => `[${i + 1}] ${t}`).join('\n')}\n\nRespond ONLY: {"approved": true/false, "feedback": "brief reason"}` },
     ],
+    max_tokens: 200,
   });
-
   try {
-    const raw = await httpsPost(`api.minimax.io`, `/v1/text/chatcompletion_v2?GroupId=${groupId}`,
-      { 'Authorization': `Bearer ${apiKey}`, 'content-type': 'application/json' }, body);
-    const res = JSON.parse(raw);
-    const text = res?.choices?.[0]?.message?.content || '';
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      return { approved: !!parsed.approved, feedback: parsed.feedback || '' };
-    }
-    return { approved: true, feedback: 'CTO review: could not parse response, defaulting to approved' };
-  } catch (e) {
-    return { approved: true, feedback: `CTO review failed (${(e as Error).message}), defaulting to approved` };
-  }
+    const groupId = process.env.MINIMAX_GROUP_ID || '';
+    const res = await apiCall('POST', 'api.minimax.io', `/v1/text/chatcompletion_v2${groupId ? `?GroupId=${groupId}` : ''}`, {
+      'Content-Type': 'application/json', Authorization: `Bearer ${process.env.MINIMAX_API_KEY}`,
+    }, body);
+    const text = JSON.parse(res.body).choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[\s\S]*?\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch { /* fall through */ }
+  return { approved: true, feedback: 'CTO review unavailable — defaulting approved' };
 }
 
-function saveRejected(post: ScheduledPost, reason: string) {
+function saveRejected(key: string, tweets: string[], reason: string) {
   ensureDir(REJECTED_DIR);
-  const file = path.join(REJECTED_DIR, `${post.id}.md`);
-  fs.writeFileSync(file,
-    `# Rejected Draft: ${post.id}\n\n` +
-    `**Label:** ${post.label}\n**Date:** ${post.date}\n**Reason:** ${reason}\n\n` +
-    `## Content\n\n${post.content.join('\n\n---\n\n')}\n`
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  fs.writeFileSync(
+    path.join(REJECTED_DIR, `${ts}-${key}.md`),
+    `# Rejected: ${key}\nReason: ${reason}\n\n${tweets.map((t, i) => `[${i + 1}] ${t}`).join('\n\n')}`
   );
 }
 
-// ─── Content Calendar ─────────────────────────────────────────────────
-
-const CALENDAR: ScheduledPost[] = [
-  // ── Day 1: Feb 26 — Beta Launch Day ──────────────────────────────
-  {
-    id: '2026-02-26-post1', date: '2026-02-26', hourUTC: 9, minuteUTC: 0,
-    type: 'thread', label: 'Beta Launch Thread', technical: false,
-    content: [
-      'Invoica is now in private beta. We built the missing financial layer for AI agents — x402 invoice middleware that lets agents earn, spend, invoice, and settle payments autonomously.',
-      'If your AI agent completes a task, it can now get paid. If it needs to pay for a service, it can do that too. No human in the loop. No manual reconciliation.',
-      'We built this on x402 — the HTTP payment standard. One line of middleware. Agents get a wallet, an invoicing system, and a settlement layer instantly.',
-      'Beta is free. We\'re looking for developers building agents who want to give them real financial autonomy. Get your API key: app.invoica.ai/api-keys',
-    ],
-  },
-  {
-    id: '2026-02-26-post2', date: '2026-02-26', hourUTC: 14, minuteUTC: 0,
-    type: 'tweet', label: 'x402 Education', technical: true,
-    content: [
-      'x402 is to AI agent payments what Stripe was to web payments — infrastructure that makes the hard thing trivially easy. We\'re betting it becomes the default financial rail for the agentic economy.',
-    ],
-  },
-  {
-    id: '2026-02-26-post3', date: '2026-02-26', hourUTC: 18, minuteUTC: 0,
-    type: 'tweet', label: 'Engagement Question', technical: false,
-    content: [
-      'What financial operations do your AI agents need that don\'t exist yet? Genuinely curious — we\'re building Invoica around real use cases.',
-    ],
-  },
-
-  // ── Day 2: Feb 27 ─────────────────────────────────────────────────
-  {
-    id: '2026-02-27-post1', date: '2026-02-27', hourUTC: 9, minuteUTC: 0,
-    type: 'thread', label: 'Technical Education Thread', technical: true,
-    content: [
-      'How Invoica works in 3 steps: 1. Your agent calls our API when it completes a task 2. Invoica generates an x402-compliant invoice 3. The paying agent settles via stablecoin. Done. No bank account needed.',
-      'The invoice is machine-readable. The settlement is automatic. The reconciliation is instant. Your agent doesn\'t need to know anything about payments — it just calls one endpoint.',
-      'We handle: invoice generation, payment routing, settlement confirmation, tax metadata, and audit trails. Your agent just does its job.',
-    ],
-  },
-  {
-    id: '2026-02-27-post2', date: '2026-02-27', hourUTC: 15, minuteUTC: 0,
-    type: 'tweet', label: 'Building in Public', technical: false,
-    content: [
-      'Beta day 2. Working on the x402 transaction webhook system so agents can react instantly when they get paid. The agentic economy needs real-time financial events.',
-    ],
-  },
-
-  // ── Day 3: Feb 28 ─────────────────────────────────────────────────
-  {
-    id: '2026-02-28-post1', date: '2026-02-28', hourUTC: 10, minuteUTC: 0,
-    type: 'thread', label: 'Use Cases Thread', technical: false,
-    content: [
-      'What can an AI agent actually do with Invoica? Let\'s make it concrete.',
-      'A research agent that bills per report. A coding agent that charges per PR. A data agent that earns per query answered. All automated, all settled on-chain.',
-      'On the paying side: an orchestrator agent that automatically pays sub-agents for completed tasks. No invoicing spreadsheets. No manual transfers.',
-      'This is the financial infrastructure the multi-agent economy needs. And it\'s now in beta.',
-    ],
-  },
-
-  // ── Week 2 ───────────────────────────────────────────────────────
-  {
-    id: '2026-03-02-post1', date: '2026-03-02', hourUTC: 9, minuteUTC: 0,
-    type: 'tweet', label: 'Week in AI Agents', technical: false,
-    content: [
-      'Week 2 of beta. The multi-agent economy is moving fast — orchestrators, sub-agents, task markets. Invoica is building the financial rails underneath all of it. What are you building?',
-    ],
-  },
-  {
-    id: '2026-03-03-post1', date: '2026-03-03', hourUTC: 9, minuteUTC: 0,
-    type: 'thread', label: 'x402 Deep Dive', technical: true,
-    content: [
-      'x402 deep dive: what actually happens when an agent invoice is settled?',
-      '1. Agent completes task and calls POST /invoices. Invoica creates a USDC invoice tied to a Base wallet address.',
-      '2. Paying agent sends USDC to that address. Invoica\'s settlement detector (polling Base mainnet every 30s) confirms the tx.',
-      '3. Invoice status flips to "settled". Webhook fires. Both agents get a signed audit trail. No bank. No delay. No human.',
-    ],
-  },
-  {
-    id: '2026-03-04-post1', date: '2026-03-04', hourUTC: 9, minuteUTC: 0,
-    type: 'tweet', label: 'Beta Update', technical: false,
-    content: [
-      'Beta day 7. One week in. The API is stable, the settlement detection is live, and the first x402 transactions are flowing. Building the financial layer for the agentic economy, one block at a time.',
-    ],
-  },
-  {
-    id: '2026-03-05-post1', date: '2026-03-05', hourUTC: 9, minuteUTC: 0,
-    type: 'thread', label: 'Use Case: Code Agent', technical: false,
-    content: [
-      'Use case spotlight: a fully autonomous coding agent that earns its own compute budget.',
-      'The agent takes GitHub issues. Completes PRs. Invoica invoices the client per PR merged. USDC lands in the agent\'s wallet.',
-      'The agent uses that wallet to pay for its own API calls, cloud compute, and sub-agent tasks. It earns, it spends, it reports. No human treasury involved.',
-      'This isn\'t theoretical — Invoica has the infrastructure for all of it today. Beta is free: app.invoica.ai/api-keys',
-    ],
-  },
-  {
-    id: '2026-03-06-post1', date: '2026-03-06', hourUTC: 9, minuteUTC: 0,
-    type: 'tweet', label: 'Community Question', technical: false,
-    content: [
-      'If your AI agent could have one financial superpower it doesn\'t have today, what would it be? Asking for a roadmap.',
-    ],
-  },
-];
-
-// ─── Main ─────────────────────────────────────────────────────────────
-
+// Main
 async function main() {
-  log('Starting X posting check...');
+  ensureDir(REPORTS_DIR);
+  ensureDir(LOG_DIR);
 
   const now = new Date();
-  const todayUTC = now.toISOString().slice(0, 10);
-  const currentHourUTC = now.getUTCHours();
-  const currentMinuteUTC = now.getUTCMinutes();
+  const hourUTC = now.getUTCHours();
+  const state = loadState();
 
-  log(`Current UTC: ${todayUTC} ${String(currentHourUTC).padStart(2, '0')}:${String(currentMinuteUTC).padStart(2, '0')}`);
+  console.log(`[x-admin] UTC ${now.toISOString().slice(0, 16)} | hour=${hourUTC}`);
+  console.log(`[x-admin] Posted today: ${Object.keys(state.posted).filter(k => state.posted[k]).join(', ') || 'none'}`);
 
-  const postedIds = loadPostedIds();
-  log(`Already posted: ${postedIds.size} posts`);
+  for (const slot of POST_SLOTS) {
+    if (state.posted[slot.key]) { console.log(`[x-admin] Skip ${slot.key} — done`); continue; }
 
-  const commPlan = loadCommPlan();
-
-  // Find due posts: within last 7 days, scheduled time passed, not yet posted
-  const duePosts = CALENDAR.filter(post => {
-    if (postedIds.has(post.id)) return false;
-    const postDate = new Date(post.date + 'T00:00:00Z');
-    const daysDiff = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysDiff > 7 || daysDiff < 0) return false;
-    if (post.date === todayUTC) {
-      return (currentHourUTC * 60 + currentMinuteUTC) >= (post.hourUTC * 60 + post.minuteUTC);
-    }
-    return post.date < todayUTC;
-  });
-
-  if (duePosts.length === 0) {
-    log('No posts due at this time. Nothing to publish.');
-    return;
-  }
-
-  log(`${duePosts.length} post(s) due. Running review gate...`);
-
-  for (const post of duePosts) {
-    log(`\nReviewing: ${post.id} — ${post.label}`);
-
-    // ── CEO Review ──────────────────────────────────────────────────
-    log(`  → CEO review...`);
-    const ceoReview = await reviewWithCEO(post, commPlan);
-    log(`  CEO: ${ceoReview.approved ? '✅ APPROVED' : '❌ REJECTED'} — ${ceoReview.feedback}`);
-
-    if (!ceoReview.approved) {
-      log(`  Skipping post — CEO rejected.`);
-      saveRejected(post, `CEO: ${ceoReview.feedback}`);
-      appendPostLog(
-        `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
-        `**STATUS:** ❌ REJECTED by CEO\n**Reason:** ${ceoReview.feedback}\n`
-      );
-      // Mark as posted so we don't retry forever — save rejected state
-      postedIds.add(`rejected:${post.id}`);
-      savePostedIds(postedIds);
+    // 3-hour window: posts if agent runs within 3h of scheduled time
+    if (hourUTC < slot.hourUTC || hourUTC >= slot.hourUTC + 3) {
+      console.log(`[x-admin] Skip ${slot.key} — window ${slot.hourUTC}:00-${slot.hourUTC + 3}:00, now ${hourUTC}:00`);
       continue;
     }
 
-    // ── CTO Review (technical posts only) ──────────────────────────
-    if (post.technical) {
-      log(`  → CTO review (technical post)...`);
-      const ctoReview = await reviewWithCTO(post);
-      log(`  CTO: ${ctoReview.approved ? '✅ APPROVED' : '❌ REJECTED'} — ${ctoReview.feedback}`);
+    console.log(`\n[x-admin] Processing: ${slot.label}`);
 
-      if (!ctoReview.approved) {
-        log(`  Skipping post — CTO rejected.`);
-        saveRejected(post, `CTO: ${ctoReview.feedback}`);
-        appendPostLog(
-          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
-          `**STATUS:** ❌ REJECTED by CTO\n**Reason:** ${ctoReview.feedback}\n`
-        );
-        postedIds.add(`rejected:${post.id}`);
-        savePostedIds(postedIds);
-        continue;
-      }
+    // Generate content
+    let gen: { tweets: string[]; imagePrompt: string; technical: boolean };
+    try {
+      console.log(`  → Generating content...`);
+      if (slot.key === 'educational') gen = await generateEducationalPost();
+      else if (slot.key === 'updates')  gen = await generateUpdatesPost();
+      else                              gen = await generateVisionPost();
+    } catch (e: any) { console.log(`  ❌ Generation error: ${e.message}`); continue; }
+
+    // CEO review
+    console.log(`  → CEO review...`);
+    const ceo = await ceoReview(gen.tweets, slot.label);
+    console.log(`  CEO: ${ceo.approved ? '✅' : '❌'} ${ceo.feedback}`);
+    if (!ceo.approved) { saveRejected(slot.key, gen.tweets, `CEO: ${ceo.feedback}`); continue; }
+
+    // CTO review (technical posts only)
+    if (gen.technical) {
+      console.log(`  → CTO review...`);
+      const cto = await ctoReview(gen.tweets);
+      console.log(`  CTO: ${cto.approved ? '✅' : '❌'} ${cto.feedback}`);
+      if (!cto.approved) { saveRejected(slot.key, gen.tweets, `CTO: ${cto.feedback}`); continue; }
     }
 
-    // ── Publish ──────────────────────────────────────────────────────
-    log(`  Publishing ${post.type}...`);
-    try {
-      if (post.type === 'tweet') {
-        const result = await postTweet(post.content[0]);
-        log(`  ✅ Tweet posted: ${result.id} — https://x.com/i/status/${result.id}`);
-        appendPostLog(
-          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n**STATUS:** ✅ PUBLISHED\n` +
-          `**CEO:** ${ceoReview.feedback}\n` +
-          `**Tweet ID:** ${result.id}\n**URL:** https://x.com/i/status/${result.id}\n` +
-          `**Text:** ${post.content[0]}\n`
-        );
-      } else {
-        const result = await postThread(post.content);
-        const firstId = result.ids[0];
-        log(`  ✅ Thread posted (${result.ids.length} tweets): https://x.com/i/status/${firstId}`);
-        appendPostLog(
-          `**Post ID:** ${post.id}\n**Label:** ${post.label}\n**STATUS:** ✅ PUBLISHED\n` +
-          `**CEO:** ${ceoReview.feedback}\n` +
-          (post.technical ? `**CTO:** approved\n` : '') +
-          `**First Tweet ID:** ${firstId}\n**URL:** https://x.com/i/status/${firstId}\n` +
-          `**Tweets:**\n${post.content.map((t, i) => `  ${i + 1}. ${t}`).join('\n')}\n`
-        );
-      }
+    // CMO: generate branded image
+    console.log(`  → CMO generating image (DALL-E 3): "${gen.imagePrompt.slice(0, 60)}..."`);
+    const imgBuf = await generateBrandedImage(gen.imagePrompt);
+    let mediaId: string | null = null;
+    if (imgBuf) mediaId = await uploadImageToX(imgBuf);
 
-      postedIds.add(post.id);
-      savePostedIds(postedIds);
+    // Publish
+    console.log(`  → Publishing ${gen.tweets.length > 1 ? `thread (${gen.tweets.length} tweets)` : 'tweet'}...`);
+    let postedId: string | null = null;
+    if (gen.tweets.length === 1) postedId = await postTweetWithMedia(gen.tweets[0], mediaId);
+    else                          postedId = await postThreadWithMedia(gen.tweets, mediaId);
 
-      if (duePosts.indexOf(post) < duePosts.length - 1) {
-        log('  Waiting 5s before next post...');
-        await new Promise(r => setTimeout(r, 5000));
-      }
-    } catch (err) {
-      const msg = (err as Error).message;
-      log(`  ❌ Failed to post ${post.id}: ${msg}`);
-      appendPostLog(
-        `**Post ID:** ${post.id}\n**Label:** ${post.label}\n` +
-        `**STATUS:** ❌ PUBLISH FAILED\n**Error:** ${msg}\n`
+    if (postedId) {
+      const url = `https://x.com/i/status/${postedId}`;
+      console.log(`  ✅ Posted: ${url}`);
+      state.posted[slot.key] = true;
+      saveState(state);
+      ensureDir(LOG_DIR);
+      fs.appendFileSync(
+        path.join(LOG_DIR, `${state.date}.md`),
+        `## ${slot.label} — ${new Date().toISOString()}\nURL: ${url}\nImage: ${mediaId ? 'yes' : 'no'}\n\n${gen.tweets.join('\n\n')}\n\n---\n\n`
       );
+      await new Promise(r => setTimeout(r, 3000));
+    } else {
+      console.log(`  ❌ Post failed.`);
     }
   }
 
-  log('\nDone.');
+  console.log(`\n[x-admin] Done. Posted: ${Object.keys(state.posted).filter(k => state.posted[k]).join(', ') || 'none'}`);
 }
 
-main().catch(err => {
-  console.error('[x-admin] Fatal error:', err);
-  process.exit(1);
-});
+main().catch(e => { console.error('[x-admin] Fatal:', e); process.exit(1); });
