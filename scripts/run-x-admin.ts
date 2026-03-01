@@ -294,7 +294,7 @@ function rotateBy<T>(arr: T[]): T {
   return arr[doy % arr.length];
 }
 
-async function generateEducationalPost() {
+async function generateEducationalPost(ceoFeedback?: string) {
   const topic = rotateBy([
     'latest developments in the agentic economy: AI agents transacting autonomously in 2026',
     'x402 payment protocol: how HTTP 402 enables micropayments for AI agent APIs',
@@ -304,15 +304,29 @@ async function generateEducationalPost() {
   ]);
 
   console.log(`  [edu] Researching: ${topic}`);
-  const research = await searchWithGrok(`Find recent news, statistics, and expert analysis about: ${topic}. Focus on 2025-2026 developments.`);
+  const research = await searchWithGrok(`Find recent news, statistics, and expert analysis about: ${topic}. Focus on 2025-2026 developments. Include specific numbers, dates, and verifiable facts.`);
   const { soul, plan } = loadContext();
 
+  const feedbackBlock = ceoFeedback
+    ? `\n\n## ⚠️ CEO REJECTED PREVIOUS VERSION — FIX ALL OF THESE ISSUES\n${ceoFeedback}\n\nWrite a completely new version that addresses every point above.`
+    : '';
+
   const raw = await callClaude(
-    `You write educational X/Twitter content for @invoica_ai — the Financial OS for AI Agents ("Stripe for AI Agents").
-Audience: AI/Web3 builders and founders. Voice: confident, technical, insightful. Max 280 chars per tweet.
-Format: 2-4 tweet thread OR single tweet depending on depth needed.
+    `You write educational X/Twitter content for @invoica_ai — the Financial OS for AI Agents.
+Audience: AI/Web3 builders and founders who build with LLMs and on-chain infrastructure.
+Voice: confident technical founder who knows the protocol cold — NOT a social media manager or marketer.
+
+HARD RULES (CEO will reject if violated):
+- No phantom statistics or unverifiable claims — only cite numbers from the research provided
+- No hollow phrases: "revolutionizing", "game-changer", "changing everything", "the future is here"
+- No weak CTAs: "What do you think?", "Agree?", "Drop a comment"
+- Must reference real mechanisms: x402 HTTP 402 flow, EIP-712 TransferWithAuthorization, Base L2, USDC atomic units, VAT reverse charge, or similar
+- Every tweet must be dense — no filler sentences
+- Must be specific to Invoica's domain, not generic fintech/AI content
+- Max 280 chars per tweet. 1-4 tweets depending on depth needed.
+
 Return ONLY valid JSON: {"tweets": ["tweet1", "tweet2"], "imagePrompt": "abstract visual description for DALL-E"}`,
-    `## Invoica Context\n${soul.slice(0, 800)}\n\n## Comm Plan\n${plan.slice(0, 500)}\n\n## Research\n${research}\n\nWrite an educational post about: ${topic}. Use specific facts. End with Invoica's relevance and a beta CTA (invoica.ai).`
+    `## Invoica Context\n${soul.slice(0, 800)}\n\n## Comm Plan\n${plan.slice(0, 500)}\n\n## Research (use specific facts from here)\n${research}\n\nWrite an educational post about: ${topic}. Ground every claim in the research. Show Invoica's relevance. End with beta CTA (invoica.ai).${feedbackBlock}`
   );
 
   try {
@@ -327,7 +341,7 @@ Return ONLY valid JSON: {"tweets": ["tweet1", "tweet2"], "imagePrompt": "abstrac
   }
 }
 
-async function generateUpdatesPost() {
+async function generateUpdatesPost(ceoFeedback?: string) {
   let commits = '';
   let changedFiles = '';
   try {
@@ -336,11 +350,24 @@ async function generateUpdatesPost() {
   } catch { /* ignore */ }
 
   const { soul } = loadContext();
+
+  const feedbackBlock = ceoFeedback
+    ? `\n\n## ⚠️ CEO REJECTED PREVIOUS VERSION — FIX ALL OF THESE ISSUES\n${ceoFeedback}\n\nWrite a completely new version that addresses every point above.`
+    : '';
+
   const raw = await callClaude(
     `You write "building in public" posts for @invoica_ai — an autonomous AI company (Invoica) building the Financial OS for AI Agents.
-Voice: transparent, builder-focused, shows velocity. Max 280 chars per tweet. 1-3 tweets.
+Voice: technical founder, transparent, shows real velocity — NOT a marketing update.
+
+HARD RULES:
+- Be specific about what shipped: name the actual feature, endpoint, or protocol change from commits
+- No vague phrases like "shipped improvements" or "updates to the platform"
+- If commits mention x402, EIP-712, tax engine, webhooks, or SDK — name them explicitly
+- Show that an autonomous agent team (no humans in the loop) is shipping real infrastructure
+- Max 280 chars per tweet. 1-3 tweets.
+
 Return ONLY valid JSON: {"tweets": ["tweet1"], "imagePrompt": "abstract tech/code visual for DALL-E"}`,
-    `## Recent Commits (7 days)\n${commits || '(no commits found)'}\n\n## Changed Files\n${changedFiles || '(unavailable)'}\n\n## Invoica Context\n${soul.slice(0, 600)}\n\nWrite a "what we shipped" post. Be specific about features if visible in commits. Mention x402, tax engine, SDKs, or webhooks if relevant. Show that an autonomous agent team ships fast.`
+    `## Recent Commits (7 days)\n${commits || '(no commits found)'}\n\n## Changed Files\n${changedFiles || '(unavailable)'}\n\n## Invoica Context\n${soul.slice(0, 600)}\n\nWrite a "what we shipped" post grounded in these actual commits. Name specific things. If commits are sparse, write about the infrastructure being built autonomously.${feedbackBlock}`
   );
 
   try {
@@ -355,7 +382,7 @@ Return ONLY valid JSON: {"tweets": ["tweet1"], "imagePrompt": "abstract tech/cod
   }
 }
 
-async function generateVisionPost() {
+async function generateVisionPost(ceoFeedback?: string) {
   const theme = rotateBy([
     'every AI agent will need financial infrastructure — the TAM for agent-native financial rails',
     'why Invoica is the default financial layer for the autonomous economy and what makes it defensible',
@@ -368,11 +395,22 @@ async function generateVisionPost() {
   const constitution = fs.existsSync(path.join(ROOT, 'constitution.md'))
     ? fs.readFileSync(path.join(ROOT, 'constitution.md'), 'utf-8').slice(0, 1000) : '';
 
+  const feedbackBlock = ceoFeedback
+    ? `\n\n## ⚠️ CEO REJECTED PREVIOUS VERSION — FIX ALL OF THESE ISSUES\n${ceoFeedback}\n\nWrite a completely new version that addresses every point above.`
+    : '';
+
   const raw = await callClaude(
     `You are writing visionary, CEO-voice posts for @invoica_ai. Think in decades. Be bold and specific.
-No buzzwords. Real market opportunity. Confident but not arrogant. Max 280 chars per tweet. 2-4 tweets.
+
+HARD RULES:
+- No buzzwords: "disrupting", "revolutionizing", "game-changer", "the future is now"
+- Ground vision in real market dynamics: agent economy size, USDC settlement volume, EU VAT on digital services, Base L2 throughput
+- Be specific about Invoica's actual technical position — x402, on-chain settlement, autonomous tax compliance
+- Write for technical founders and VCs who see through vague claims immediately
+- Confident, not arrogant. Dense, not padded. Max 280 chars per tweet. 2-4 tweets.
+
 Return ONLY valid JSON: {"tweets": ["tweet1", "tweet2"], "imagePrompt": "abstract futuristic visual for DALL-E"}`,
-    `## Strategy & Vision\n${soul.slice(0, 1500)}\n\n## Constitutional Principles\n${constitution.slice(0, 600)}\n\nTheme: ${theme}\n\nWrite a visionary post. Ground it in Invoica's actual capabilities. Make it shareable for founders and VCs.`
+    `## Strategy & Vision\n${soul.slice(0, 1500)}\n\n## Constitutional Principles\n${constitution.slice(0, 600)}\n\nTheme: ${theme}\n\nWrite a visionary post grounded in Invoica's real capabilities and real market dynamics. Make it shareable for founders and VCs.${feedbackBlock}`
   );
 
   try {
@@ -486,20 +524,34 @@ async function main() {
 
     console.log(`\n[x-admin] Processing: ${slot.label}`);
 
-    // Generate content
-    let gen: { tweets: string[]; imagePrompt: string; technical: boolean };
-    try {
-      console.log(`  → Generating content...`);
-      if (slot.key === 'educational') gen = await generateEducationalPost();
-      else if (slot.key === 'updates')  gen = await generateUpdatesPost();
-      else                              gen = await generateVisionPost();
-    } catch (e: any) { console.log(`  ❌ Generation error: ${e.message}`); continue; }
+    // Generate content — up to 3 attempts, feeding CEO feedback back each retry
+    const MAX_ATTEMPTS = 3;
+    let gen: { tweets: string[]; imagePrompt: string; technical: boolean } | undefined;
+    let ceoApproved = false;
+    let lastCeoFeedback: string | undefined;
 
-    // CEO review
-    console.log(`  → CEO review...`);
-    const ceo = await ceoReview(gen.tweets, slot.label);
-    console.log(`  CEO: ${ceo.approved ? '✅' : '❌'} ${ceo.feedback}`);
-    if (!ceo.approved) { saveRejected(slot.key, gen.tweets, `CEO: ${ceo.feedback}`); continue; }
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        console.log(`  → Generating content (attempt ${attempt}/${MAX_ATTEMPTS})...`);
+        if (slot.key === 'educational') gen = await generateEducationalPost(lastCeoFeedback);
+        else if (slot.key === 'updates')  gen = await generateUpdatesPost(lastCeoFeedback);
+        else                              gen = await generateVisionPost(lastCeoFeedback);
+      } catch (e: any) { console.log(`  ❌ Generation error: ${e.message}`); break; }
+
+      console.log(`  → CEO review (attempt ${attempt})...`);
+      const ceo = await ceoReview(gen.tweets, slot.label);
+      console.log(`  CEO: ${ceo.approved ? '✅' : '❌'} ${ceo.feedback}`);
+
+      if (ceo.approved) { ceoApproved = true; break; }
+
+      saveRejected(`${slot.key}-attempt${attempt}`, gen.tweets, `CEO: ${ceo.feedback}`);
+      lastCeoFeedback = ceo.feedback;
+    }
+
+    if (!ceoApproved || !gen) {
+      console.log(`  ❌ All ${MAX_ATTEMPTS} CEO attempts rejected — skipping ${slot.key}`);
+      continue;
+    }
 
     // CTO review (technical posts only)
     if (gen.technical) {
