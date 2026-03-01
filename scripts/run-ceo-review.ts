@@ -82,6 +82,10 @@ async function callClaude(system: string, user: string, maxTokens = 2500): Promi
       res.on('end', () => {
         try {
           const parsed = JSON.parse(Buffer.concat(chunks).toString());
+          if (parsed.error) {
+            reject(new Error('Claude API error: ' + (parsed.error.message || JSON.stringify(parsed.error))));
+            return;
+          }
           resolve(parsed.content?.[0]?.text ?? '');
         } catch (e) { reject(e); }
       });
@@ -90,6 +94,45 @@ async function callClaude(system: string, user: string, maxTokens = 2500): Promi
     req.write(body);
     req.end();
   });
+}
+
+
+// ── MiniMax fallback (when Claude credits exhausted) ────────────────────────
+async function callMinimax(system: string, user: string, maxTokens = 2500): Promise<string> {
+  const body = JSON.stringify({
+    model: process.env.MINIMAX_DEFAULT_MODEL || 'MiniMax-M2.5',
+    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    max_tokens: maxTokens,
+  });
+  return new Promise((resolve, reject) => {
+    const groupId = process.env.MINIMAX_GROUP_ID || '';
+    const path = `/v1/text/chatcompletion_v2${groupId ? `?GroupId=${groupId}` : ''}`;
+    const req = https.request({
+      hostname: 'api.minimax.io', path, method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.MINIMAX_API_KEY}`, 'Content-Length': Buffer.byteLength(body) },
+    }, res => {
+      const chunks: Buffer[] = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        try { resolve(JSON.parse(Buffer.concat(chunks).toString()).choices?.[0]?.message?.content ?? ''); }
+        catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body); req.end();
+  });
+}
+
+async function callLLM(system: string, user: string, maxTokens = 2500): Promise<string> {
+  try {
+    return await callClaude(system, user, maxTokens);
+  } catch (e: any) {
+    if (e.message?.includes('credit') || e.message?.includes('billing') || e.message?.includes('balance')) {
+      console.log('[ceo-review] Anthropic credits low — falling back to MiniMax');
+      return callMinimax(system, user, maxTokens);
+    }
+    throw e;
+  }
 }
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -367,14 +410,19 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
     ].join('\n\n');
 
     console.log('[ceo-review] Calling CEO (Claude)...');
-    const raw = await callClaude(system, user, 2500);
+    const raw = await callLLM(system, user, 2500);
 
-    // Parse decision
+    // Parse decision — robust: strip markdown code fences, use indexOf/lastIndexOf
     let decision: CEODecision;
     try {
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('No JSON found');
-      decision = JSON.parse(match[0]);
+      let jsonStr = raw;
+      // Strip markdown code fences if present
+      const fenceMatch = jsonStr.match(/```(?:json)?\n?([\s\S]*?)```/);
+      if (fenceMatch) jsonStr = fenceMatch[1];
+      const start = jsonStr.indexOf('{');
+      const end = jsonStr.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON object found');
+      decision = JSON.parse(jsonStr.slice(start, end + 1));
     } catch {
       console.log('[ceo-review] Response not parseable — saving raw, no sprint triggered');
       decision = {
