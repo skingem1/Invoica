@@ -427,7 +427,9 @@ class Orchestrator {
     if (!existsSync(this.sprintFile)) {
       throw new Error(`Sprint file not found: ${this.sprintFile}`);
     }
-    this.tasks = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
+    const raw = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
+    // Support both plain array and wrapped object format { sprint, theme, tasks: [...] }
+    this.tasks = Array.isArray(raw) ? raw : (raw.tasks || []);
     log(c.blue, `\nLoaded ${this.tasks.length} tasks from ${this.sprintFile}`);
 
     // Show status summary
@@ -442,6 +444,14 @@ class Orchestrator {
   }
 
   private saveTasks() {
+    // Preserve wrapper object format if the sprint file uses { sprint, theme, tasks: [...] }
+    try {
+      const existing = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
+      if (!Array.isArray(existing) && existing.tasks) {
+        writeFileSync(this.sprintFile, JSON.stringify({ ...existing, tasks: this.tasks }, null, 2));
+        return;
+      }
+    } catch { /* fall through */ }
     writeFileSync(this.sprintFile, JSON.stringify(this.tasks, null, 2));
   }
 
