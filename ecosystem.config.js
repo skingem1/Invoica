@@ -12,6 +12,10 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
+      env: {
+        // x402 seller wallet — receives USDC from agent inference payments
+        X402_SELLER_WALLET: "0x3e127c918C83714616CF2416f8A620F1340C19f1",
+      },
       error_file: "/home/invoica/apps/Invoica/logs/backend-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/backend-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
@@ -274,6 +278,10 @@ module.exports = {
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
         CEO_TELEGRAM_BOT_TOKEN: process.env.CEO_TELEGRAM_BOT_TOKEN || "",
         OWNER_TELEGRAM_CHAT_ID: process.env.OWNER_TELEGRAM_CHAT_ID || "",
+        // x402 wallet spending: code agent wallet pays 0.001 USDC per LLM call
+        // Seller wallet = CTO agent wallet (receives USDC from inference payments)
+        X402_SELLER_WALLET: "0x3e127c918C83714616CF2416f8A620F1340C19f1",
+        INFERENCE_API_URL: "http://localhost:3001",
       },
       error_file: "/home/invoica/apps/Invoica/logs/sprint-runner-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/sprint-runner-out.log",
