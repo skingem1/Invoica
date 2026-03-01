@@ -71,6 +71,16 @@ const CRON_SERVICES: Array<{
 
 // ─── Types ───────────────────────────────────────────────────────────
 
+interface Pm2ProcessInfo {
+  name: string;
+  status: string;   // 'online' | 'stopped' | 'errored' | 'launching' | 'stopping'
+  restarts: number;
+  uptimeMs: number | null;
+  pid: number | null;
+  memory: number | null; // bytes
+  cpu: number | null;    // percent
+}
+
 interface HealthState {
   last_heartbeat: string;
   status: 'healthy' | 'degraded' | 'critical' | 'dead';
@@ -82,6 +92,14 @@ interface HealthState {
     edge_function_status: string;
     dashboard_status: string;
     website_status: string;
+  };
+  pm2: {
+    total: number;
+    online: number;
+    stopped: number;
+    errored: number;
+    critical_down: string[];   // names of CRITICAL_PM2_PROCESSES that are not 'online'
+    processes: Pm2ProcessInfo[];
   };
   agents: {
     total_configured: number;
@@ -226,9 +244,24 @@ function determineTier(mrr: number, phase: string): string {
   return 'dead';
 }
 
-function determineHealthStatus(checks: HealthState['checks']): HealthState['status'] {
+function determineHealthStatus(
+  checks: HealthState['checks'],
+  pm2: HealthState['pm2'],
+): HealthState['status'] {
   const values = Object.values(checks);
   const failedCount = values.filter(v => v !== 'operational').length;
+
+  // Any critical PM2 process (backend or openclaw-gateway) being down is at least 'critical'
+  if (pm2.critical_down.length >= 2) return 'dead';
+  if (pm2.critical_down.length === 1) {
+    // backend down is worse than openclaw down
+    if (pm2.critical_down.includes('backend')) return 'critical';
+    return 'degraded';
+  }
+
+  // Majority of PM2 processes stopped/errored → at least degraded
+  const notOnline = pm2.total > 0 ? pm2.total - pm2.online : 0;
+  if (pm2.total > 0 && notOnline > pm2.total / 2) return 'critical';
 
   if (failedCount === 0) return 'healthy';
   if (failedCount <= 2) return 'degraded';
@@ -351,6 +384,53 @@ function scanAgentStatus(): HealthState['agents'] {
   };
 }
 
+// ─── PM2 Live Process Status ─────────────────────────────────────────
+
+// Processes whose outage should degrade/critical the overall health status
+const CRITICAL_PM2_PROCESSES = ['backend', 'openclaw-gateway'];
+
+function getPm2Status(): HealthState['pm2'] {
+  let rawList: any[] = [];
+  try {
+    const out = execSync('pm2 jlist', { timeout: 8000, stdio: 'pipe' }).toString();
+    rawList = JSON.parse(out);
+  } catch (e: any) {
+    console.log(`[Heartbeat] ⚠️  pm2 jlist failed: ${e.message}`);
+    return { total: 0, online: 0, stopped: 0, errored: 0, critical_down: [], processes: [] };
+  }
+
+  const processes: Pm2ProcessInfo[] = rawList.map((p: any) => {
+    const env = p.pm2_env || {};
+    const status: string = env.status || 'unknown';
+    const uptimeMs = (status === 'online' && env.pm_uptime)
+      ? Date.now() - env.pm_uptime
+      : null;
+    return {
+      name: p.name,
+      status,
+      restarts: env.restart_time ?? 0,
+      uptimeMs,
+      pid: p.pid ?? null,
+      memory: p.monit?.memory ?? null,
+      cpu: p.monit?.cpu ?? null,
+    };
+  });
+
+  const statusMap = new Map(processes.map(p => [p.name, p.status]));
+  const critical_down = CRITICAL_PM2_PROCESSES.filter(
+    n => statusMap.get(n) !== 'online'
+  );
+
+  return {
+    total: processes.length,
+    online: processes.filter(p => p.status === 'online').length,
+    stopped: processes.filter(p => p.status === 'stopped').length,
+    errored: processes.filter(p => p.status === 'errored').length,
+    critical_down,
+    processes,
+  };
+}
+
 // ─── Main Heartbeat ──────────────────────────────────────────────────
 
 async function heartbeat(): Promise<void> {
@@ -380,23 +460,29 @@ async function heartbeat(): Promise<void> {
   const newTier = determineTier(mrr, phase);
   const tierChanged = newTier !== currentTier.current_tier;
 
-  // 6. Scan agent status
+  // 6. Scan PM2 live process state
+  const pm2Status = getPm2Status();
+  console.log(`[Heartbeat] PM2: ${pm2Status.online}/${pm2Status.total} online` +
+    (pm2Status.critical_down.length > 0 ? ` — CRITICAL DOWN: ${pm2Status.critical_down.join(', ')}` : ''));
+
+  // 7. Scan agent YAML configs (for model/session tracking)
   const agentStatus = scanAgentStatus();
 
-  // 7. Fetch beta metrics
+  // 8. Fetch beta metrics
   const betaMetrics = await fetchBetaMetrics();
   betaMetrics.day_number = dayNumber;
 
-  // 8. Determine overall health
-  const healthStatus = determineHealthStatus(checks);
+  // 9. Determine overall health — now informed by real PM2 state
+  const healthStatus = determineHealthStatus(checks, pm2Status);
 
-  // 9. Write health.json
+  // 10. Write health.json
   const health: HealthState = {
     last_heartbeat: new Date().toISOString(),
     status: healthStatus,
     phase,
     uptime_seconds: Math.floor((Date.now() - startTime) / 1000),
     checks,
+    pm2: pm2Status,
     agents: agentStatus,
     financials: {
       mrr,
@@ -410,7 +496,7 @@ async function heartbeat(): Promise<void> {
 
   writeJSON(HEALTH_FILE, health);
 
-  // 10. Update tier.json if tier changed
+  // 11. Update tier.json if tier changed
   if (tierChanged) {
     currentTier.current_tier = newTier;
     currentTier.mrr = mrr;
@@ -560,13 +646,25 @@ async function heartbeat(): Promise<void> {
     const cronOk = serviceHealths.filter(s => s.status === 'ok').length;
     const cronTotal = serviceHealths.length;
     const infraOk = downServices.length === 0;
-    const statusIcon = healthStatus === 'healthy' ? '✅' : '⚠️';
+    const statusIcon = healthStatus === 'healthy' ? '✅' : healthStatus === 'degraded' ? '⚠️' : '🔴';
     const summaryLines = serviceHealths.map(s => {
       const ago = s.hoursAgo !== null ? `${s.hoursAgo}h ago` : 'never';
       const icon = s.status === 'ok' ? '✅' : '🔴';
       return `  ${icon} ${s.name}: ${ago}`;
     }).join('\n');
-    const summaryMsg = `${statusIcon} *Invoica 6h Summary* — ${new Date().toISOString().slice(0, 16)}UTC\n\nCron agents: ${cronOk}/${cronTotal} ok\n${summaryLines}\n\nInfra: ${infraOk ? '✅ all operational' : '⚠️ ' + downServices.map(([k]) => k).join(', ')}\nMRR: $${mrr} | Day ${dayNumber} | ${phase}`;
+    // PM2 summary: show each process with status icon
+    const pm2Lines = pm2Status.processes.map(p => {
+      const icon = p.status === 'online' ? '🟢' : '🔴';
+      const uptime = p.uptimeMs ? `${Math.floor(p.uptimeMs / 60000)}m` : 'stopped';
+      const mem = p.memory ? ` ${Math.round(p.memory / 1024 / 1024)}MB` : '';
+      return `  ${icon} ${p.name}: ${p.status} (${uptime}${mem}, ${p.restarts} restarts)`;
+    }).join('\n');
+    const summaryMsg =
+      `${statusIcon} *Invoica 6h Summary* — ${new Date().toISOString().slice(0, 16)}UTC\n\n` +
+      `*PM2* (${pm2Status.online}/${pm2Status.total} online):\n${pm2Lines || '  none'}\n\n` +
+      `*Cron agents* (${cronOk}/${cronTotal} ok):\n${summaryLines}\n\n` +
+      `Infra: ${infraOk ? '✅ all operational' : '⚠️ ' + downServices.map(([k]) => k).join(', ')}\n` +
+      `MRR: $${mrr} | Day ${dayNumber} | ${phase} | Health: *${healthStatus}*`;
     await sendTelegram(summaryMsg);
   }
 
