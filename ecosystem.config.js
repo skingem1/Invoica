@@ -146,5 +146,23 @@ module.exports = {
       out_file: "/home/invoica/apps/Invoica/logs/tax-eu-japan-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
+    {
+      name: "ceo-review",
+      script: "./scripts/run-ceo-review.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "0 */2 * * *",
+      args: "--source=cron",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/ceo-review-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/ceo-review-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
   ]
 };

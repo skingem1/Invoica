@@ -33,6 +33,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join } from 'path';
 import * as https from 'https';
 import * as http from 'http';
+import { spawn } from 'child_process';
 import 'dotenv/config';
 
 // ===== Types =====
@@ -813,6 +814,15 @@ async function main() {
     log(c.green, '  CTO Tech Watch complete: ' + watchType);
     log(c.green, '  Report: ' + reportPath);
     log(c.green, '='.repeat(60) + '\n');
+
+    // Trigger CEO review asynchronously — CEO reads this report and decides if a sprint is needed
+    const ceoReview = spawn('node', ['-r', 'ts-node/register', join(__dirname, 'run-ceo-review.ts'), '--source=cto'], {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, TS_NODE_TRANSPILE_ONLY: 'true', TS_NODE_PROJECT: join(__dirname, '..', 'tsconfig.json') },
+    });
+    ceoReview.unref();
+    log(c.gray, '  CEO review triggered (background PID ' + ceoReview.pid + ')');
 
     process.exit(0);
   } catch (error: any) {
