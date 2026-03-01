@@ -117,6 +117,27 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
+      // Every Sunday at 06:00 UTC — CMO generates full week of X posts
+      // CTO reviews technical accuracy → CEO approves → X agent executes Mon-Sun
+      name: "cmo-weekly-content-plan",
+      script: "./scripts/run-cmo-weekly-plan.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "0 6 * * 0",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
+        CEO_TELEGRAM_BOT_TOKEN: process.env.CEO_TELEGRAM_BOT_TOKEN || "",
+        OWNER_TELEGRAM_CHAT_ID: process.env.OWNER_TELEGRAM_CHAT_ID || "",
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/cmo-weekly-plan-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/cmo-weekly-plan-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
       name: "tax-watchdog-us",
       script: "./scripts/tax-watchdog-us.ts",
       interpreter: "node",
