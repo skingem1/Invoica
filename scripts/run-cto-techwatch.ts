@@ -383,7 +383,7 @@ class DataCollector {
       return '(npm registry unavailable: ' + err.message + ')';
     }
   }
-}
+
   /** Fetch Conway-Research GitHub repos (strategic developer to watch) */
   async fetchConwayResearchRepos(): Promise<string> {
     try {
@@ -404,6 +404,7 @@ class DataCollector {
       return '(GitHub API unavailable: ' + err.message + ')';
     }
   }
+}
 
 // ===== CTO Tech Watch Runner =====
 
