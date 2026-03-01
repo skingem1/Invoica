@@ -67,10 +67,11 @@ module.exports = {
       cwd: "/home/invoica/apps/Invoica",
       autorestart: false,
       watch: false,
-      cron_restart: "0 */6 * * *",
+      cron_restart: "0 * * * *",
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
-        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
+        HEALTHCHECK_PING_URL: process.env.HEALTHCHECK_PING_URL || ""
       },
       error_file: "/home/invoica/apps/Invoica/logs/heartbeat-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/heartbeat-out.log",
