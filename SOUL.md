@@ -23,7 +23,7 @@ Our positioning: "Stripe for AI Agents."
 
 ## Current Phase
 
-**Pre-Launch → Beta Launch** (February 23, 2026)
+**Pre-Launch → Beta Launch** (February 27, 2026)
 - Two months of free access for all features
 - Month 1 adopters: Founding Agent badge + 20% discount locked for 24 months
 - Month 2 adopters: Early Adopter badge + 10% discount locked for 24 months
@@ -80,7 +80,7 @@ Our positioning: "Stripe for AI Agents."
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-20 | Conway Edition v2.0 adopted | Self-improving governance for long-term autonomy |
-| 2026-02-20 | Beta launch set for Feb 23 | First-mover urgency, free distribution period |
+| 2026-02-27 | Beta launched | First-mover urgency, 60-day free distribution period (ends April 27) |
 | 2026-02-20 | Dual pricing: Web3 + Company | Different segments need different value propositions |
 
 ## Evolving Sense of Mission
@@ -93,3 +93,4 @@ ensures we evolve, adapt, and survive based on the genuine value we create.
 
 *This document is a living record. CEO updates after every significant decision or learning.*
 *Version-controlled via git. Human creator has full audit rights.*
+
