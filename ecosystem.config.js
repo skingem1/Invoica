@@ -183,6 +183,23 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
+      name: "telegram-bot",
+      script: "./scripts/telegram-bot.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "128M",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/telegram-bot-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/telegram-bot-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
       name: "bizdev-weekly",
       script: "./scripts/run-bizdev.ts",
       interpreter: "node",
