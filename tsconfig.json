@@ -25,6 +25,9 @@
     "dist",
     "frontend",
     "website",
-    "docs-site"
+    "docs-site",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }
