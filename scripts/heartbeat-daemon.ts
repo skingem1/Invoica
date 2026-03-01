@@ -102,8 +102,8 @@ interface HealthState {
     processes: Pm2ProcessInfo[];
   };
   agents: {
-    total_configured: number;
-    total_active: number;
+    total_configured: number; // YAML config files on disk — NOT running processes
+    // (total_active removed: it was always equal to total_configured and caused CEO hallucination)
     agents: Record<string, { status: string; model: string; last_session: string | null }>;
   };
   financials: {
@@ -370,16 +370,17 @@ function scanAgentStatus(): HealthState['agents'] {
       const model = modelMatch ? modelMatch[1].trim() : 'unknown';
 
       agents[dir] = {
-        status: 'active',
+        status: 'yaml_configured', // NOT running — just means agent.yaml exists
         model,
         last_session: existingAgents[dir]?.last_session || null,
       };
     }
   }
 
+  // NOTE: total_configured = count of agent.yaml files on disk.
+  // This is NOT the number of running processes. For running processes, see pm2.online.
   return {
-    total_configured: Object.keys(agents).length,
-    total_active: Object.values(agents).filter(a => a.status === 'active').length,
+    total_configured: Object.keys(agents).length, // YAML config count only — NOT active/running
     agents,
   };
 }
