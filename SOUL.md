@@ -1,8 +1,19 @@
 # SOUL.md — CEO Strategic Identity Document
 ## Invoica | Conway Edition v2.0
-### Last Updated: 2026-02-20
+### Last Updated: 2026-03-01
 
 ---
+
+## Company Classification
+
+| Field | Value |
+|-------|-------|
+| **Industry** | Software as a Service (SaaS) |
+| **Category** | Business Software |
+| **Sub-category** | Accounting & Invoicing Software |
+| **NAICS Code** | 511210 — Software Publishers |
+
+This classification is authoritative and must be used in all legal filings, partnerships, press releases, investor communications, and market positioning materials.
 
 ## Mission Understanding
 

@@ -1,5 +1,16 @@
 # Company Architecture — Autonomous AI Company
 
+## Company Classification (Authoritative)
+
+| Field | Value |
+|-------|-------|
+| **Industry** | Software as a Service (SaaS) |
+| **Category** | Business Software |
+| **Sub-category** | Accounting & Invoicing Software |
+| **NAICS Code** | 511210 — Software Publishers |
+
+Use this classification in all legal, investor, partnership, and market-positioning contexts.
+
 ## Vision
 An autonomous AI company that discovers business opportunities, assesses profitability,
 builds products, and communicates publicly — all with minimal human intervention.
