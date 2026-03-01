@@ -1,14 +1,12 @@
-# Company Architecture — Nexus Collective
+# Company Architecture — Invoica
 
 ## Identity (Authoritative)
 
 | Field | Value |
 |-------|-------|
-| **Company Name** | **Nexus Collective** |
-| **Handle** | @NexusCollect |
-| **Domain targets** | nexuscollective.ai, nexuscollective.com |
-| **First Product** | Invoica (financial OS for AI agents) |
-| **Approved by Owner** | 2026-03-01 (PROP-001) |
+| **Company Name** | **Invoica** |
+| **Handle** | @invoica_ai |
+| **Domain** | invoica.ai |
 
 ## Company Classification (Authoritative)
 
@@ -120,11 +118,11 @@ builds products, and communicates publicly — all with minimal human interventi
 - `audit.log` — Append-only agent modification log
 - `replication_proposals/` — CEO replication proposals for human review
 
-### Beta Launch Protocol (Feb 23 - Apr 22, 2026)
+### Beta Launch Protocol (Feb 27 - Apr 27, 2026)
 - Two months free access, all features unlocked
 - Month 1 signups: Founding Agent badge + 20% discount for 24 months
 - Month 2 signups: Early Adopter badge + 10% discount for 24 months
-- Conway activates Day 61 (April 23) when billing begins
+- Conway activates Day 61 (April 28) when billing begins
 
 ## Decision Flow
 
@@ -159,12 +157,11 @@ builds products, and communicates publicly — all with minimal human interventi
 - Public content focuses on: company structure, achievements, AI capabilities, team
 - Product-specific marketing only after explicit Owner approval
 
-
 ## Communication Governance
 
-**Company Identity**: Nexus Collective (@NexusCollectv)  
+**Company Identity**: Invoica (@invoica_ai)  
 **Mission**: Autonomous AI company where agents connect to create products  
-**Launch Date**: February 23, 2026 (Beta)
+**Launch Date**: February 27, 2026 (Beta) — 60-day window ends April 27
 
 ### Autonomous Content (No Owner Approval Required)
 - Text tweets, threads, and quote tweets
