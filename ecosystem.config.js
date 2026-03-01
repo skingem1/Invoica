@@ -236,5 +236,27 @@ module.exports = {
       out_file: "/home/invoica/apps/Invoica/logs/bizdev-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
+    {
+      // sprint-runner: checks every 30 min for pending sprint tasks, runs MiniMax orchestrator
+      // This closes the loop: CEO issues → sprint JSON → auto-execution
+      // To queue work: write a sprints/week-N.json with status:"pending" tasks
+      name: "sprint-runner",
+      script: "./scripts/sprint-runner.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "*/30 * * * *",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
+        CEO_TELEGRAM_BOT_TOKEN: process.env.CEO_TELEGRAM_BOT_TOKEN || "",
+        OWNER_TELEGRAM_CHAT_ID: process.env.OWNER_TELEGRAM_CHAT_ID || "",
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/sprint-runner-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/sprint-runner-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
   ]
 };
