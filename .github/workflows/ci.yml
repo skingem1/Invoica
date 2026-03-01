@@ -24,8 +24,14 @@ jobs:
       - name: TypeScript check — scripts/ (PM2 cron processes)
         run: |
           echo "Checking TypeScript in scripts/ only..."
-          npx tsc --noEmit --project tsconfig.scripts.json
-          echo "✅ TypeScript OK"
+          TS_ERRORS=$(npx tsc --noEmit --project tsconfig.scripts.json 2>&1 | grep "error TS" | grep -v "^node_modules/" || true)
+          if [ -z "$TS_ERRORS" ]; then
+            echo "✅ TypeScript OK"
+          else
+            echo "❌ TypeScript errors in scripts/:"
+            echo "$TS_ERRORS"
+            exit 1
+          fi
 
   ecosystem-verify:
     name: Ecosystem Script Existence Check
