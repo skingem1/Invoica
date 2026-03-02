@@ -4,30 +4,30 @@ All notable changes to Invoica are documented here.
 
 ## [1.7.0] — 2026-03-02
 
-- Implemented multi-chain architecture across Base, Polygon, and Solana with CHAIN-001 through CHAIN-009 endpoint suite
-- Released MiniMax-M2.5 powered agent orchestration with 9 core chains: AUTH-003, PAY-001/002/003, BE-110, SDK-200, DB-001
-- Added SDK improvements across SDK-060a through SDK-062 with enhanced type safety and payload validation
-- Fixed orchestrator deliverables schema mismatch and CEO hallucination issues with real system state injection
-- Launched git auto-deploy system — server self-deploys from GitHub every 5 minutes with pre-deploy TypeScript validation
-- Added Mission Control integration for centralized agent ops visibility and PM2 process management via port 3005
+- Multi-chain architecture finalized — Sprint 10 delivers Base + Polygon + Solana integration with unified settlement
+- Mission Control ops dashboard — real-time PM2 process visibility, health monitoring, and Telegram alerts
+- Live docs auto-generation system — CHANGELOG.md and API reference automatically generated from commits
+- Frontend dashboard reorganization — Ledger page, BetaBanner component, and beta-mode billing view
+- CTO email support automation — support@invoica.ai IMAP/SMTP monitoring with MiniMax agent responses
+- Bug fixes: deliverables schema mismatch, CEO hallucination prevention, Vercel deployment pipeline reliability
 
 ## [1.6.0] — 2026-02-28
 
-- Launched autonomous post-sprint pipeline — auto-trigger test→CTO review→Vercel deploy after sprint completion
-- Added CTO email support monitoring on support@invoica.ai with IMAP/SMTP integration and MiniMax-powered responses
-- Implemented CMO weekly content plan generator with Sunday scheduling, CEO approval gates, and fallback content generation
-- Added full webhook CRUD operations — create, delete, toggle active/inactive with persistent storage
-- Replaced pricing/billing pages with beta-mode messaging throughout dashboard
-- Fixed Telegram deep linking for mobile/desktop detection with web.telegram.org fallback
+- Autonomous post-sprint pipeline — automatic test→CTO review→Vercel deploy workflow triggered after sprints
+- X-Admin agent — autonomous X/Twitter posting with CEO+CTO approval gates and content calendar management
+- CMO weekly content plan generator — Sunday recurring task with structured approval workflow
+- Sprint-runner automation — closes CEO↔execution loop with GitHub milestone-based sprint launch protocol
+- Payment system enhancements — PAY-001, PAY-002, PAY-003 endpoints for settlement and invoice payment tracking
+- Database event logging — DB-001 endpoint for invoiceEvents and payment state synchronization
 
 ## [1.5.0] — 2026-02-27
 
-- Added x402 agent wallet spending — agents can now autonomously spend USDC on LLM calls with configurable seller wallet
-- Launched Telegram bot with /report, /pm2, /health, /sprint commands for real-time system monitoring and sprint triggering
-- Implemented autonomous X posting agent (@invoica_ai) with content calendar, CEO + CTO review gates, and scheduled post automation
-- Added CEO Telegram bot with tool execution capabilities — /update, /pull, /sprint commands with real git and GitHub issue creation
-- Fixed critical backend crash loop caused by missing lib/prisma.ts and port conflicts on restart
-- Implemented live USDC balance monitoring across multiple RPC nodes with multi-wallet support and low-balance alerts
+- Multi-chain x402 payment expansion — Base, Polygon, and Solana support (CHAIN-001 through CHAIN-009)
+- Agent wallet spending activated — autonomous USDC spending on LLM calls via X402_SELLER_WALLET
+- New SDK endpoints: SDK-060a through SDK-062 and SDK-200 for enhanced invoice operations
+- CEO bot Telegram integration with real execution tools — /sprint, /pull, /update commands plus git and filesystem operations
+- Live system context injection into CEO agent — eliminates hallucinations with real PM2, balance, and team state
+- Authentication improvements — AUTH-002, AUTH-003 endpoints for secure API key management
 
 ## [1.4.0] — 2026-02-20
 
