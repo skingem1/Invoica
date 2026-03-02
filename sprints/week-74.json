@@ -117,7 +117,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "medium",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [
         "CHAIN-001"
       ],
@@ -126,27 +126,41 @@
       "deliverables": [
         "backend/src/migrations/add_chain_to_invoice.sql",
         "backend/src/migrations/README.md"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/migrations/add_chain_to_invoice.sql"
+        ],
+        "commit": "f63b8de",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-007",
       "agent": "backend-core",
       "type": "research",
       "priority": "medium",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "description": "RPC provider evaluation for Polygon + Solana from VPS",
       "context": "Create docs/rpc-providers.md — an evaluation of RPC providers for Polygon and Solana that WORK from our Hetzner VPS IP.\n\nBackground: We discovered that mainnet.base.org, llamarpc.com, publicnode.com all block our VPS IP with 403. Only base.gateway.tenderly.co works for Base.\n\nTest each provider by making a live eth_call (Polygon) or getSlot (Solana) from the server.\n\nTest these providers:\n\nFor Polygon:\n- https://polygon-bor-rpc.publicnode.com\n- https://polygon.gateway.tenderly.co\n- https://gateway.tenderly.co/public/polygon\n- https://polygon.meowrpc.com\n- https://1rpc.io/matic\n\nFor Solana:\n- https://api.mainnet-beta.solana.com\n- https://solana-mainnet.rpc.extrnode.com\n- https://rpc.ankr.com/solana (needs API key — mark as such)\n\nTest command for Polygon (check CEO wallet balance via USDC contract):\n```\ncurl -sf -X POST <RPC_URL> -H 'Content-Type: application/json' \\\n  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_blockNumber\",\"params\":[]}'\n```\n\nTest command for Solana:\n```\ncurl -sf -X POST <RPC_URL> -H 'Content-Type: application/json' \\\n  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSlot\",\"params\":[]}'\n```\n\nDocument:\n- Which work / which return 403\n- Recommended primary + fallback for each chain\n- Any rate limits observed\n- Whether we need paid API keys (Helius for Solana is recommended if free tier insufficient)\n\nWrite this as a proper markdown doc with a results table.",
       "deliverables": [
         "docs/rpc-providers.md"
-      ]
+      ],
+      "output": {
+        "files": [
+          "output/CHAIN-007-raw.md"
+        ],
+        "commit": "f63b8de",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-008",
       "agent": "backend-core",
       "type": "feature",
       "priority": "medium",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-001",
         "CHAIN-005"
