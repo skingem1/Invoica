@@ -1,119 +1,104 @@
-import { executePayment, PaymentExecution } from '../../services/payment-executor';
+import { submitPaymentToChain } from '../../services/payment-executor';
+import { PrismaClient } from '@prisma/client';
+import { ethers } from 'ethers';
 
-// Mock Supabase
-const mockSupabase = {
-  from: jest.fn(() => ({
-    select: jest.fn(() => ({
-      eq: jest.fn(() => ({
-        single: jest.fn(),
-      })),
-    })),
-    insert: jest.fn(() => ({
-      select: jest.fn(() => ({
-        single: jest.fn(),
-      })),
-    })),
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => ({
+    payment: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
   })),
-};
-
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => mockSupabase),
 }));
 
-jest.mock('../../services/payment-executor', () => ({
-  ...jest.requireActual('../../services/payment-executor'),
+jest.mock('ethers', () => ({
+  ...jest.requireActual('ethers'),
+  JsonRpcProvider: jest.fn().mockImplementation(() => ({})),
+  Wallet: jest.fn().mockImplementation(() => ({
+    provider: {},
+  })),
+  Contract: jest.fn().mockImplementation(() => ({
+    transfer: jest.fn().mockResolvedValue({
+      wait: jest.fn().mockResolvedValue({ hash: '0xabc123' }),
+    }),
+  })),
+  parseUnits: jest.fn().mockReturnValue(BigInt(1000000)),
 }));
 
-describe('PaymentExecutor', () => {
+describe('submitPaymentToChain', () => {
+  let mockPrisma: ReturnType<typeof jest.fn>;
+  const mockPayment = {
+    id: 'pay-123',
+    amount: 100,
+    recipientAddress: '0xRecipient',
+    status: 'pending',
+    tx_hash: null,
+  };
+
   beforeEach(() => {
+    mockPrisma = new PrismaClient();
+    process.env.RPC_URL = 'https://mainnet.base.org';
+    process.env.TREASURY_PRIVATE_KEY = '0xmockPrivateKey';
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('executePayment', () => {
-    it('should throw error if settlement does not exist', async () => {
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: null }),
-          }),
-        }),
-      });
+  it('should throw error when payment not found', async () => {
+    (mockPrisma.payment.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(executePayment('invalid-id', '0x123', '1000000'))
-        .rejects.toThrow('Settlement invalid-id not found');
+    await expect(submitPaymentToChain('invalid-id')).rejects.toThrow(
+      'Payment not found: invalid-id'
+    );
+  });
+
+  it('should throw error when payment already submitted', async () => {
+    (mockPrisma.payment.findUnique as jest.Mock).mockResolvedValue({
+      ...mockPayment,
+      status: 'submitted',
     });
 
-    it('should create pending payment when settlement exists', async () => {
-      const mockSettlement = { id: 'settle-123' };
-      const mockPayment: PaymentExecution = {
-        settlement_id: 'settle-123',
-        from_address: '0x123',
-        to_address: '0x0000000000000000000000000000000000000001',
-        amount: '1000000',
-        status: 'pending',
-      };
+    await expect(submitPaymentToChain('pay-123')).rejects.toThrow(
+      'Payment pay-123 already submitted or completed'
+    );
+  });
 
-      const selectMock = {
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({ data: mockSettlement }),
-        }),
-      };
+  it('should throw error when TREASURY_PRIVATE_KEY not set', async () => {
+    delete process.env.TREASURY_PRIVATE_KEY;
+    (mockPrisma.payment.findUnique as jest.Mock).mockResolvedValue(mockPayment);
 
-      const insertMock = {
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({ data: mockPayment }),
-        }),
-      };
+    await expect(submitPaymentToChain('pay-123')).rejects.toThrow(
+      'TREASURY_PRIVATE_KEY environment variable not set'
+    );
+  });
 
-      (mockSupabase.from as jest.Mock)
-        .mockReturnValueOnce({ select: () => selectMock })
-        .mockReturnValueOnce({ insert: () => insertMock });
+  it('should successfully submit payment and return tx_hash', async () => {
+    (mockPrisma.payment.findUnique as jest.Mock).mockResolvedValue(mockPayment);
+    (mockPrisma.payment.update as jest.Mock).mockResolvedValue({
+      ...mockPayment,
+      status: 'submitted',
+      tx_hash: '0xabc123',
+    });
 
-      const result = await executePayment('settle-123', '0x123', '1000000');
+    const result = await submitPaymentToChain('pay-123');
 
-      expect(result.status).toBe('pending');
-      expect(result.settlement_id).toBe('settle-123');
-      expect(result.from_address).toBe('0x123');
+    expect(result).toEqual({ tx_hash: '0xabc123' });
+    expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+      where: { id: 'pay-123' },
+      data: { tx_hash: '0xabc123', status: 'submitted' },
     });
   });
 
-  describe('getPaymentStatus', () => {
-    it('should return payment when found', async () => {
-      const mockPayment: PaymentExecution = {
-        settlement_id: 'settle-123',
-        from_address: '0x123',
-        to_address: '0x456',
-        amount: '1000000',
-        status: 'confirmed',
-        tx_hash: '0xabc',
-      };
+  it('should throw error when blockchain transaction fails', async () => {
+    (mockPrisma.payment.findUnique as jest.Mock).mockResolvedValue(mockPayment);
+    
+    const mockContract = {
+      transfer: jest.fn().mockRejectedValue(new Error('Insufficient balance')),
+    };
+    
+    (ethers.Contract as jest.Mock).mockImplementation(() => mockContract);
 
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: mockPayment }),
-          }),
-        }),
-      });
-
-      const result = await getPaymentStatus('settle-123');
-
-      expect(result).toEqual(mockPayment);
-      expect(result?.status).toBe('confirmed');
-    });
-
-    it('should return null when payment not found', async () => {
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: null }),
-          }),
-        }),
-      });
-
-      const result = await getPaymentStatus('unknown-settlement');
-
-      expect(result).toBeNull();
-    });
+    await expect(submitPaymentToChain('pay-123')).rejects.toThrow('Insufficient balance');
   });
 });
