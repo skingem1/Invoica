@@ -15,12 +15,25 @@ export interface WebhookEvent {
   signature: string;
 }
 
+/**
+ * Constructs and verifies a webhook event from payload, signature, and secret.
+ * Uses HMAC-SHA256 with timing-safe comparison to prevent timing attacks.
+ * @param payload - The raw JSON string payload from the webhook
+ * @param signature - The HMAC-SHA256 signature from the webhook header (hex string)
+ * @param secret - The webhook secret used to verify the signature
+ * @returns The verified WebhookEvent object
+ * @throws WebhookVerificationError if signature is invalid or payload is malformed
+ */
 export function constructEvent(payload: string, signature: string, secret: string): WebhookEvent {
   const expectedSignature = createHmac('sha256', secret).update(payload).digest('hex');
-  const sigBuffer = Buffer.from(signature, 'hex');
+
+  const signatureBuffer = Buffer.from(signature, 'hex');
   const expectedBuffer = Buffer.from(expectedSignature, 'hex');
 
-  if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
     throw new WebhookVerificationError('Invalid webhook signature');
   }
 

@@ -135,7 +135,17 @@
           "sdk/typescript/tests/auth.test.ts"
         ]
       },
-      "status": "in_progress"
+      "status": "done",
+      "output": {
+        "files": [
+          "sdk/typescript/src/auth.ts",
+          "sdk/typescript/tests/auth.test.ts",
+          "sdk/typescript/src/auth.ts",
+          "sdk/typescript/tests/auth.test.ts"
+        ],
+        "commit": "60a4262",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "SDK-062",
@@ -152,7 +162,7 @@
           "sdk/typescript/tests/webhook-verify.test.ts"
         ]
       },
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "FE-050",
