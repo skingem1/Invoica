@@ -162,7 +162,15 @@
           "sdk/typescript/tests/webhook-verify.test.ts"
         ]
       },
-      "status": "in_progress"
+      "status": "done",
+      "output": {
+        "files": [
+          "sdk/typescript/src/webhook-verify.ts",
+          "sdk/typescript/tests/webhook-verify.test.ts"
+        ],
+        "commit": "ba8b8a4",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "FE-050",
@@ -207,7 +215,7 @@
           "backend/src/routes/__tests__/health.test.ts"
         ]
       },
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "BE-111",
