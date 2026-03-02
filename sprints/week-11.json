@@ -70,7 +70,18 @@
       ]
     },
     "acceptance_criteria": "sdk/src/client.ts exports InvoicaClient class with all 7 methods. sdk/package.json has name @invoica/sdk version 1.0.0.",
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "sdk/package.json",
+        "sdk/tsconfig.json",
+        "sdk/src/index.ts",
+        "sdk/src/types.ts",
+        "sdk/src/client.ts"
+      ],
+      "commit": "cdcbbb6",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "AUTH-003",
@@ -87,6 +98,6 @@
       ]
     },
     "acceptance_criteria": "ApiKeyRotationService class exported with rotateKey, revokeKey, listKeys methods. Route file exports router with 3 endpoints.",
-    "status": "pending"
+    "status": "in_progress"
   }
 ]
