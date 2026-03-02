@@ -212,23 +212,25 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
-      name: "telegram-bot",
-      script: "./scripts/telegram-bot.ts",
+      // CEO AI Bot — standalone process (isolated from backend API)
+      // Previously ran inside backend/src/server.ts causing 4827 API crashes
+      // (ceoBot watchdog calls process.exit(1) → now only kills this process)
+      name: "ceo-ai-bot",
+      script: "./scripts/run-ceo-bot.ts",
       interpreter: "node",
       interpreter_args: "-r ts-node/register",
       cwd: "/home/invoica/apps/Invoica",
       autorestart: true,
       watch: false,
-      max_memory_restart: "128M",
+      max_memory_restart: "256M",
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
-        // Loaded from .env via dotenv at top of this file — never hardcode in git
         CEO_TELEGRAM_BOT_TOKEN: process.env.CEO_TELEGRAM_BOT_TOKEN || "",
         OWNER_TELEGRAM_CHAT_ID: process.env.OWNER_TELEGRAM_CHAT_ID || "",
       },
-      error_file: "/home/invoica/apps/Invoica/logs/telegram-bot-error.log",
-      out_file: "/home/invoica/apps/Invoica/logs/telegram-bot-out.log",
+      error_file: "/home/invoica/apps/Invoica/logs/ceo-ai-bot-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/ceo-ai-bot-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {

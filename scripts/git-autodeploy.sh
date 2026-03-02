@@ -47,11 +47,11 @@ if echo "$CHANGED" | grep -q "^backend/"; then
   echo "[$TIMESTAMP] [AutoDeploy] backend restarted"
 fi
 
-# Telegram bot script
-if echo "$CHANGED" | grep -q "^scripts/telegram-bot\.ts$"; then
-  echo "[$TIMESTAMP] [AutoDeploy] telegram-bot.ts changed → restarting telegram-bot"
-  pm2 restart telegram-bot
-  echo "[$TIMESTAMP] [AutoDeploy] telegram-bot restarted"
+# CEO AI bot (standalone process — replaces the old telegram-bot PM2 entry)
+if echo "$CHANGED" | grep -q "^scripts/run-ceo-bot\.ts$"; then
+  echo "[$TIMESTAMP] [AutoDeploy] run-ceo-bot.ts changed → restarting ceo-ai-bot"
+  pm2 restart ceo-ai-bot
+  echo "[$TIMESTAMP] [AutoDeploy] ceo-ai-bot restarted"
 fi
 
 # Heartbeat daemon (cron-based — will pick up changes on next cron fire, no restart needed)
@@ -59,9 +59,18 @@ if echo "$CHANGED" | grep -q "^scripts/heartbeat-daemon\.ts$"; then
   echo "[$TIMESTAMP] [AutoDeploy] heartbeat-daemon.ts changed — will apply on next hourly cron"
 fi
 
-# ecosystem.config.js: requires manual intervention (env vars, new processes)
+# ecosystem.config.js: reload PM2 so new/removed processes take effect
+# Handles: telegram-bot removal, ceo-ai-bot addition, env var updates
 if echo "$CHANGED" | grep -q "^ecosystem\.config\.js$"; then
-  echo "[$TIMESTAMP] [AutoDeploy] WARNING: ecosystem.config.js changed — requires manual: env \$(cat .env | grep -v '#' | xargs) pm2 reload ecosystem.config.js --update-env"
+  echo "[$TIMESTAMP] [AutoDeploy] ecosystem.config.js changed → reloading PM2"
+  # Delete the retired telegram-bot process if it still exists
+  if pm2 list | grep -q "telegram-bot"; then
+    pm2 delete telegram-bot || true
+    echo "[$TIMESTAMP] [AutoDeploy] Deleted retired telegram-bot process"
+  fi
+  # Reload ecosystem with updated env vars (starts new processes, updates existing)
+  env $(grep -v '^#' .env | grep -v '^$' | xargs) pm2 reload ecosystem.config.js --update-env
+  echo "[$TIMESTAMP] [AutoDeploy] PM2 ecosystem reloaded"
 fi
 
 echo "[$TIMESTAMP] [AutoDeploy] ✅ Done — deployed $REMOTE"

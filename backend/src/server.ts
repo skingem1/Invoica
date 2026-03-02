@@ -1,5 +1,5 @@
 import { app } from './app';
-import { startCustomerBot, startCeoBot } from './telegram';
+import { startCustomerBot } from './telegram';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
@@ -7,8 +7,11 @@ const server = app.listen(PORT, () => {
   console.log(`Invoica API server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Health check: http://localhost:${PORT}/v1/health`);
-    startCustomerBot().catch((e) => console.error('[CustomerBot] Failed to start:', e));
-      startCeoBot().catch((e) => console.error('[CeoBot] Failed to start:', e));
+  // Customer support bot runs inside the API process (lightweight, no watchdog)
+  startCustomerBot().catch((e) => console.error('[CustomerBot] Failed to start:', e));
+  // CEO AI bot runs as a SEPARATE PM2 process (ceo-ai-bot) — do NOT start here.
+  // Reason: ceoBot has a process.exit(1) watchdog that would crash the API server.
+  // See ecosystem.config.js → ceo-ai-bot → scripts/run-ceo-bot.ts
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {
