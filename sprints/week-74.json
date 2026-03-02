@@ -47,7 +47,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [
         "CHAIN-001"
       ],
@@ -55,14 +55,21 @@
       "context": "Create backend/src/services/settlement/evm-detector.ts — detects USDC Transfer events on any EVM chain (Base and Polygon).\n\nThis uses raw JSON-RPC eth_getLogs to scan for USDC ERC-20 Transfer events, then matches against pending invoices.\n\n```typescript\nimport { ChainConfig } from '../../lib/chain-registry';\n\nexport interface SettlementMatch {\n  invoiceId: string;\n  txHash: string;\n  amount: number;       // in USDC (human-readable)\n  from: string;         // payer address\n  to: string;           // recipient address\n  blockNumber: number;\n  timestamp: number;    // unix seconds\n  chain: string;\n}\n\nexport class EvmSettlementDetector {\n  constructor(private chain: ChainConfig) {}\n\n  /** Scan for USDC Transfer events to a given address in block range */\n  async scanTransfersToAddress(\n    recipientAddress: string,\n    fromBlock: string | number = 'latest',\n    toBlock: string | number = 'latest'\n  ): Promise<SettlementMatch[]>;\n\n  /** Get current block number */\n  async getLatestBlock(): Promise<number>;\n\n  /** Verify a specific tx hash is a valid USDC transfer to recipient */\n  async verifyTransfer(txHash: string, expectedRecipient: string, expectedAmount: number): Promise<boolean>;\n}\n```\n\nImplementation notes:\n- Use fetch() for JSON-RPC calls (no viem/ethers dependency needed for this module)\n- USDC Transfer event topic: `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef`\n- ABI decode: from = topic[1] last 20 bytes, to = topic[2] last 20 bytes, amount = data as uint256\n- Max 120 lines. Include JSDoc.",
       "deliverables": [
         "backend/src/services/settlement/evm-detector.ts"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/services/settlement/evm-detector.ts"
+        ],
+        "commit": "01107ac",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-004",
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-001"
       ],
