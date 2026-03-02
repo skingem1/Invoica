@@ -289,5 +289,28 @@ module.exports = {
       out_file: "/home/invoica/apps/Invoica/logs/sprint-runner-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
+    {
+      // Memory Agent — "black box" observer of the entire company
+      // Runs hourly. Writes to /home/invoica/memory/ (OUTSIDE app dir — survives git clean/wipes)
+      // Also mirrors to memory/ in repo so agents can read via file system
+      // Generates: daily-log-YYYY-MM-DD.md | daily-continuity.md | long-term-memory.md
+      name: "memory-agent",
+      script: "./scripts/memory-agent.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "0 * * * *",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
+        // External memory dir — persists independently of the app
+        MEMORY_DIR: "/home/invoica/memory",
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/memory-agent-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/memory-agent-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
   ]
 };

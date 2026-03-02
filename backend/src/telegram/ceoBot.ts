@@ -703,6 +703,27 @@ async function buildLiveContext(): Promise<string> {
       const files = readdirSync(dir).filter(f => f.endsWith(ext)).sort().reverse();
       return files[0] ? path.join(dir, files[0]) : null;
     };
+    // Memory agent files — daily continuity brief + long-term memory (highest priority context)
+    const MEMORY_DIR = process.env.MEMORY_DIR || '/home/invoica/memory';
+    const continuityPath = path.join(MEMORY_DIR, 'daily-continuity.md');
+    const repoContinuityPath = path.join(ROOT, 'memory', 'daily-continuity.md');
+    const continuityFile = existsSync(continuityPath) ? continuityPath : (existsSync(repoContinuityPath) ? repoContinuityPath : null);
+    if (continuityFile) {
+      const content = readFileSync(continuityFile, 'utf-8');
+      if (!content.includes('No brief generated yet')) {
+        lines.push(`\n--- DAILY CONTINUITY BRIEF (memory-agent) ---\n${content.slice(0, 2000)}`);
+      }
+    }
+    const ltmPath = path.join(MEMORY_DIR, 'long-term-memory.md');
+    const repoLtmPath = path.join(ROOT, 'memory', 'long-term-memory.md');
+    const ltmFile = existsSync(ltmPath) ? ltmPath : (existsSync(repoLtmPath) ? repoLtmPath : null);
+    if (ltmFile) {
+      const content = readFileSync(ltmFile, 'utf-8');
+      if (!content.includes('No memory accumulated yet')) {
+        lines.push(`\n--- LONG-TERM MEMORY (memory-agent) ---\n${content.slice(0, 1500)}`);
+      }
+    }
+
     const latestDaily = latestFile(path.join(ROOT, 'reports/daily'));
     if (latestDaily) {
       const content = readFileSync(latestDaily, 'utf-8');
