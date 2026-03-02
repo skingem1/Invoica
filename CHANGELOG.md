@@ -4,30 +4,30 @@ All notable changes to Invoica are documented here.
 
 ## [1.7.0] — 2026-03-02
 
-- Launched multi-chain x402 expansion: Base, Polygon, and Solana payment support (CHAIN-001 through CHAIN-009)
-- Implemented autonomous post-sprint pipeline: test→CTO review→Vercel deploy with sprint-runner orchestration
-- Added live docs auto-generation system with data-driven changelog and API reference pages
-- Integrated memory-agent for institutional black-box memory system supporting agent autonomy
-- Activated agent wallet spending with X402_SELLER_WALLET environment configuration
-- Added CMO weekly content plan generator with Sunday cron and CEO approval gate for autonomous marketing
+- Expanded x402 to multi-chain architecture — Base, Polygon, and Solana support with unified payment routing
+- Added Mission Control integration for real-time agent operations visibility and health monitoring
+- Implemented memory-agent — institutional black-box memory system for CEO context persistence
+- Deployed live docs auto-generation system — changelog and API reference now auto-update from git history
+- Added multi-agent autonomous sprint execution (CHAIN-001 through CHAIN-009) with MiniMax M2.5 model optimization
+- Fixed orchestrator deliverables schema and strengthened CEO review logic to eliminate hallucinations on system state
 
 ## [1.6.0] — 2026-02-28
 
-- Launched autonomous X posting agent (@invoica_ai) with content calendar and CEO/CTO review gate
-- Added Telegram bot integration with /report, /pm2, /health, /sprint commands for ops visibility
-- Implemented CTO email support monitoring (support@invoica.ai) with IMAP/SMTP agent response
-- Added full CRUD webhook management page with active/inactive toggle functionality
-- Fixed recurring Telegram silence with multi-RPC balance checks and deduplication logic
-- Implemented PM2 service watchdog with Telegram alerts and pre-deploy TypeScript validation
+- Launched autonomous X posting agent (@invoica_ai) with CEO + CTO review gates on all content
+- Implemented git-autodeploy — server self-deploys from GitHub every 5 minutes with TypeScript validation
+- Added sprint-runner PM2 cron — closes CEO↔execution loop with autonomous post-sprint test→deploy pipeline
+- Deployed CMO weekly content plan generator (Sunday 06:00 UTC) with CEO approval workflow
+- Added PM2 service watchdog with Telegram alerts and pre-deploy TypeScript/ecosystem checks
+- Implemented Dashboard ledger page with company-scoped x402 settlement tracking and email verification
 
 ## [1.5.0] — 2026-02-27
 
-- Added real API keys management page with TypeScript SDK build support
-- Implemented x402 wallet integration for agent spending on LLM calls with USDC support
-- Added CEO bot tools: create_github_issue, run_shell, write_file, check_signups, get_team_status
-- Upgraded CEO bot to Claude Sonnet with live system context injection and improved identity
-- Fixed mixed content issues via Next.js rewrites and enabled Web3 no-email bypass for beta
-- Added Ledger page to dashboard sidebar for transaction tracking
+- Added Telegram bot integration with CEO assistant and real execution tools (/sprint, /pull, /update commands)
+- Implemented x402 agent wallet spending — agents now spend USDC on LLM calls with proper wallet management
+- Added email support monitoring (support@invoica.ai) with CTO agent IMAP/SMTP integration
+- Fixed critical backend crash loop — added missing lib/prisma.ts and improved PM2 process management
+- Implemented CEO bot tool execution layer (run_shell, write_file, create_github_issue) with multi-RPC balance checks
+- Added real-time wallet monitoring with live on-chain balance checks and low-balance Telegram alerts
 
 ## [1.4.0] — 2026-02-20
 
