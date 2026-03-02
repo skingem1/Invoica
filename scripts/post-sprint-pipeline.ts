@@ -10,7 +10,7 @@
  *   3. Parse results (pass/fail counts, failure messages)
  *   4. CTO agent (MiniMax) reviews results → decision: fix or deploy
  *   5a. If FAIL → create a bug-fix sprint JSON file, sprint-runner picks it up next cycle
- *   5b. If PASS → run pre-deploy check → Vercel deploy → notify CEO + owner via Telegram
+ *   5b. If PASS → git push to GitHub (triggers CI) → Vercel deploy → notify CEO + owner via Telegram
  *
  * Usage:
  *   npx ts-node --transpile-only scripts/post-sprint-pipeline.ts <sprint-file.json>
@@ -276,6 +276,41 @@ function createBugFixSprint(sprintName: string, tasks: CtoDecision['bugFixTasks'
   return fixFile;
 }
 
+// ── Git push to GitHub ────────────────────────────────────────────────────────
+function pushToGitHub(): { success: boolean; output: string } {
+  const githubToken = process.env.GITHUB_TOKEN;
+  const remoteUrl = process.env.GITHUB_REMOTE_URL ||
+    execSyncSafe('git remote get-url origin') ||
+    'https://github.com/skingem1/Invoica.git';
+
+  log('Pushing approved commits to GitHub...');
+
+  // Build authenticated remote URL if token is available
+  const authedUrl = githubToken
+    ? remoteUrl.replace('https://', `https://x-access-token:${githubToken}@`)
+    : remoteUrl;
+
+  const result = spawnSync(
+    'git', ['push', authedUrl, 'HEAD:main', '--follow-tags'],
+    { cwd: ROOT, encoding: 'utf8', timeout: 60000, env: { ...process.env } }
+  );
+
+  const combined = (result.stdout || '') + (result.stderr || '');
+  if (result.status === 0) {
+    log(`GitHub push succeeded`);
+    return { success: true, output: combined.slice(0, 300) };
+  } else {
+    log(`GitHub push failed: ${combined.slice(0, 300)}`);
+    return { success: false, output: combined.slice(0, 300) };
+  }
+}
+
+function execSyncSafe(cmd: string): string {
+  try {
+    return spawnSync('sh', ['-c', cmd], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim() || '';
+  } catch { return ''; }
+}
+
 // ── Vercel deploy ─────────────────────────────────────────────────────────────
 function deployToVercel(): { success: boolean; url: string; output: string } {
   // Run pre-deploy check first
@@ -387,7 +422,18 @@ async function main(): Promise<void> {
     log('Bug-fix sprint queued. Sprint-runner will pick it up automatically.');
 
   } else {
-    // Deploy
+    // 4a. Push approved commits to GitHub (triggers CI)
+    const pushResult = pushToGitHub();
+    if (!pushResult.success) {
+      log(`⚠️ GitHub push failed — continuing to Vercel deploy anyway`);
+      sendTelegram(
+        `⚠️ *GitHub push failed for ${sprintName}*\n\`\`\`\n${pushResult.output.slice(0, 300)}\n\`\`\``
+      );
+    } else {
+      sendTelegram(`📦 *GitHub push succeeded — ${sprintName}*\nCI workflow triggered on main.`);
+    }
+
+    // 4b. Deploy to Vercel
     log('Tests passed — running pre-deploy check and deploying to Vercel...');
     const deployResult = deployToVercel();
     log(`Deploy ${deployResult.success ? 'SUCCESS' : 'FAILED'}: ${deployResult.url}`);
@@ -398,6 +444,7 @@ async function main(): Promise<void> {
     sendTelegram(
       `${emoji} *Post-Sprint: ${sprintName} → ${deployResult.success ? 'DEPLOYED' : 'DEPLOY FAILED'}*\n\n` +
       `*Tests:* ${testResult.passed}/${testResult.total} passed ✓\n` +
+      `*GitHub:* ${pushResult.success ? '✅ pushed' : '❌ push failed'}\n` +
       `*CTO:* ${decision.summary}\n\n` +
       (deployResult.success
         ? `*Live at:* ${deployResult.url}\n\nReady for CEO review.`
