@@ -40,7 +40,14 @@
       ]
     },
     "acceptance_criteria": "Migration file is valid SQL. POST /v1/invoices accepts chain field. Invalid chain returns 400.",
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/src/routes/invoices.ts"
+      ],
+      "commit": "a5e7f0d",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "SDK-200",
@@ -63,7 +70,7 @@
       ]
     },
     "acceptance_criteria": "sdk/src/client.ts exports InvoicaClient class with all 7 methods. sdk/package.json has name @invoica/sdk version 1.0.0.",
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "AUTH-003",
