@@ -323,8 +323,15 @@ IMPORTANT INSTRUCTIONS FOR OUTPUT FORMAT:
     raw = manusResult.output;
     log(`Manus task completed in ${Math.round(manusResult.durationMs / 1000)}s (${manusResult.pollAttempts} polls)`);
     log(`Manus raw output preview: ${raw.slice(0, 200).replace(/\n/g, " ")}`);
+    // Validate Manus returned actual JSON and not a prompt echo or prose.
+    // Manus sometimes reflects the prompt back as its output (especially with long structured prompts).
+    // If the extracted JSON fails to parse, throw to trigger the Claude fallback below.
+    const _s = raw.indexOf('{');
+    const _e = raw.lastIndexOf('}');
+    if (_s === -1 || _e === -1) throw new Error('Manus returned non-JSON output (no braces found) — falling back to Claude');
+    try { JSON.parse(raw.slice(_s, _e + 1)); } catch { throw new Error('Manus returned unparseable JSON — falling back to Claude'); }
   } catch (e: any) {
-    log(`Manus failed (${e.message}) — falling back to Claude for CMO plan generation`);
+    log(`Manus failed or returned invalid output (${e.message}) — falling back to Claude for CMO plan generation`);
     raw = await callClaude(
     `You are the CMO of Invoica — the Financial OS for AI Agents (@invoica_ai).
 You produce a structured weekly X/Twitter content plan for the X agent to execute.
