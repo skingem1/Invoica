@@ -93,7 +93,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [
         "CHAIN-003",
         "CHAIN-004"
@@ -102,14 +102,22 @@
       "context": "Create backend/src/services/settlement/settlement-router.ts — routes settlement detection to the correct detector based on chain type.\n\nThis is the single entry point for all settlement checks. Other code only calls this module.\n\n```typescript\nimport { getChain, isEvmChain } from '../../lib/chain-registry';\nimport { EvmSettlementDetector } from './evm-detector';\nimport { SolanaSettlementDetector } from './solana-detector';\nimport { SettlementMatch } from './evm-detector';\n\n/**\n * Check for USDC payment to a recipient on any supported chain.\n * Routes to EVM or Solana detector based on chain config.\n *\n * @param chainId - Chain identifier ('base', 'polygon', 'solana')\n * @param recipientAddress - Address to check for incoming payments\n * @param options - Optional: expectedAmount, fromBlock, limit\n */\nexport async function checkSettlement(\n  chainId: string,\n  recipientAddress: string,\n  options?: {\n    expectedAmountUsdc?: number;\n    fromBlock?: number;   // EVM only\n    limit?: number;       // Solana only\n  }\n): Promise<SettlementMatch[]>;\n\n/**\n * Verify a specific transaction is a valid USDC payment.\n *\n * @param chainId - Chain identifier\n * @param txId - Transaction hash (EVM) or signature (Solana)\n * @param recipientAddress - Expected recipient\n * @param expectedAmountUsdc - Expected USDC amount\n */\nexport async function verifyPayment(\n  chainId: string,\n  txId: string,\n  recipientAddress: string,\n  expectedAmountUsdc: number\n): Promise<boolean>;\n```\n\nMax 60 lines. Keep it thin — just routing logic, no business logic. Include JSDoc.",
       "deliverables": [
         "backend/src/services/settlement/settlement-router.ts"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/services/settlement/settlement-router.ts",
+          "backend/src/services/settlement/settlement-router.ts"
+        ],
+        "commit": "e3697ee",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-006",
       "agent": "backend-core",
       "type": "feature",
       "priority": "medium",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-001"
       ],
