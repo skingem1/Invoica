@@ -500,13 +500,27 @@ async function executeTool(name: string, input: Record<string, unknown>, recentH
       }
 
       // 2. PM2 processes
+      // Cron-based processes stop between runs — that is normal, not an error.
+      const CRON_PROCS = new Set(['git-autodeploy','heartbeat','bizdev-weekly','ceo-review',
+        'cfo-weekly','cmo-daily-watch','cmo-weekly-content-plan','cto-daily-scan',
+        'cto-email-support','docs-generator','memory-agent','sprint-runner',
+        'tax-watchdog-eu-japan','tax-watchdog-us','x-admin-post']);
       try {
         const pm2Raw = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
-        const procs = JSON.parse(pm2Raw) as Array<{ name: string; pm2_env: { status: string; restart_time: number }; pid: number }>;
+        type PM2Proc = { name: string; pm2_env: { status: string; restart_time: number; pm_uptime: number; unstable_restarts: number } };
+        const procs = JSON.parse(pm2Raw) as PM2Proc[];
+        const online   = procs.filter(p => p.pm2_env.status === 'online');
+        const broken   = procs.filter(p => p.pm2_env.status !== 'online' && !CRON_PROCS.has(p.name));
+        const idleCron = procs.filter(p => p.pm2_env.status !== 'online' &&  CRON_PROCS.has(p.name));
         lines.push(`\n=== PM2 PROCESSES ===`);
-        for (const p of procs) {
-          lines.push(`${p.name}: ${p.pm2_env.status} (pid ${p.pid}, restarts: ${p.pm2_env.restart_time})`);
-        }
+        const fmt = (p: PM2Proc) => {
+          const up = p.pm2_env.pm_uptime ? `${Math.round((Date.now() - p.pm2_env.pm_uptime) / 60000)}m` : '?';
+          const u  = p.pm2_env.unstable_restarts > 0 ? ` ⚠️unstable:${p.pm2_env.unstable_restarts}` : '';
+          return `${p.name}(up ${up}${u})`;
+        };
+        lines.push(`Online (${online.length}): ${online.map(fmt).join(', ')}`);
+        if (broken.length)   lines.push(`⚠️ DOWN (needs attention): ${broken.map(p => p.name).join(', ')}`);
+        if (idleCron.length) lines.push(`Idle/cron (${idleCron.length}): ${idleCron.map(p => p.name).join(', ')} — normal between runs`);
       } catch { lines.push(`\nPM2: (could not read)`); }
 
       // 3. Recent daily reports
@@ -691,11 +705,24 @@ async function buildLiveContext(): Promise<string> {
       lines.push(`API: ${h.checks?.api_status} | DB: ${h.checks?.database_status} | MRR: $${h.financials?.mrr ?? 0} | Spend: $${h.financials?.monthly_spend ?? 0}/mo`);
       if (h.beta) lines.push(`Beta day ${h.beta.day_number} | Users: ${h.beta.agents_onboarded} onboarded`);
     }
-    // PM2
+    // PM2 — only surface actually-broken processes; cron-stopped is normal.
     try {
+      const CRON_PROCS_CTX = new Set(['git-autodeploy','heartbeat','bizdev-weekly','ceo-review',
+        'cfo-weekly','cmo-daily-watch','cmo-weekly-content-plan','cto-daily-scan',
+        'cto-email-support','docs-generator','memory-agent','sprint-runner',
+        'tax-watchdog-eu-japan','tax-watchdog-us','x-admin-post']);
       const pm2Raw = execSync('pm2 jlist 2>/dev/null', { encoding: 'utf-8', timeout: 4000 });
-      const procs = JSON.parse(pm2Raw) as Array<{ name: string; pm2_env: { status: string; restart_time: number } }>;
-      lines.push(`PM2: ${procs.map(p => `${p.name}=${p.pm2_env.status}(↺${p.pm2_env.restart_time})`).join(' | ')}`);
+      type P2 = { name: string; pm2_env: { status: string; restart_time: number; pm_uptime: number; unstable_restarts: number } };
+      const procs = JSON.parse(pm2Raw) as P2[];
+      const online   = procs.filter(p => p.pm2_env.status === 'online');
+      const broken   = procs.filter(p => p.pm2_env.status !== 'online' && !CRON_PROCS_CTX.has(p.name));
+      const unstable = online.filter(p => p.pm2_env.unstable_restarts > 0);
+      lines.push(`PM2 online(${online.length}): ${online.map(p => {
+        const up = p.pm2_env.pm_uptime ? Math.round((Date.now() - p.pm2_env.pm_uptime) / 60000) : 0;
+        return `${p.name} ${up}m`;
+      }).join(' | ')}`);
+      if (broken.length)   lines.push(`PM2 ⚠️ DOWN: ${broken.map(p => p.name).join(', ')}`);
+      if (unstable.length) lines.push(`PM2 unstable: ${unstable.map(p => `${p.name}(×${p.pm2_env.unstable_restarts})`).join(', ')}`);
     } catch { /* skip */ }
     // Latest reports
     const latestFile = (dir: string, ext = '.md') => {
