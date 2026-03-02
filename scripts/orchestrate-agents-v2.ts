@@ -955,6 +955,35 @@ function loadCMOReports(): string {
     : '';
 }
 
+// ===== Owner Directives Loader (reads owner instructions from reports/owner/) =====
+
+function loadOwnerDirectives(): string {
+  const dir = "./reports/owner";
+  const sections: string[] = [];
+  try {
+    if (!existsSync(dir)) return "";
+    const files = readdirSync(dir)
+      .filter((f: string) => f.endsWith(".md"))
+      .sort()
+      .reverse(); // newest first
+    for (const f of files.slice(0, 5)) {
+      const content = readFileSync(dir + "/" + f, "utf-8");
+      sections.push("### Owner Directive: " + f + "
+" + content.substring(0, 3000));
+    }
+  } catch { /* graceful degradation */ }
+  return sections.length > 0
+    ? "## Owner Directives (MANDATORY — highest priority)
+
+" + sections.join("
+
+---
+
+")
+    : "";
+}
+
+
 // ===== CTO Tech Watch Report Loader (reads reports produced by standalone run-cto-techwatch.ts) =====
 
 function loadCTOTechWatchReports(): string {
@@ -1744,6 +1773,15 @@ ONLY output the JSON array. No markdown, no explanation.`;
         cmoReports = cmoReports ? cmoReports + '\n\n' + grokFeed : grokFeed;
       } else {
         log(c.gray, '  No Grok feed reports available');
+      }
+
+      // Load Owner Directives (highest priority — always included)
+      const ownerDirectives = loadOwnerDirectives();
+      if (ownerDirectives) {
+        log(c.magenta, "  Owner directives found — will include in CEO review (highest priority)");
+        cmoReports = ownerDirectives + (cmoReports ? "
+
+" + cmoReports : "");
       }
 
       // 5. CEO reviews CTO proposals + CMO reports
