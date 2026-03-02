@@ -4,30 +4,30 @@ All notable changes to Invoica are documented here.
 
 ## [1.7.0] — 2026-03-02
 
-- Shipped multi-chain architecture expansion — CHAIN-001 through CHAIN-009 tasks enable Base, Polygon, and Solana network support for x402 payments
-- Released SDK batch 60a-62 improvements — enhanced payment routing, settlement verification, and webhook resilience
-- Added Mission Control integration — ops visibility dashboard for all agent processes with auto-restart and health monitoring
-- Implemented live docs auto-generation system — CHANGELOG.md and API reference now data-driven from code, synced to frontend
-- Fixed orchestrator schema mismatches and CEO hallucination issues — stronger validation and real state injection across all autonomous agents
-- Launched git-autodeploy with GitHub push integration — server self-deploys every 5 minutes, synchronized with Vercel frontend builds
+- Completed multi-chain architecture rollout — integrated CHAIN-001 through CHAIN-009 tasks for Base, Polygon, and Solana support
+- Delivered expanded SDK capabilities with SDK-060a through SDK-062 enhancements for improved payment processing
+- Finalized authentication system with AUTH-002 and AUTH-003 implementations for secure x402 transactions
+- Resolved orchestrator schema mismatches and fixed CEO hallucination edge cases in agent pipelines
+- Implemented live docs auto-generation system with data-driven changelog and API reference pages
+- Activated agent institutional memory via black-box memory-agent system for persistent decision context
 
-## [1.6.0] — 2026-02-28
+## [1.6.0] — 2026-03-01
 
-- Launched autonomous post-sprint pipeline — automatic test→CTO review→Vercel deploy cycle closes execution loop
-- Added sprint-runner PM2 cron — triggers weekly sprints based on GitHub milestones with CEO approval gates
-- Implemented x-admin autonomous X posting agent with CEO + CTO review gates before every post to @invoica_ai
-- Added CMO weekly content plan generator — Sunday recurring task with CEO approval, integrated into X posting workflow
-- Enhanced security — removed hardcoded wallet addresses, now loaded from environment variables with multi-RPC fallback for balance checks
-- Implemented heartbeat watchdog with 6-hour Telegram summaries and 90-minute gap warnings for mission-critical services
+- Launched Mission Control integration for centralized agent operations visibility and monitoring
+- Implemented autonomous post-sprint pipeline — auto-trigger test→CTO review→Vercel deploy after sprints
+- Added CMO weekly content plan generator with CEO approval gate and Sunday 06:00 UTC scheduling
+- Enabled git auto-deployment system — server self-deploys from GitHub every 5 minutes with TypeScript + ecosystem CI gates
+- Enhanced CTO email support — added IMAP/SMTP monitoring for support@invoica.ai with AI-powered responses
+- Introduced heartbeat service with Telegram summaries, dead-man's switch pings, and PM2 watchdog for autonomy gap closure
 
 ## [1.5.0] — 2026-02-27
 
-- Launched x402 agent wallet spending — agents now autonomously spend USDC on LLM inference calls with multi-chain support (Base, Polygon, Solana)
-- Added real execution tools to CEO bot: run_shell, write_file, and create_github_issue via GitHub REST API
-- Implemented CEO bot live system context injection — replaces hallucinated metrics with real PM2 state, agent status, and wallet balances
-- Added Telegram bot suite with /report, /pm2, /health, /sprint commands for ops visibility and autonomous sprint triggering
-- Fixed critical backend crash loop — added missing lib/prisma.ts and PM2 wrapper script with port conflict guards
-- Deployed email support monitoring — CTO agent now handles support@invoica.ai tickets via IMAP/SMTP
+- Added x402 agent wallet spending — agents now spend USDC on LLM calls via configured seller wallet
+- Launched autonomous X posting agent (@invoica_ai) with CEO + CTO review gates for all content
+- Implemented CEO bot with execution tools — run_shell, write_file, create_github_issue, and live system context injection
+- Added Telegram bot integration with /report, /pm2, /health, /sprint commands for real-time ops visibility
+- Fixed backend stability — added missing lib/prisma.ts and backend-wrapper.sh to eliminate 4799+ crash restarts
+- Introduced multichain x402 expansion with standing sprint priority for Base, Polygon, and Solana
 
 ## [1.4.0] — 2026-02-20
 
