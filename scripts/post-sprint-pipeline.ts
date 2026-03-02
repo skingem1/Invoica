@@ -327,9 +327,11 @@ function deployToVercel(): { success: boolean; url: string; output: string } {
     return { success: false, url: '', output: 'VERCEL_TOKEN not set — skipping deploy. Set VERCEL_TOKEN in .env to enable auto-deploy.' };
   }
 
+  // Deploy from frontend/ which has .vercel/project.json linking to invoica-b89o (app.invoica.ai)
+  const frontendDir = join(ROOT, 'frontend');
   const deploy = spawnSync(
     'npx', ['vercel', '--prod', '--yes', '--token', vercelToken],
-    { cwd: ROOT, encoding: 'utf8', timeout: 10 * 60 * 1000, env: { ...process.env } }
+    { cwd: frontendDir, encoding: 'utf8', timeout: 10 * 60 * 1000, env: { ...process.env } }
   );
 
   const combined = deploy.stdout + '\n' + deploy.stderr;
