@@ -46,7 +46,16 @@
       ]
     },
     "acceptance_criteria": "POST /v1/tax/calculate with buyerCountry=US, state=CA, amount=100 returns taxRate=0.0725, taxAmount=7.25. With state=MT returns taxAmount=0.",
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/src/services/tax/location-resolver.ts",
+        "backend/src/services/tax/calculator.ts",
+        "backend/src/services/tax/__tests__/us-nexus.test.ts"
+      ],
+      "commit": "ae3babb",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "BUG-005",
@@ -109,7 +118,7 @@
         "backend/tests/services/settlement-service.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "PAY-002",
