@@ -25,7 +25,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "critical",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [
         "CHAIN-001"
       ],
@@ -33,14 +33,21 @@
       "context": "Update backend/src/routes/invoices.ts to validate the `chain` field against the chain registry instead of the hardcoded SUPPORTED_CHAINS array.\n\nChanges:\n1. Import `getSupportedChains` from '../lib/chain-registry'\n2. Replace the hardcoded `const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum'] as const` with dynamic validation against the registry\n3. Update `createInvoiceSchema` chain field:\n```typescript\nchain: z.string().refine(c => getSupportedChains().includes(c), {\n  message: `Chain must be one of: ${getSupportedChains().join(', ')}`\n}).default('base'),\n```\n4. In the GET /v1/invoices list endpoint, update the chain query param validation similarly\n5. Add chain info to invoice responses: include `chainDisplayName` from registry\n\nDo NOT change any other logic — just the chain validation and the response shape.\n\nKey correctness: Solana addresses are base58 (not 0x hex), so the chain registry is the authority — do not add EVM-specific address validation to invoice creation.",
       "deliverables": [
         "backend/src/routes/invoices.ts (updated)"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/routes/invoices.ts"
+        ],
+        "commit": "d86ba74",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-003",
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-001"
       ],
