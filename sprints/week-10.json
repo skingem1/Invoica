@@ -17,7 +17,16 @@
       ]
     },
     "acceptance_criteria": "POST /v1/tax/calculate with buyerCountry=GB, transactionType=B2C, amount=100 returns taxRate=0.20, taxAmount=20",
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/src/services/tax/location-resolver.ts",
+        "backend/src/services/tax/calculator.ts",
+        "backend/src/services/tax/__tests__/uk-vat.test.ts"
+      ],
+      "commit": "49386c7",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "BUG-009",
@@ -37,7 +46,7 @@
       ]
     },
     "acceptance_criteria": "POST /v1/tax/calculate with buyerCountry=US, state=CA, amount=100 returns taxRate=0.0725, taxAmount=7.25. With state=MT returns taxAmount=0.",
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "BUG-005",
