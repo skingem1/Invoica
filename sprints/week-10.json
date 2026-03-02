@@ -221,7 +221,15 @@
         "backend/tests/services/api-key-service.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/services/api-key-service.ts",
+        "backend/tests/services/api-key-service.test.ts"
+      ],
+      "commit": "cdc4115",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "FE-020",
@@ -238,7 +246,7 @@
         "frontend/tests/components/create-invoice-form.test.tsx"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   },
   {
     "id": "FE-021",

@@ -72,3 +72,27 @@ export const SUPPORTED_CHAINS: Map<string, ChainConfig> = new Map<string, ChainC
  * @throws {UnsupportedChainError} If the chain is not supported
  * @example
  *
+ * const config = getChainConfig("base");
+ * console.log(config.name); // "Base"
+ */
+export function getChainConfig(chainId: string): ChainConfig {
+  const config = SUPPORTED_CHAINS.get(chainId);
+  if (!config) {
+    throw new UnsupportedChainError(chainId);
+  }
+  return config;
+}
+
+/**
+ * Returns all supported chain identifiers
+ */
+export function getSupportedChainIds(): string[] {
+  return Array.from(SUPPORTED_CHAINS.keys());
+}
+
+/**
+ * Checks whether a given chain ID is supported
+ */
+export function isChainSupported(chainId: string): boolean {
+  return SUPPORTED_CHAINS.has(chainId);
+}
