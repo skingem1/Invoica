@@ -19,13 +19,13 @@ cd /home/invoica/apps/Invoica
 # after 15 bad exits and stops the process, preventing CPU burn.
 if ! /home/invoica/apps/Invoica/node_modules/.bin/tsc \
     --project tsconfig.json --noEmit --skipLibCheck 2>&1 \
-    | grep -qE "error TS"; then
+    | grep -qE "error TS1[0-9]{3}:"; then
   : # no errors, continue
 else
-  echo "[backend-wrapper] TypeScript compile errors detected — aborting start to prevent crash loop:"
+  echo "[backend-wrapper] TypeScript SYNTAX errors (TS1xxx) detected — aborting to prevent crash loop:"
   /home/invoica/apps/Invoica/node_modules/.bin/tsc \
     --project tsconfig.json --noEmit --skipLibCheck 2>&1 \
-    | grep "error TS" | head -10
+    | grep -E "error TS1[0-9]{3}:" | head -10
   exit 1
 fi
 

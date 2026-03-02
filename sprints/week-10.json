@@ -300,7 +300,15 @@
         "backend/tests/routes/invoice-routes.test.ts"
       ]
     },
-    "status": "in_progress"
+    "status": "done",
+    "output": {
+      "files": [
+        "backend/routes/invoice-routes.ts",
+        "backend/tests/routes/invoice-routes.test.ts"
+      ],
+      "commit": "e226480",
+      "model": "MiniMax-M2.5"
+    }
   },
   {
     "id": "DB-001",
@@ -317,6 +325,6 @@
         "backend/tests/migrations/003_settlements_payments.test.ts"
       ]
     },
-    "status": "pending"
+    "status": "in_progress"
   }
 ]
