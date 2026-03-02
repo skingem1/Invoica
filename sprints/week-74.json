@@ -5,20 +5,27 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "critical",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [],
       "description": "Chain registry module",
       "context": "Create backend/src/lib/chain-registry.ts — the single source of truth for all supported chains.\n\nThis module is the foundation for all multi-chain work. Every other component will import from here.\n\nExport:\n\n```typescript\nexport type ChainType = 'evm' | 'solana';\n\nexport interface ChainConfig {\n  id: string;           // 'base' | 'polygon' | 'solana'\n  displayName: string;\n  type: ChainType;\n  chainId: number | string;  // number for EVM, 'solana' for Solana\n  rpcUrl: string;       // from env var, fallback to public\n  usdcAddress: string;  // USDC contract address\n  explorerUrl: string;  // for tx links\n  usdcDecimals: number; // 6 for both\n}\n\nexport const CHAINS: Record<string, ChainConfig> = {\n  base: {\n    id: 'base',\n    displayName: 'Base',\n    type: 'evm',\n    chainId: 8453,\n    rpcUrl: process.env.BASE_RPC_URL || 'https://base.gateway.tenderly.co',\n    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',\n    explorerUrl: 'https://basescan.org',\n    usdcDecimals: 6,\n  },\n  polygon: {\n    id: 'polygon',\n    displayName: 'Polygon',\n    type: 'evm',\n    chainId: 137,\n    rpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-bor-rpc.publicnode.com',\n    usdcAddress: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',\n    explorerUrl: 'https://polygonscan.com',\n    usdcDecimals: 6,\n  },\n  solana: {\n    id: 'solana',\n    displayName: 'Solana',\n    type: 'solana',\n    chainId: 'solana',\n    rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',\n    usdcAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',\n    explorerUrl: 'https://solscan.io',\n    usdcDecimals: 6,\n  },\n};\n\nexport function getChain(chainId: string): ChainConfig {\n  const chain = CHAINS[chainId];\n  if (!chain) throw new Error(`Unsupported chain: ${chainId}. Supported: ${Object.keys(CHAINS).join(', ')}`);\n  return chain;\n}\n\nexport function getSupportedChains(): string[] {\n  return Object.keys(CHAINS);\n}\n\nexport function isEvmChain(chainId: string): boolean {\n  return getChain(chainId).type === 'evm';\n}\n\nexport function isSolanaChain(chainId: string): boolean {\n  return getChain(chainId).type === 'solana';\n}\n```\n\nMax 70 lines. No external dependencies. Full JSDoc on all exports.",
       "deliverables": [
         "backend/src/lib/chain-registry.ts"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/lib/chain-registry.ts"
+        ],
+        "commit": "a4e940a",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-002",
       "agent": "backend-core",
       "type": "feature",
       "priority": "critical",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-001"
       ],
