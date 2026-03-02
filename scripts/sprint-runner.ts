@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 /**
- * sprint-runner.ts — Auto-executes pending sprint tasks via MiniMax orchestrator
+ * sprint-runner.ts — Auto-executes pending sprint tasks via dual-supervisor orchestrator
  *
  * PM2 cron: every 30 minutes — checks for pending work and runs it
  *
@@ -8,7 +8,8 @@
  *   1. Check lock file (prevents parallel sprints)
  *   2. Scan sprints/ for JSON files with pending tasks
  *      Priority: week-N.json descending (newest sprint first)
- *   3. Spawn orchestrate-agents-minimax.ts on the chosen sprint file
+ *   3. Spawn orchestrate-agents-v2.ts on the chosen sprint file
+ *      (Dual supervisor: Claude Sonnet + OpenAI Codex, CEO conflict resolution)
  *   4. Telegram alert on start + finish
  *   5. Release lock when done
  *
@@ -152,7 +153,7 @@ async function main(): Promise<void> {
   try {
     const result = spawnSync(
       'npx',
-      ['ts-node', '--transpile-only', 'scripts/orchestrate-agents-minimax.ts', sprint.file],
+      ['ts-node', '--transpile-only', 'scripts/orchestrate-agents-v2.ts', sprint.file],
       {
         cwd: ROOT,
         stdio: 'inherit',
