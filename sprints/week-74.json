@@ -69,7 +69,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "in_progress",
+      "status": "done",
       "dependencies": [
         "CHAIN-001"
       ],
@@ -77,14 +77,23 @@
       "context": "Create backend/src/services/settlement/solana-detector.ts — detects USDC SPL token transfers on Solana mainnet.\n\nSolana has a completely different settlement model from EVM:\n- No event logs — use `getSignaturesForAddress` + `getTransaction` RPC calls\n- USDC is an SPL token: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v\n- Transfers go through Token Program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)\n- Use the memo program to store invoice IDs (optional but enables auto-matching)\n\n```typescript\nimport { ChainConfig } from '../../lib/chain-registry';\nimport { SettlementMatch } from './evm-detector';\n\nexport class SolanaSettlementDetector {\n  constructor(private chain: ChainConfig) {}\n\n  /**\n   * Get recent SPL token transfers for a wallet address.\n   * Uses getSignaturesForAddress + getTransaction RPC calls.\n   * @param walletAddress - Base58 Solana address to scan\n   * @param limit - Max transactions to check (default: 20)\n   */\n  async getRecentUsdcTransfers(\n    walletAddress: string,\n    limit: number = 20\n  ): Promise<SettlementMatch[]>;\n\n  /**\n   * Check if a specific transaction signature is a USDC transfer to recipient.\n   * @param txSignature - Base58 transaction signature\n   * @param expectedRecipient - Expected recipient wallet (base58)\n   * @param expectedAmountUsdc - Expected amount in USDC\n   */\n  async verifyTransfer(\n    txSignature: string,\n    expectedRecipient: string,\n    expectedAmountUsdc: number\n  ): Promise<boolean>;\n\n  /** Extract memo field from a transaction (used for invoice ID matching) */\n  async extractMemo(txSignature: string): Promise<string | null>;\n}\n```\n\nRPC calls to use (all via fetch to chain.rpcUrl):\n- `getSignaturesForAddress` with `{ limit }` — returns array of {signature, slot, blockTime}\n- `getTransaction` with `{ encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }` — parse SPL token instructions\n- Look for instructions with `type: 'transferChecked'` or `type: 'transfer'` in parsed token program\n\nMax 150 lines. No external Solana dependencies (use raw JSON-RPC). Include JSDoc.",
       "deliverables": [
         "backend/src/services/settlement/solana-detector.ts"
-      ]
+      ],
+      "output": {
+        "files": [
+          "backend/src/services/settlement/solana-detector.ts",
+          "backend/src/services/settlement/solana-pda.ts",
+          "backend/src/services/settlement/__tests__/solana-detector.test.ts"
+        ],
+        "commit": "9ef1b38",
+        "model": "MiniMax-M2.5"
+      }
     },
     {
       "id": "CHAIN-005",
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CHAIN-003",
         "CHAIN-004"
