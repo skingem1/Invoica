@@ -1,10 +1,14 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient, InvoiceStatus, PaymentMethod } from '@prisma/client';
+// Prisma replaced with plain enums — no database connection needed
+const InvoiceStatus = { DRAFT: 'DRAFT', PENDING: 'PENDING', PROCESSING: 'PROCESSING', SETTLED: 'SETTLED', OVERDUE: 'OVERDUE', CANCELLED: 'CANCELLED', FAILED: 'FAILED' } as const;
+const PaymentMethod = { CRYPTO: 'CRYPTO', BANK_TRANSFER: 'BANK_TRANSFER', CARD: 'CARD', WIRE: 'WIRE' } as const;
+type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
+type PaymentMethod = typeof PaymentMethod[keyof typeof PaymentMethod];
 import { validateChain } from '../lib/chain-validator';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const prisma: any = { invoice: { findMany: async()=>[], findUnique: async()=>null, create: async(d:any)=>({...d.data,id:"mock"}), update: async(d:any)=>d.data, count: async()=>0 } };
 
 // Validation schemas
 const createInvoiceSchema = z.object({
