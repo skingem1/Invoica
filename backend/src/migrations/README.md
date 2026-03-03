@@ -1,24 +1,15 @@
-This directory contains database migrations for the Invoice table and related schema changes.
+This directory contains SQL migrations for the Invoice table in Supabase.
 
-## Current Migration
+## Migration: Add Chain Field
 
-### add_chain_to_invoice.sql
+### Purpose
+Enables multi-chain invoicing by adding a `chain` column to track which blockchain the invoice is denominated on (Base, Polygon, or Solana).
 
-Adds a `chain` column to the Invoice table to support multi-chain architecture (Sprint 10).
+### How to Run
+1. Open the Supabase SQL Editor
+2. Paste the contents of `add_chain_to_invoice.sql`
+3. Execute the migration
 
-**Supported Chains:**
-- `base` (default)
-- `polygon`
-- `solana`
-
-## How to Run
-
-1. Open the [Supabase SQL Editor](https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
-2. Copy and paste the contents of `add_chain_to_invoice.sql`
-3. Click **Run** to execute
-
-## Rollback
-
-If you need to remove this migration:
+### Rollback
 
 ALTER TABLE "Invoice" DROP COLUMN IF EXISTS chain;
