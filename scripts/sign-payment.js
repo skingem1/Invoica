@@ -113,7 +113,7 @@ async function main() {
   console.log(`curl -X POST https://app.invoica.ai/v1/ai/inference \\`);
   console.log(`  -H "Content-Type: application/json" \\`);
   console.log(`  -H "X-Payment: ${xPayment}" \\`);
-  console.log(`  -d '{"prompt":"What is x402 protocol?","model":"claude-haiku-4-5"}'`);
+  console.log(`  -d '{"prompt":"What is x402 protocol?","model":"MiniMax-M2.5"}'`);
   console.log('');
 }
 
