@@ -1,4 +1,6 @@
-import { getSupportedChains, getChain, ChainConfig } from './chain-registry';
+import { getSupportedChains, ChainConfig, getChain } from './chain-registry';
+
+export { getSupportedChains, getChain };
 
 /**
  * Validates that a chain ID is supported. Throws 400 if not.
@@ -17,5 +19,3 @@ export function validateChain(chainId: unknown): string {
   }
   return chainId;
 }
-
-export { getSupportedChains, getChain };
