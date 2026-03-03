@@ -151,6 +151,28 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// GET /invoices/number/:number - Get invoice by invoice number
+router.get('/number/:number', asyncHandler(async (req: Request, res: Response) => {
+  const invoiceNumber = parseInt(req.params.number, 10);
+  if (isNaN(invoiceNumber) || invoiceNumber < 1) {
+    res.status(400).json({ success: false, error: { message: 'Invalid invoice number', code: 'VALIDATION_ERROR' } });
+    return;
+  }
+  const invoice = await prisma.invoice.findFirst({
+    where: { invoiceNumber },
+    include: {
+      customer: true,
+      items: true,
+      payments: { orderBy: { createdAt: 'desc' } },
+    },
+  });
+  if (!invoice) {
+    res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+    return;
+  }
+  res.json({ success: true, data: invoice });
+}));
+
 // GET /invoices/:id - Get invoice by ID
 router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
