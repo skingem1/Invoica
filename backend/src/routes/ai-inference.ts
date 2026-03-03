@@ -21,6 +21,111 @@ function getSupabase() {
 
 type LLMResult = { content: string; inputTokens: number; outputTokens: number };
 
+// ---------------------------------------------------------------------------
+// Batched settlement queue — flush every 50 calls OR every 5 minutes
+// ---------------------------------------------------------------------------
+interface SettlementRecord {
+  from: string;
+  to: string;
+  value: bigint;
+  nonce: string;
+  signature: string;
+  prompt: string;
+  createdAt: string;
+}
+
+const BATCH_SIZE = 50;
+const FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+let settlementQueue: SettlementRecord[] = [];
+let flushTimer: NodeJS.Timeout | null = null;
+
+/**
+ * Flush the settlement queue to Supabase as individual Invoice records.
+ * Called either when queue reaches BATCH_SIZE or when the flush timer fires.
+ */
+async function flushSettlementQueue(): Promise<void> {
+  if (settlementQueue.length === 0) return;
+
+  const batch = settlementQueue.splice(0);
+  console.log(`[ai-inference] Flushing ${batch.length} settlement(s) to Supabase`);
+
+  const sb = getSupabase();
+  const now = new Date().toISOString();
+
+  const records = batch.map((rec, idx) => ({
+    invoiceNumber: Math.floor(Date.now() / 1000) + idx,
+    status: 'COMPLETED',
+    amount: Number(rec.value) / 1_000_000,
+    currency: 'USDC',
+    customerEmail: `${rec.from.slice(0, 10)}@x402.base`,
+    customerName: `Agent ${rec.from.slice(0, 10)}...`,
+    paymentDetails: JSON.stringify({
+      x402Protocol: true,
+      network: 'base-mainnet',
+      chainId: 8453,
+      payerWallet: rec.from,
+      sellerWallet: rec.to,
+      nonce: rec.nonce,
+      signature: rec.signature.slice(0, 20) + '...',
+      prompt: rec.prompt.slice(0, 100),
+      eip3009: true,
+    }),
+    settledAt: rec.createdAt,
+    completedAt: now,
+    createdAt: rec.createdAt,
+    updatedAt: now,
+  }));
+
+  const { error } = await sb.from('Invoice').insert(records);
+  if (error) {
+    console.warn('[ai-inference] Batch settlement insert failed:', error.message);
+    // Re-queue on failure (best-effort)
+    settlementQueue.unshift(...batch);
+  } else {
+    console.log(`[ai-inference] ${batch.length} settlement(s) recorded successfully`);
+  }
+}
+
+/**
+ * Enqueue a payment for batched settlement.
+ * Auto-flushes when queue reaches BATCH_SIZE; timer ensures max latency of 5 min.
+ */
+function enqueueSettlement(payment: NonNullable<Request['x402Payment']>, prompt: string): void {
+  settlementQueue.push({
+    from: payment.from,
+    to: payment.to,
+    value: payment.value,
+    nonce: payment.nonce,
+    signature: payment.signature,
+    prompt,
+    createdAt: new Date().toISOString(),
+  });
+
+  // Flush immediately if batch is full
+  if (settlementQueue.length >= BATCH_SIZE) {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    flushSettlementQueue().catch(e => console.error('[ai-inference] Flush error:', e));
+    return;
+  }
+
+  // Start/reset the 5-minute flush timer
+  if (!flushTimer) {
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      flushSettlementQueue().catch(e => console.error('[ai-inference] Flush error:', e));
+    }, FLUSH_INTERVAL_MS);
+  }
+}
+
+// Graceful shutdown: flush remaining settlements before process exits
+process.on('SIGTERM', () => flushSettlementQueue().catch(() => {}));
+process.on('SIGINT',  () => flushSettlementQueue().catch(() => {}));
+
+// ---------------------------------------------------------------------------
+// LLM Clients
+// ---------------------------------------------------------------------------
+
 /**
  * Call Anthropic API (native https, no extra deps -- same pattern as ceoBot.ts)
  */
@@ -75,7 +180,7 @@ async function callMiniMax(prompt: string, systemPrompt?: string): Promise<LLMRe
 
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: MINIMAX_CODING_MODEL, // Always M2.5 — Coding Plan only
+      model: MINIMAX_CODING_MODEL,
       messages,
       temperature: 0.3,
       max_tokens: 16000,
@@ -118,66 +223,20 @@ async function callMiniMax(prompt: string, systemPrompt?: string): Promise<LLMRe
 
 /**
  * Route LLM call: MiniMax for coding tasks, Anthropic for everything else
- * Model routing:
- *   "MiniMax-M2.5" | "minimax" | "coding" → MiniMax Coding Plan (M2.5)
- *   anything else                          → Anthropic claude-haiku-4-5
  */
 async function callLLM(prompt: string, model: string, systemPrompt?: string): Promise<LLMResult & { backend: string }> {
   const isMiniMax = model.toLowerCase().startsWith('minimax') || model === 'coding';
   if (isMiniMax) {
     const result = await callMiniMax(prompt, systemPrompt);
-    return { ...result, backend: 'minimax', };
+    return { ...result, backend: 'minimax' };
   }
   const result = await callAnthropic(prompt, model);
   return { ...result, backend: 'anthropic' };
 }
 
-/**
- * Record the payment as a COMPLETED invoice in Supabase
- */
-async function recordPaymentInvoice(payment: NonNullable<Request['x402Payment']>, prompt: string): Promise<string | null> {
-  try {
-    const sb = getSupabase();
-    const now = new Date().toISOString();
-
-    // Get next invoice number via sequence
-    let seqData: any = null; try { const seqRes = await sb.rpc('nextval', { seq: 'invoice_number_seq' }).single(); seqData = seqRes.data; } catch {}
-    const invoiceNum = seqData || Math.floor(Date.now() / 1000);
-
-    const { data, error } = await sb.from('Invoice').insert({
-      invoiceNumber: invoiceNum,
-      status: 'COMPLETED',
-      amount: Number(payment.value) / 1_000_000,
-      currency: 'USDC',
-      customerEmail: `${payment.from.slice(0, 10)}@x402.base`,
-      customerName: `Agent ${payment.from.slice(0, 10)}...`,
-      paymentDetails: JSON.stringify({
-        x402Protocol: true,
-        network: 'base-mainnet',
-        chainId: 8453,
-        payerWallet: payment.from,
-        sellerWallet: payment.to,
-        nonce: payment.nonce,
-        signature: payment.signature.slice(0, 20) + '...',
-        prompt: prompt.slice(0, 100),
-        eip3009: true,
-      }),
-      settledAt: now,
-      completedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    }).select('id').single();
-
-    if (error) {
-      console.warn('[ai-inference] Invoice recording failed:', error.message);
-      return null;
-    }
-    return data?.id || null;
-  } catch (e) {
-    console.warn('[ai-inference] Invoice recording error:', (e as Error).message);
-    return null;
-  }
-}
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 
 /**
  * GET /v1/ai/inference -- returns 402 payment requirements
@@ -193,6 +252,7 @@ router.get('/v1/ai/inference', (_req: Request, res: Response) => {
  * Model routing:
  *   "MiniMax-M2.5" | "minimax" | "coding" → MiniMax Coding Plan (M2.5, 1M context)
  *   anything else (default: "claude-haiku-4-5") → Anthropic
+ * Settlement: batched — flushed every 50 calls or every 5 minutes
  */
 router.post('/v1/ai/inference', requireX402Payment, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -204,17 +264,15 @@ router.post('/v1/ai/inference', requireX402Payment, async (req: Request, res: Re
       res.status(400).json({ success: false, error: { message: 'prompt is required', code: 'MISSING_PROMPT' } });
       return;
     }
+
     const payment = req.x402Payment!;
     console.log(`[ai-inference] Processing request from ${payment.from.slice(0, 10)}... model=${model}`);
 
-    // Route to correct LLM backend
     const llmResult = await callLLM(prompt.trim(), model, systemPrompt);
     const resolvedModel = llmResult.backend === 'minimax' ? MINIMAX_CODING_MODEL : model;
 
-    // Record invoice asynchronously (don't block response)
-    recordPaymentInvoice(payment, prompt).then(invoiceId => {
-      if (invoiceId) console.log(`[ai-inference] Invoice recorded: ${invoiceId}`);
-    });
+    // Enqueue settlement (batched — non-blocking)
+    enqueueSettlement(payment, prompt);
 
     res.json({
       success: true,
