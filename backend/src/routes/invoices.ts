@@ -161,7 +161,7 @@ router.get('/number/:number', async (req: Request, res: Response, next: NextFunc
     }
     const { createClient } = require('@supabase/supabase-js');
     const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    const { data: invoice, error } = await sb.from('invoices').select('*').eq('invoiceNumber', invoiceNumber).single();
+    const { data: invoice, error } = await sb.from('Invoice').select('*').eq('invoiceNumber', invoiceNumber).single();
     if (error || !invoice) {
       res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
       return;
