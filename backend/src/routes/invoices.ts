@@ -152,7 +152,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 });
 
 // GET /invoices/number/:number - Get invoice by invoice number
-router.get('/number/:number', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/v1/invoices/number/:number', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoiceNumber = parseInt(req.params.number, 10);
     if (isNaN(invoiceNumber) || invoiceNumber < 1) {
