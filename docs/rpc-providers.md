@@ -1,22 +1,21 @@
-**Last Updated:** 2026-03-03  
-**Test Environment:** Hetzner VPS
+Live tests conducted: 2026-03-03 from Hetzner VPS IP
 
-## Test Results
+## Polygon
 
 | Provider | Chain | Status | Notes |
 |----------|-------|--------|-------|
 | https://polygon-bor-rpc.publicnode.com | Polygon | ✅ PASS | Returned valid blockNumber |
 | https://polygon.gateway.tenderly.co | Polygon | ✅ PASS | Returned valid blockNumber |
 | https://polygon.meowrpc.com | Polygon | ❌ FAIL | JSON-RPC parse error: "Failed to parse request" |
-| https://1rpc.io/matic | Polygon | ❌ FAIL | Connection failed / no output |
+| https://1rpc.io/matic | Polygon | ❌ FAIL | curl -sf returned no output / connection failed |
+
+**Recommended:** Primary: `polygon-bor-rpc.publicnode.com` | Fallback: `polygon.gateway.tenderly.co`
+
+## Solana
+
+| Provider | Chain | Status | Notes |
+|----------|-------|--------|-------|
 | https://api.mainnet-beta.solana.com | Solana | ✅ PASS | Returned slot 403909499 |
-| https://solana-mainnet.rpc.extrnode.com | Solana | ❌ FAIL | Connection failed / no output |
+| https://solana-mainnet.rpc.extrnode.com | Solana | ❌ FAIL | curl -sf returned no output / connection failed |
 
-## Recommended Configuration
-
-### Polygon
-- **Primary:** `https://polygon-bor-rpc.publicnode.com`
-- **Fallback:** `https://polygon.gateway.tenderly.co`
-
-### Solana
-- **Primary:** `https://api.mainnet-beta.solana.com`
+**Recommended:** Primary: `api.mainnet-beta.solana.com` | Fallback: None available
