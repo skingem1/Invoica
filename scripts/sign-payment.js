@@ -15,7 +15,8 @@
  * Output: base64-encoded X-Payment header value to paste into curl call
  */
 
-const { privateKeyToAccount, createWalletClient, http, parseAbi } = require('viem');
+const { privateKeyToAccount } = require('viem/accounts');
+const { createWalletClient, http } = require('viem');
 const { base } = require('viem/chains');
 
 // ---------------------------------------------------------------------------
