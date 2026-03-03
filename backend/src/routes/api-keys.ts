@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { ApiKeyRotationService, ApiKey, RotateKeyResponse, ApiKeyRotationError } from '../services/api-key-rotation';
-import { createApiKey, createApiKeySchema } from '../services/api-keys';
+import { createApiKey, createApiKeySchema, getCustomerApiKeys, updateApiKey } from '../services/api-keys';
 
 const router = Router();
 
@@ -19,30 +19,14 @@ const keyIdSchema = z.string().uuid({ message: 'Invalid key ID format' });
  * Required for list/rotate/revoke endpoints that scope to a user.
  */
 const extractUserId = (req: Request, res: Response, next: NextFunction): void => {
-  const userId = req.headers['x-user-id'] as string;
-
-  if (!userId) {
-    res.status(401).json({
-      error: 'Unauthorized',
-      message: 'User ID not provided',
-    });
+  const customerId = (req.headers['x-customer-id'] || req.headers['x-user-id']) as string;
+  if (!customerId) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Customer ID not provided' });
     return;
   }
-
-  const validation = userIdSchema.safeParse(userId);
-  if (!validation.success) {
-    res.status(400).json({
-      error: 'Invalid Request',
-      message: 'Invalid user ID format',
-      details: validation.error.errors,
-    });
-    return;
-  }
-
-  (req as Request & { userId: string }).userId = userId;
+  (req as any).userId = customerId;
   next();
 };
-
 /**
  * POST /v1/api-keys
  * Create a new API key.
@@ -93,9 +77,9 @@ router.post('/v1/api-keys', async (req: Request, res: Response, next: NextFuncti
  */
 router.get('/v1/api-keys', extractUserId, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as Request & { userId: string }).userId;
-    const keys: ApiKey[] = await apiKeyService.listKeys(userId);
-    res.status(200).json({ keys });
+    const customerId = (req as any).userId;
+    const keys = await getCustomerApiKeys(customerId);
+    res.status(200).json({ success: true, data: keys });
   } catch (error) {
     next(error);
   }
@@ -127,6 +111,20 @@ router.post('/v1/api-keys/:id/rotate', extractUserId, async (req: Request, res: 
       keyId: result.newKeyId,
       expiresOldKeyAt: result.expiresOldKeyAt,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /v1/api-keys/:id/revoke
+ * Revoke an API key (frontend-compatible endpoint).
+ */
+router.post('/v1/api-keys/:id/revoke', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const keyId = req.params.id;
+    await updateApiKey(keyId, { isActive: false });
+    res.status(200).json({ success: true });
   } catch (error) {
     next(error);
   }
