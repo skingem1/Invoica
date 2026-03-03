@@ -3,15 +3,15 @@
  * Thin routing layer: no business logic, just chain-type dispatch.
  * @module settlement-router
  */
-import { getChain, isEvmChain } from ../../lib/chain-registry;
-import { EvmSettlementDetector, SettlementMatch } from ./evm-detector;
-import { SolanaSettlementDetector } from ./solana-detector;
+import { getChain, isEvmChain } from '../../lib/chain-registry';
+import { EvmSettlementDetector, SettlementMatch } from './evm-detector';
+import { SolanaSettlementDetector } from './solana-detector';
 
 /**
  * Check for USDC payments to a recipient on any supported chain.
  * Routes to EvmSettlementDetector (Base, Polygon) or SolanaSettlementDetector.
  *
- * @param chainId        - Chain ID from registry (base | polygon | solana)
+ * @param chainId        - Chain ID from registry ('base' | 'polygon' | 'solana')
  * @param recipientAddress - Address/pubkey to scan for incoming payments
  * @param options        - fromBlock (EVM), limit (Solana), expectedAmountUsdc
  */
@@ -28,8 +28,8 @@ export async function checkSettlement(
 
   if (isEvmChain(chainId)) {
     const detector = new EvmSettlementDetector(chain);
-    const fromBlock = options?.fromBlock ?? latest;
-    return detector.scanTransfersToAddress(recipientAddress, fromBlock, latest);
+    const fromBlock = options?.fromBlock ?? 'latest';
+    return detector.scanTransfersToAddress(recipientAddress, fromBlock, 'latest');
   }
 
   const detector = new SolanaSettlementDetector(chain);

@@ -272,7 +272,7 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "medium",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "CHAIN-001",
         "CHAIN-005"
@@ -285,6 +285,19 @@
         "docs": [
           "docs/adr/ADR-003-multi-chain-settlement.md"
         ]
+      },
+      "output": {
+        "files": [
+          "docs/adr/ADR-003-multi-chain-settlement.md"
+        ],
+        "commit": "manual-fix",
+        "model": "claude-sonnet-4-5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 95,
+          "summary": "Manually written: proper markdown ADR, no code fences, complete content covering context/decision/consequences/alternatives. 3-layer architecture documented.",
+          "resolvedAt": "2026-03-03T19:51:46.800558Z"
+        }
       }
     },
     {
@@ -292,7 +305,7 @@
       "agent": "backend-core",
       "type": "test",
       "priority": "medium",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "CHAIN-001",
         "CHAIN-002",
@@ -309,6 +322,46 @@
           "backend/src/services/settlement/__tests__/settlement-router.test.ts"
         ],
         "docs": []
+      },
+      "output": {
+        "files": [
+          "backend/src/services/settlement/__tests__/chain-registry.test.ts",
+          "backend/src/services/settlement/__tests__/settlement-router.test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "APPROVED",
+          "score": 88,
+          "summary": "Dual-approved: Claude (85/100) + Codex (90/100)",
+          "issues": [
+            {
+              "severity": "medium",
+              "file": "backend/src/services/settlement/__tests__/settlement-router.test.ts",
+              "description": "Mock setup assumes constructor-based instantiation but doesn't verify the actual implementation pattern used in settlement-router.ts"
+            },
+            {
+              "severity": "low",
+              "file": "backend/src/services/settlement/__tests__/settlement-router.test.ts",
+              "description": "Could benefit from testing return value propagation from detectors, not just method calls"
+            }
+          ],
+          "strengths": [
+            "Exact adherence to task specification - both files implement exactly what was requested",
+            "Proper Jest mocking patterns with clearAllMocks() in beforeEach",
+            "Clean TypeScript with no 'any' types used",
+            "Comprehensive test coverage for all specified scenarios",
+            "Correct import paths and module structure",
+            "Well-organized test descriptions that clearly state expected behavior",
+            "Proper error testing with expect().toThrow()",
+            "Total line count well under the 100-line limit (approximately 60 lines combined)",
+            "Follows the task spec exactly, covering all required test cases",
+            "Uses jest.mock to isolate external dependencies",
+            "Imports and path resolution are correct relative to the codebase layout",
+            "Stays under the 100-line limit per task requirement",
+            "No invalid markdown fences or hardcoded secrets detected"
+          ]
+        }
       }
     }
   ]
