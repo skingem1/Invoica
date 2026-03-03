@@ -1,502 +1,559 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { PrismaClient, InvoiceStatus, Chain } from '@prisma/client';
+import { PrismaClient, InvoiceStatus, PaymentMethod } from '@prisma/client';
 import { validateChain } from '../lib/chain-validator';
 
-const router = Router();
+const router = express.Router();
 const prisma = new PrismaClient();
 
 // Validation schemas
 const createInvoiceSchema = z.object({
-  merchantId: z.string().uuid(),
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  chain: z.string().optional(),
-  description: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
+  body: z.object({
+    customerId: z.string().uuid('Invalid customer ID format'),
+    amount: z.number().positive('Amount must be positive'),
+    currency: z.string().length(3, 'Currency must be 3-letter code').default('USD'),
+    description: z.string().optional(),
+    dueDate: z.string().datetime().optional(),
+    paymentMethods: z.array(z.enum(['BANK_TRANSFER', 'CREDIT_CARD', 'CRYPTO'])).optional(),
+    lineItems: z.array(z.object({
+      description: z.string(),
+      quantity: z.number().positive(),
+      unitPrice: z.number().positive(),
+      taxRate: z.number().min(0).max(1).optional().default(0),
+    })).min(1, 'At least one line item is required'),
+    metadata: z.record(z.unknown()).optional(),
+  }),
 });
 
 const updateInvoiceSchema = z.object({
-  status: z.enum(['pending', 'settled', 'processing', 'completed', 'failed']).optional(),
-  paidAt: z.string().datetime().optional(),
-  settlementId: z.string().optional(),
+  body: z.object({
+    status: z.nativeEnum(InvoiceStatus).optional(),
+    paymentMethod: z.nativeEnum(PaymentMethod).optional(),
+    paidAt: z.string().datetime().optional(),
+    notes: z.string().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  }),
+  params: z.object({
+    id: z.string().uuid('Invalid invoice ID format'),
+  }),
 });
 
-const invoiceQuerySchema = z.object({
-  merchantId: z.string().uuid().optional(),
-  status: z.enum(['pending', 'settled', 'processing', 'completed', 'failed']).optional(),
-  chain: z.string().optional(),
-  page: z.string().regex(/^\d+$/).optional(),
-  limit: z.string().regex(/^\d+$/).optional(),
+const invoiceIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid invoice ID format'),
+  }),
 });
 
-type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
-type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;
-type InvoiceQueryInput = z.infer<typeof invoiceQuerySchema>;
+const paginationSchema = z.object({
+  query: z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    status: z.nativeEnum(InvoiceStatus).optional(),
+    customerId: z.string().uuid().optional(),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().optional(),
+    sortBy: z.enum(['createdAt', 'updatedAt', 'dueDate', 'amount']).default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  }),
+});
 
-// Error class for invoice operations
-export class InvoiceError extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public statusCode: number = 400,
-    public details?: unknown
-  ) {
-    super(message);
-    this.name = 'InvoiceError';
-  }
-}
-
-// Helper to handle async route errors
-const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) => {
+// Error handling wrapper
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
 
-/**
- * Generate sequential invoice number atomically
- * Uses PostgreSQL advisory lock for concurrency safety
- */
-async function generateInvoiceNumber(prisma: PrismaClient): Promise<string> {
-  const result = await prisma.$transaction(async (tx) => {
-    const lock = await tx.$executeRaw`SELECT pg_advisory_xact_lock(1234567)`;
-    
-    const lastInvoice = await tx.invoice.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { invoiceNumber: true },
-    });
-    
-    const lastNumber = lastInvoice?.invoiceNumber 
-      ? parseInt(lastInvoice.invoiceNumber.replace('INV-', ''), 10) 
-      : 0;
-    
-    const newNumber = lastNumber + 1;
-    const invoiceNumber = `INV-${newNumber.toString().padStart(8, '0')}`;
-    
-    return invoiceNumber;
-  });
-  
-  return result;
+// Custom error class
+class AppError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public isOperational = true
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
 }
 
-/**
- * POST /api/invoices
- * Create a new invoice
- */
-router.post('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const validationResult = createInvoiceSchema.safeParse(req.body);
+// Invoice number generator
+async function generateInvoiceNumber(prisma: PrismaClient): Promise<string> {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
   
-  if (!validationResult.success) {
-    throw new InvoiceError(
-      'Invalid invoice data',
-      'VALIDATION_ERROR',
-      400,
-      validationResult.error.flatten()
-    );
-  }
-
-  const data: CreateInvoiceInput = validationResult.data;
-  const chain = validateChain(req.body.chain ?? req.body.chain);
-
-  const invoiceNumber = await generateInvoiceNumber(prisma);
-
-  const invoice = await prisma.invoice.create({
-    data: {
-      invoiceNumber,
-      merchantId: data.merchantId,
-      amount: data.amount,
-      currency: data.currency.toUpperCase(),
-      chain,
-      description: data.description,
-      dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      status: InvoiceStatus.PENDING,
-    },
-    include: {
-      merchant: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
+  const lastInvoice = await prisma.invoice.findFirst({
+    where: {
+      invoiceNumber: {
+        startsWith: `INV-${year}${month}`,
       },
     },
+    orderBy: { invoiceNumber: 'desc' },
   });
 
-  res.status(201).json({
-    success: true,
-    data: invoice,
-  });
-}));
+  let sequence = 1;
+  if (lastInvoice) {
+    const lastSequence = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
+    sequence = lastSequence + 1;
+  }
+
+  return `INV-${year}${month}-${String(sequence).padStart(4, '0')}`;
+}
+
+// Calculate invoice totals
+function calculateInvoiceTotals(lineItems: Array<{
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+}>) {
+  let subtotal = 0;
+  let totalTax = 0;
+
+  for (const item of lineItems) {
+    const itemSubtotal = item.quantity * item.unitPrice;
+    const itemTax = itemSubtotal * (item.taxRate || 0);
+    subtotal += itemSubtotal;
+    totalTax += itemTax;
+  }
+
+  return {
+    subtotal,
+    tax: totalTax,
+    total: subtotal + totalTax,
+  };
+}
+
+// Status transition validation
+const validStatusTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
+  [InvoiceStatus.DRAFT]: [InvoiceStatus.PENDING, InvoiceStatus.CANCELLED],
+  [InvoiceStatus.PENDING]: [InvoiceStatus.PROCESSING, InvoiceStatus.SETTLED, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
+  [InvoiceStatus.PROCESSING]: [InvoiceStatus.SETTLED, InvoiceStatus.FAILED, InvoiceStatus.PENDING],
+  [InvoiceStatus.SETTLED]: [InvoiceStatus.COMPLETED, InvoiceStatus.REFUNDED],
+  [InvoiceStatus.COMPLETED]: [InvoiceStatus.REFUNDED],
+  [InvoiceStatus.FAILED]: [InvoiceStatus.PENDING, InvoiceStatus.CANCELLED],
+  [InvoiceStatus.OVERDUE]: [InvoiceStatus.SETTLED, InvoiceStatus.CANCELLED, InvoiceStatus.COLLECTION],
+  [InvoiceStatus.COLLECTION]: [InvoiceStatus.SETTLED, InvoiceStatus.WRITE_OFF],
+  [InvoiceStatus.REFUNDED]: [],
+  [InvoiceStatus.CANCELLED]: [],
+  [InvoiceStatus.WRITE_OFF]: [],
+};
+
+function isValidStatusTransition(from: InvoiceStatus, to: InvoiceStatus): boolean {
+  return validStatusTransitions[from]?.includes(to) ?? false;
+}
+
+// Route handlers
 
 /**
- * GET /api/invoices
- * List invoices with filtering and pagination
+ * GET /invoices
+ * List all invoices with pagination and filters
  */
-router.get('/', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const queryValidation = invoiceQuerySchema.safeParse(req.query);
-  
-  if (!queryValidation.success) {
-    throw new InvoiceError(
-      'Invalid query parameters',
-      'VALIDATION_ERROR',
-      400,
-      queryValidation.error.flatten()
-    );
-  }
+router.get(
+  '/',
+  validateChain(paginationSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { page, limit, status, customerId, startDate, endDate, sortBy, sortOrder } = (req as any).validated;
+    
+    const where: any = {};
+    
+    if (status) {
+      where.status = status;
+    }
+    
+    if (customerId) {
+      where.customerId = customerId;
+    }
+    
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
+    }
 
-  const query: InvoiceQueryInput = queryValidation.data;
-  const page = parseInt(query.page ?? '1', 10);
-  const limit = Math.min(parseInt(query.limit ?? '20', 10), 100);
-  const skip = (page - 1) * limit;
-
-  const where: Record<string, unknown> = {};
-  
-  if (query.merchantId) {
-    where.merchantId = query.merchantId;
-  }
-  
-  if (query.status) {
-    where.status = query.status;
-  }
-  
-  if (query.chain) {
-    where.chain = validateChain(query.chain);
-  }
-
-  const [invoices, total] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        merchant: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
+          lineItems: true,
         },
-        settlement: true,
-      },
-    }),
-    prisma.invoice.count({ where }),
-  ]);
+      }),
+      prisma.invoice.count({ where }),
+    ]);
 
-  res.json({
-    success: true,
-    data: invoices,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
-}));
+    res.json({
+      data: invoices,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  })
+);
 
 /**
- * GET /api/invoices/:id
+ * GET /invoices/:id
  * Get a single invoice by ID
  */
-router.get('/:id', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.params;
-
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
-    include: {
-      merchant: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      settlement: true,
-    },
-  });
-
-  if (!invoice) {
-    throw new InvoiceError(
-      'Invoice not found',
-      'NOT_FOUND',
-      404
-    );
-  }
-
-  res.json({
-    success: true,
-    data: invoice,
-  });
-}));
-
-/**
- * PATCH /api/invoices/:id
- * Update an invoice (status, settlement info, etc.)
- */
-router.patch('/:id', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.params;
-  const validationResult = updateInvoiceSchema.safeParse(req.body);
-
-  if (!validationResult.success) {
-    throw new InvoiceError(
-      'Invalid update data',
-      'VALIDATION_ERROR',
-      400,
-      validationResult.error.flatten()
-    );
-  }
-
-  const data: UpdateInvoiceInput = validationResult.data;
-
-  // Check if invoice exists
-  const existingInvoice = await prisma.invoice.findUnique({
-    where: { id },
-  });
-
-  if (!existingInvoice) {
-    throw new InvoiceError(
-      'Invoice not found',
-      'NOT_FOUND',
-      404
-    );
-  }
-
-  // Validate status transition
-  const validTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
-    [InvoiceStatus.PENDING]: [InvoiceStatus.SETTLED, InvoiceStatus.FAILED],
-    [InvoiceStatus.SETTLED]: [InvoiceStatus.PROCESSING],
-    [InvoiceStatus.PROCESSING]: [InvoiceStatus.COMPLETED, InvoiceStatus.FAILED],
-    [InvoiceStatus.COMPLETED]: [],
-    [InvoiceStatus.FAILED]: [InvoiceStatus.PENDING],
-  };
-
-  if (data.status && data.status !== existingInvoice.status) {
-    const allowed = validTransitions[existingInvoice.status];
-    if (!allowed.includes(data.status)) {
-      throw new InvoiceError(
-        `Invalid status transition from ${existingInvoice.status} to ${data.status}`,
-        'INVALID_STATUS_TRANSITION',
-        400
-      );
-    }
-  }
-
-  const updateData: Record<string, unknown> = {};
-  
-  if (data.status) {
-    updateData.status = data.status;
-  }
-  
-  if (data.paidAt) {
-    updateData.paidAt = new Date(data.paidAt);
-  }
-  
-  if (data.settlementId) {
-    updateData.settlementId = data.settlementId;
-  }
-
-  const invoice = await prisma.invoice.update({
-    where: { id },
-    data: updateData,
-    include: {
-      merchant: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      settlement: true,
-    },
-  });
-
-  res.json({
-    success: true,
-    data: invoice,
-  });
-}));
-
-/**
- * DELETE /api/invoices/:id
- * Delete (cancel) an invoice - only allowed for pending invoices
- */
-router.delete('/:id', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.params;
-
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
-  });
-
-  if (!invoice) {
-    throw new InvoiceError(
-      'Invoice not found',
-      'NOT_FOUND',
-      404
-    );
-  }
-
-  if (invoice.status !== InvoiceStatus.PENDING) {
-    throw new InvoiceError(
-      'Can only delete pending invoices',
-      'INVALID_OPERATION',
-      400
-    );
-  }
-
-  await prisma.invoice.delete({
-    where: { id },
-  });
-
-  res.status(204).send();
-}));
-
-/**
- * GET /api/invoices/merchant/:merchantId
- * Get all invoices for a specific merchant
- */
-router.get('/merchant/:merchantId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { merchantId } = req.params;
-  const { status, chain, page, limit } = req.query;
-
-  const pageNum = parseInt(page as string ?? '1', 10);
-  const limitNum = Math.min(parseInt(limit as string ?? '20', 10), 100);
-  const skip = (pageNum - 1) * limitNum;
-
-  const where: Record<string, unknown> = { merchantId };
-  
-  if (status) {
-    where.status = status;
-  }
-  
-  if (chain) {
-    where.chain = validateChain(chain as string);
-  }
-
-  const [invoices, total] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      skip,
-      take: limitNum,
-      orderBy: { createdAt: 'desc' },
+router.get(
+  '/:id',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+    
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
       include: {
-        merchant: {
+        customer: true,
+        lineItems: true,
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    res.json(invoice);
+  })
+);
+
+/**
+ * POST /invoices
+ * Create a new invoice
+ */
+router.post(
+  '/',
+  validateChain(createInvoiceSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { body } = (req as any).validated;
+    const { lineItems, metadata, ...invoiceData } = body;
+
+    // Generate invoice number atomically
+    const invoiceNumber = await prisma.$transaction(async (tx) => {
+      return generateInvoiceNumber(tx);
+    });
+
+    // Calculate totals
+    const { subtotal, tax, total } = calculateInvoiceTotals(lineItems);
+
+    // Calculate due date (default to 30 days)
+    const dueDate = body.dueDate 
+      ? new Date(body.dueDate) 
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        customerId: body.customerId,
+        amount: total,
+        subtotal,
+        tax,
+        currency: body.currency,
+        description: body.description,
+        dueDate,
+        status: InvoiceStatus.DRAFT,
+        paymentMethods: body.paymentMethods || [PaymentMethod.BANK_TRANSFER],
+        metadata,
+        lineItems: {
+          create: lineItems.map((item: any) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            taxRate: item.taxRate || 0,
+          })),
+        },
+      },
+      include: {
+        customer: {
           select: {
             id: true,
             name: true,
             email: true,
           },
         },
-        settlement: true,
+        lineItems: true,
       },
-    }),
-    prisma.invoice.count({ where }),
-  ]);
+    });
 
-  res.json({
-    success: true,
-    data: invoices,
-    pagination: {
-      page: pageNum,
-      limit: limitNum,
-      total,
-      totalPages: Math.ceil(total / limitNum),
-    },
-  });
-}));
+    res.status(201).json(invoice);
+  })
+);
 
 /**
- * POST /api/invoices/:id/retry
- * Retry a failed invoice payment
+ * PATCH /invoices/:id
+ * Update an invoice
  */
-router.post('/:id/retry', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { id } = req.params;
+router.patch(
+  '/:id',
+  validateChain(updateInvoiceSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+    const updateData = (req as any).validated.body;
 
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
-  });
+    const existingInvoice = await prisma.invoice.findUnique({
+      where: { id },
+    });
 
-  if (!invoice) {
-    throw new InvoiceError(
-      'Invoice not found',
-      'NOT_FOUND',
-      404
-    );
-  }
+    if (!existingInvoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
 
-  if (invoice.status !== InvoiceStatus.FAILED) {
-    throw new InvoiceError(
-      'Can only retry failed invoices',
-      'INVALID_OPERATION',
-      400
-    );
-  }
+    // Validate status transition if status is being updated
+    if (updateData.status && updateData.status !== existingInvoice.status) {
+      if (!isValidStatusTransition(existingInvoice.status, updateData.status)) {
+        throw new AppError(
+          400,
+          `Invalid status transition from ${existingInvoice.status} to ${updateData.status}`
+        );
+      }
+    }
 
-  const updatedInvoice = await prisma.invoice.update({
-    where: { id },
-    data: {
-      status: InvoiceStatus.PENDING,
-      failedAt: null,
-      failureReason: null,
-    },
-    include: {
-      merchant: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
+    const invoice = await prisma.invoice.update({
+      where: { id },
+      data: {
+        ...updateData,
+        paidAt: updateData.paidAt ? new Date(updateData.paidAt) : undefined,
       },
-    },
-  });
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        lineItems: true,
+      },
+    });
 
-  res.json({
-    success: true,
-    data: updatedInvoice,
-  });
-}));
+    res.json(invoice);
+  })
+);
+
+/**
+ * DELETE /invoices/:id
+ * Delete (cancel) an invoice
+ */
+router.delete(
+  '/:id',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+
+    const existingInvoice = await prisma.invoice.findUnique({
+      where: { id },
+    });
+
+    if (!existingInvoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    // Only allow deletion of DRAFT or CANCELLED invoices
+    if (existingInvoice.status !== InvoiceStatus.DRAFT && 
+        existingInvoice.status !== InvoiceStatus.CANCELLED) {
+      throw new AppError(
+        400,
+        'Only DRAFT or CANCELLED invoices can be deleted'
+      );
+    }
+
+    await prisma.invoice.delete({
+      where: { id },
+    });
+
+    res.status(204).send();
+  })
+);
+
+/**
+ * POST /invoices/:id/send
+ * Send invoice to customer via email
+ */
+router.post(
+  '/:id/send',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        lineItems: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    if (invoice.status === InvoiceStatus.DRAFT) {
+      // Auto-publish draft invoices when sending
+      await prisma.invoice.update({
+        where: { id },
+        data: { status: InvoiceStatus.PENDING },
+      });
+    }
+
+    // TODO: Integrate with email service (SendGrid)
+    // await sendInvoiceEmail(invoice);
+
+    res.json({ message: 'Invoice sent successfully', invoiceId: id });
+  })
+);
+
+/**
+ * POST /invoices/:id/remind
+ * Send payment reminder for overdue invoice
+ */
+router.post(
+  '/:id/remind',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    if (invoice.status !== InvoiceStatus.OVERDUE && invoice.status !== InvoiceStatus.PENDING) {
+      throw new AppError(400, 'Can only send reminders for PENDING or OVERDUE invoices');
+    }
+
+    // TODO: Integrate with email service for reminders
+    // await sendReminderEmail(invoice);
+
+    res.json({ message: 'Reminder sent successfully', invoiceId: id });
+  })
+);
+
+/**
+ * GET /invoices/:id/pdf
+ * Generate and return PDF for invoice
+ */
+router.get(
+  '/:id/pdf',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        lineItems: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    // TODO: Integrate with PDF generation service
+    // const pdfBuffer = await generateInvoicePDF(invoice);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+    res.send(Buffer.from('PDF placeholder')); // Replace with actual PDF
+  })
+);
+
+/**
+ * POST /invoices/:id/process-payment
+ * Process payment for an invoice
+ */
+router.post(
+  '/:id/process-payment',
+  validateChain(invoiceIdParamSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { id } = (req as any).validated.params;
+    const { paymentMethod, paymentDetails } = req.body;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+    });
+
+    if (!invoice) {
+      throw new AppError(404, 'Invoice not found');
+    }
+
+    if (invoice.status !== InvoiceStatus.PENDING && invoice.status !== InvoiceStatus.PROCESSING) {
+      throw new AppError(400, 'Invoice is not in a payable state');
+    }
+
+    // Update status to processing
+    await prisma.invoice.update({
+      where: { id },
+      data: { 
+        status: InvoiceStatus.PROCESSING,
+        paymentMethod: paymentMethod as PaymentMethod,
+      },
+    });
+
+    // TODO: Integrate with payment processor
+    // const paymentResult = await processPayment(invoice, paymentDetails);
+
+    res.json({ 
+      message: 'Payment processing initiated',
+      invoiceId: id,
+      status: InvoiceStatus.PROCESSING,
+    });
+  })
+);
 
 // Error handling middleware
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Invoice route error:', {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-  });
+  console.error('Invoice route error:', err);
 
-  if (err instanceof InvoiceError) {
-    res.status(err.statusCode).json({
-      success: false,
-      error: {
-        code: err.code,
-        message: err.message,
-        details: err.details,
-      },
+  if (err instanceof z.ZodError) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validation error',
+      errors: err.errors.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      })),
     });
-    return;
   }
 
-  // Handle Prisma errors
-  if (err.name === 'PrismaClientKnownRequestError') {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'DATABASE_ERROR',
-        message: 'A database error occurred',
-      },
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      status: 'error',
+      message: err.message,
     });
-    return;
   }
 
   res.status(500).json({
-    success: false,
-    error: {
-      code: 'INTERNAL_ERROR',
-      message: 'An internal server error occurred',
-    },
+    status: 'error',
+    message: 'Internal server error',
   });
 });
 
 export default router;
+
+// [Part A complete - awaiting Part B]
