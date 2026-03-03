@@ -17,7 +17,7 @@ export const navItems: NavItem[] = [
     iconPaths: ['M13 14a2 2 0 012-2h3a2 2 0 012 2v5a2 2 0 01-2 2h-3a2 2 0 01-2-2v-5z', 'M13 5a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2h-3a2 2 0 01-2-2V5z', 'M4 16a2 2 0 012-2h3a2 2 0 012 2v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3z'],
   },
   {
-    href: '/api-keys',
+    href: '/dashboard/api-keys',
     label: 'API Keys',
     iconPath: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z',
     iconPaths: ['M8 11V7a4 4 0 118 0v4'],
