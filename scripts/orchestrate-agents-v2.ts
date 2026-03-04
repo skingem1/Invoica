@@ -1096,10 +1096,15 @@ class CodingAgent {
   constructor(name: string, systemPrompt: string) { this.name = name; this.systemPrompt = systemPrompt; }
 
   async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
-    const model = 'MiniMax-M2.5';
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
-    log(c.gray, `  -> Using MiniMax-M2.5 (one-file-per-call mode)`);
     const deliverables = [...(task.deliverables.code || []), ...(task.deliverables.tests || []), ...(task.deliverables.docs || [])];
+    // Route model based on whether deliverable files exist:
+    // - New file creation (doesn't exist) -> Claude Sonnet (no output truncation)
+    // - Editing existing file -> MiniMax M2.5 (fast, cheap, sufficient for edits)
+    const isNewFileTask = deliverables.every(f => !existsSync(f));
+    const provider: 'minimax' | 'anthropic' = isNewFileTask ? 'anthropic' : 'minimax';
+    const model = isNewFileTask ? 'claude-sonnet-4-20250514' : 'MiniMax-M2.5';
+    log(c.gray, `  -> Using ${isNewFileTask ? 'Claude Sonnet (new file)' : 'MiniMax-M2.5 (existing file edit)'}`);
 
     // Pre-flight: validate all deliverable files exist for non-feature tasks
     // If a file doesn't exist and we're asked to modify it, skip rather than hallucinate
@@ -1160,7 +1165,7 @@ Write ONLY the content for "${filepath}". Rules:
 - No explanatory text outside the code block`;
       try {
         const startTime = Date.now();
-        const response = await callLLM('minimax', model, this.systemPrompt, userPrompt, 180000);
+        const response = await callLLM(provider, model, this.systemPrompt, userPrompt, 180000);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         let content = response.choices?.[0]?.message?.content || '';
         // Strip MiniMax <think>...</think> tags that leak into responses
