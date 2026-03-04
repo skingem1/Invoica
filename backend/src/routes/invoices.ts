@@ -1,524 +1,267 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
-import { validateChain } from '../lib/chain-validator';
-import { AppError } from '../lib/errors';
-import { logger } from '../lib/logger';
-import { sendInvoiceEmail } from '../lib/email';
+import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
-// Validation schemas
-const createInvoiceSchema = z.object({
-  merchantId: z.string().uuid(),
-  customerId: z.string().uuid(),
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  chain: z.string().optional(),
-  description: z.string().optional(),
-  dueDate: z.string().datetime().optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!url || !key) throw new Error('Supabase env vars not set');
+  return createClient(url, key);
+}
 
-const updateInvoiceSchema = z.object({
-  status: z.enum(['pending', 'processing', 'completed', 'cancelled']).optional(),
-  paidAt: z.string().datetime().optional(),
-  paymentTxHash: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
+const SELECT_FIELDS = 'id, invoiceNumber, status, amount, currency, customerEmail, customerName, companyId, paymentDetails, settledAt, completedAt, createdAt, updatedAt';
 
-const invoiceQuerySchema = z.object({
-  merchantId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
-  status: z.enum(['pending', 'processing', 'completed', 'cancelled']).optional(),
-  chain: z.string().optional(),
-  page: z.string().regex(/^\d+$/).transform(Number).optional(),
-  limit: z.string().regex(/^\d+$/).transform(Number).optional(),
-  sortBy: z.enum(['createdAt', 'amount', 'dueDate']).optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional(),
-});
-
-// Middleware to handle validation errors
-const validate = (schema: z.ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    try {
-      req.body = schema.parse(req.body);
-      next();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        next(new AppError('Validation failed', 400, error.errors));
-      } else {
-        next(error);
-      }
-    }
+function mapInvoice(inv: any) {
+  const pd = inv.paymentDetails
+    ? (typeof inv.paymentDetails === 'string' ? JSON.parse(inv.paymentDetails) : inv.paymentDetails)
+    : {};
+  return {
+    id: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    status: inv.status,
+    amount: inv.amount,
+    currency: inv.currency,
+    customerEmail: inv.customerEmail,
+    customerName: inv.customerName,
+    companyId: inv.companyId || null,
+    paymentDetails: {
+      txHash: pd.txHash || null,
+      network: pd.network || null,
+      paidBy: pd.paidBy || null,
+      ...pd,
+    },
+    settledAt: inv.settledAt,
+    completedAt: inv.completedAt,
+    createdAt: inv.createdAt,
+    updatedAt: inv.updatedAt,
   };
-};
-
-// Query validation middleware
-const validateQuery = (schema: z.ZodSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    try {
-      req.query = schema.parse(req.query);
-      next();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        next(new AppError('Invalid query parameters', 400, error.errors));
-      } else {
-        next(error);
-      }
-    }
-  };
-};
+}
 
 /**
- * GET /api/invoices
- * List all invoices with filtering and pagination
+ * GET /v1/invoices/number/:number
+ * Lookup invoice by sequential invoice number (e.g. 15).
+ * IMPORTANT: This route MUST be registered before /v1/invoices/:id
+ * to prevent Express matching "number" as an :id value.
  */
-router.get('/', validateQuery(invoiceQuerySchema), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/v1/invoices/number/:number', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { 
-      merchantId, 
-      customerId, 
-      status, 
-      chain,
-      page = 1, 
-      limit = 20,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = req.query as Record<string, string>;
-
-    const where: Record<string, unknown> = {};
-    
-    if (merchantId) where.merchantId = merchantId;
-    if (customerId) where.customerId = customerId;
-    if (status) where.status = status;
-    if (chain) {
-      const validChain = validateChain(chain);
-      where.chain = validChain;
+    const invoiceNumber = parseInt(req.params.number, 10);
+    if (isNaN(invoiceNumber) || invoiceNumber <= 0) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid invoice number — must be a positive integer', code: 'INVALID_NUMBER' },
+      });
+      return;
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { [sortBy as string]: sortOrder },
-        include: {
-          merchant: {
-            select: { id: true, name: true, email: true }
-          },
-          customer: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.invoice.count({ where })
-    ]);
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select(SELECT_FIELDS)
+      .eq('invoiceNumber', invoiceNumber)
+      .single();
 
+    if (error || !data) {
+      res.status(404).json({
+        success: false,
+        error: { message: `Invoice #${invoiceNumber} not found`, code: 'NOT_FOUND' },
+      });
+      return;
+    }
+
+    res.json({ success: true, data: mapInvoice(data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /v1/invoices/:id
+ * Lookup invoice by UUID.
+ * Registered AFTER /v1/invoices/number/:number to avoid shadowing.
+ */
+router.get('/v1/invoices/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select(SELECT_FIELDS)
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      res.status(404).json({
+        success: false,
+        error: { message: 'Invoice not found', code: 'NOT_FOUND' },
+      });
+      return;
+    }
+
+    res.json({ success: true, data: mapInvoice(data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /v1/invoices
+ * List invoices with pagination and optional filters.
+ * Query params: status, customerEmail, limit (max 100), offset
+ */
+router.get('/v1/invoices', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string || '20', 10) || 20, 100);
+    const offset = parseInt(req.query.offset as string || '0', 10) || 0;
+    const status = req.query.status as string | undefined;
+    const customerEmail = req.query.customerEmail as string | undefined;
+
+    const sb = getSupabase();
+    let query = sb
+      .from('Invoice')
+      .select(SELECT_FIELDS, { count: 'exact' })
+      .order('createdAt', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (status) query = query.eq('status', status.toUpperCase());
+    if (customerEmail) query = query.eq('customerEmail', customerEmail);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    const total = count || 0;
     res.json({
-      data: invoices,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        pages: Math.ceil(total / Number(limit))
-      }
+      success: true,
+      data: (data || []).map(mapInvoice),
+      meta: { total, limit, offset, hasMore: offset + limit < total },
     });
-  } catch (error) {
-    logger.error('Error listing invoices', { error, query: req.query });
-    next(error);
+  } catch (err) {
+    next(err);
   }
 });
 
 /**
- * GET /api/invoices/:id
- * Get a single invoice by ID
+ * POST /v1/invoices
+ * Create a new invoice.
+ * Body: { customerEmail, customerName, amount, currency?, companyId?, paymentDetails? }
  */
-router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/v1/invoices', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const { customerEmail, customerName, amount, currency = 'USD', companyId, paymentDetails } = req.body;
 
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        },
-        customer: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    if (!invoice) {
-      throw new AppError('Invoice not found', 404);
+    if (!customerEmail || typeof customerEmail !== 'string') {
+      res.status(400).json({ success: false, error: { message: 'customerEmail is required', code: 'MISSING_FIELD' } });
+      return;
+    }
+    if (!customerName || typeof customerName !== 'string') {
+      res.status(400).json({ success: false, error: { message: 'customerName is required', code: 'MISSING_FIELD' } });
+      return;
+    }
+    if (amount === undefined || amount === null || isNaN(Number(amount)) || Number(amount) <= 0) {
+      res.status(400).json({ success: false, error: { message: 'amount must be a positive number', code: 'INVALID_AMOUNT' } });
+      return;
     }
 
-    res.json(invoice);
-  } catch (error) {
-    logger.error('Error fetching invoice', { error, params: req.params });
-    next(error);
-  }
-});
+    const sb = getSupabase();
 
-/**
- * POST /api/invoices
- * Create a new invoice
- */
-router.post('/', validate(createInvoiceSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { merchantId, customerId, amount, currency, chain, description, dueDate, metadata } = req.body;
-    
-    const validatedChain = chain ? validateChain(chain) : undefined;
+    // Determine next invoice number via MAX query (atomic-safe for low throughput)
+    const { data: maxData } = await sb
+      .from('Invoice')
+      .select('invoiceNumber')
+      .order('invoiceNumber', { ascending: false })
+      .limit(1)
+      .single();
 
-    // Get next invoice number atomically
-    const invoiceCount = await prisma.invoiceNumber.count();
-    const invoiceNumber = `INV-${String(invoiceCount + 1).padStart(8, '0')}`;
+    const nextNumber = ((maxData?.invoiceNumber as number) || 0) + 1;
+    const now = new Date().toISOString();
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        merchantId,
-        customerId,
-        amount: Math.round(amount * 100), // Store in cents
-        currency: currency.toUpperCase(),
-        chain: validatedChain,
-        description,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        metadata: metadata || {},
-        status: 'pending'
-      },
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        },
-        customer: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    logger.info('Invoice created', { invoiceId: invoice.id, invoiceNumber });
-
-    res.status(201).json(invoice);
-  } catch (error) {
-    logger.error('Error creating invoice', { error, body: req.body });
-    next(error);
-  }
-});
-
-/**
- * PATCH /api/invoices/:id
- * Update an invoice
- */
-router.patch('/:id', validate(updateInvoiceSchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const { status, paidAt, paymentTxHash, metadata } = req.body;
-
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { id }
-    });
-
-    if (!existingInvoice) {
-      throw new AppError('Invoice not found', 404);
-    }
-
-    // Validate status transitions
-    const validTransitions: Record<string, string[]> = {
-      pending: ['processing', 'cancelled'],
-      processing: ['completed', 'cancelled'],
-      completed: [],
-      cancelled: []
+    const record = {
+      invoiceNumber: nextNumber,
+      status: 'PENDING',
+      amount: Number(amount),
+      currency: currency.toUpperCase(),
+      customerEmail,
+      customerName,
+      companyId: companyId || null,
+      paymentDetails: paymentDetails || null,
+      createdAt: now,
+      updatedAt: now,
     };
 
-    if (status && !validTransitions[existingInvoice.status].includes(status)) {
-      throw new AppError(
-        `Invalid status transition from ${existingInvoice.status} to ${status}`,
-        400
-      );
-    }
+    const { data, error } = await sb.from('Invoice').insert(record).select(SELECT_FIELDS).single();
+    if (error) throw error;
 
-    const updateData: Record<string, unknown> = {};
-    
-    if (status) updateData.status = status;
-    if (paidAt) updateData.paidAt = new Date(paidAt);
-    if (paymentTxHash) updateData.paymentTxHash = paymentTxHash;
-    if (metadata) updateData.metadata = metadata;
-
-    const invoice = await prisma.invoice.update({
-      where: { id },
-      data: updateData,
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        },
-        customer: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    logger.info('Invoice updated', { invoiceId: id, status, paymentTxHash });
-
-    // Send confirmation email if payment completed
-    if (status === 'completed') {
-      try {
-        await sendInvoiceEmail(invoice.customer.email, invoice);
-      } catch (emailError) {
-        logger.error('Failed to send invoice email', { error: emailError, invoiceId: id });
-      }
-    }
-
-    res.json(invoice);
-  } catch (error) {
-    logger.error('Error updating invoice', { error, params: req.params, body: req.body });
-    next(error);
+    res.status(201).json({ success: true, data: mapInvoice(data) });
+  } catch (err) {
+    next(err);
   }
 });
 
 /**
- * DELETE /api/invoices/:id
- * Cancel an invoice (soft delete)
+ * PATCH /v1/invoices/:id/status
+ * Update invoice status with transition validation.
+ * Body: { status: 'PENDING' | 'SETTLED' | 'PROCESSING' | 'COMPLETED' }
  */
-router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/v1/invoices/:id/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const { status } = req.body;
 
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { id }
-    });
-
-    if (!existingInvoice) {
-      throw new AppError('Invoice not found', 404);
+    const VALID_STATUSES = ['PENDING', 'SETTLED', 'PROCESSING', 'COMPLETED'];
+    if (!status || !VALID_STATUSES.includes(status)) {
+      res.status(400).json({
+        success: false,
+        error: { message: `status must be one of: ${VALID_STATUSES.join(', ')}`, code: 'INVALID_STATUS' },
+      });
+      return;
     }
 
-    if (existingInvoice.status === 'completed') {
-      throw new AppError('Cannot delete a completed invoice', 400);
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      PENDING: ['PROCESSING', 'SETTLED', 'COMPLETED'],
+      SETTLED: ['PROCESSING', 'COMPLETED'],
+      PROCESSING: ['COMPLETED', 'PENDING'],
+      COMPLETED: [],
+    };
+
+    const sb = getSupabase();
+    const { data: existing, error: fetchErr } = await sb
+      .from('Invoice')
+      .select('id, status')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !existing) {
+      res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+      return;
     }
 
-    await prisma.invoice.update({
-      where: { id },
-      data: { status: 'cancelled' }
-    });
-
-    logger.info('Invoice cancelled', { invoiceId: id });
-
-    res.status(204).send();
-  } catch (error) {
-    logger.error('Error cancelling invoice', { error, params: req.params });
-    next(error);
-  }
-});
-
-/**
- * POST /api/invoices/:id/resend
- * Resend invoice email to customer
- */
-router.post('/:id/resend', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        },
-        customer: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    if (!invoice) {
-      throw new AppError('Invoice not found', 404);
+    if (!VALID_TRANSITIONS[existing.status]?.includes(status)) {
+      res.status(400).json({
+        success: false,
+        error: { message: `Invalid transition: ${existing.status} → ${status}`, code: 'INVALID_TRANSITION' },
+      });
+      return;
     }
 
-    await sendInvoiceEmail(invoice.customer.email, invoice);
+    const now = new Date().toISOString();
+    const updateData: Record<string, any> = { status, updatedAt: now };
+    if (status === 'SETTLED') updateData.settledAt = now;
+    if (status === 'COMPLETED') updateData.completedAt = now;
 
-    logger.info('Invoice resent', { invoiceId: id });
+    const { data, error } = await sb
+      .from('Invoice')
+      .update(updateData)
+      .eq('id', id)
+      .select(SELECT_FIELDS)
+      .single();
 
-    res.json({ message: 'Invoice resent successfully' });
-  } catch (error) {
-    logger.error('Error resending invoice', { error, params: req.params });
-    next(error);
+    if (error) throw error;
+    res.json({ success: true, data: mapInvoice(data) });
+  } catch (err) {
+    next(err);
   }
-});
-
-/**
- * GET /api/invoices/merchant/:merchantId
- * Get all invoices for a specific merchant
- */
-router.get('/merchant/:merchantId', validateQuery(invoiceQuerySchema), async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { merchantId } = req.params;
-    const { status, chain, page = 1, limit = 20 } = req.query as Record<string, string>;
-
-    const where: Record<string, unknown> = { merchantId };
-    
-    if (status) where.status = status;
-    if (chain) {
-      const validChain = validateChain(chain);
-      where.chain = validChain;
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'desc' },
-        include: {
-          customer: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      }),
-      prisma.invoice.count({ where })
-    ]);
-
-    res.json({
-      data: invoices,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        pages: Math.ceil(total / Number(limit))
-      }
-    });
-  } catch (error) {
-    logger.error('Error fetching merchant invoices', { error, params: req.params });
-    next(error);
-  }
-});
-
-/**
- * GET /api/invoices/customer/:customerId
- * Get all invoices for a specific customer
- */
-router.get('/customer/:customerId', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { customerId } = req.params;
-    const { status } = req.query as Record<string, string>;
-
-    const where: Record<string, unknown> = { customerId };
-    if (status) where.status = status;
-
-    const invoices = await prisma.invoice.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    res.json(invoices);
-  } catch (error) {
-    logger.error('Error fetching customer invoices', { error, params: req.params });
-    next(error);
-  }
-});
-
-/**
- * POST /api/invoices/:id/mark-paid
- * Manually mark an invoice as paid (admin endpoint)
- */
-router.post('/:id/mark-paid', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const { paymentTxHash } = req.body;
-
-    const invoice = await prisma.invoice.findUnique({
-      where: { id }
-    });
-
-    if (!invoice) {
-      throw new AppError('Invoice not found', 404);
-    }
-
-    if (invoice.status === 'completed') {
-      throw new AppError('Invoice is already paid', 400);
-    }
-
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id },
-      data: {
-        status: 'completed',
-        paidAt: new Date(),
-        paymentTxHash: paymentTxHash || null
-      },
-      include: {
-        merchant: {
-          select: { id: true, name: true, email: true }
-        },
-        customer: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    logger.info('Invoice marked as paid', { invoiceId: id, paymentTxHash });
-
-    res.json(updatedInvoice);
-  } catch (error) {
-    logger.error('Error marking invoice as paid', { error, params: req.params });
-    next(error);
-  }
-});
-
-/**
- * GET /api/invoices/stats/summary
- * Get invoice statistics summary
- */
-router.get('/stats/summary', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { merchantId, customerId } = req.query as Record<string, string>;
-
-    const where: Record<string, unknown> = {};
-    if (merchantId) where.merchantId = merchantId;
-    if (customerId) where.customerId = customerId;
-
-    const [totalInvoices, pendingInvoices, completedInvoices, totalAmount, pendingAmount] = await Promise.all([
-      prisma.invoice.count({ where }),
-      prisma.invoice.count({ where: { ...where, status: 'pending' } }),
-      prisma.invoice.count({ where: { ...where, status: 'completed' } }),
-      prisma.invoice.aggregate({
-        where: { ...where, status: 'completed' },
-        _sum: { amount: true }
-      }),
-      prisma.invoice.aggregate({
-        where: { ...where, status: 'pending' },
-        _sum: { amount: true }
-      })
-    ]);
-
-    res.json({
-      totalInvoices,
-      pendingInvoices,
-      completedInvoices,
-      totalAmount: totalAmount._sum.amount || 0,
-      pendingAmount: pendingAmount._sum.amount || 0,
-      completionRate: totalInvoices > 0 
-        ? Math.round((completedInvoices / totalInvoices) * 100) 
-        : 0
-    });
-  } catch (error) {
-    logger.error('Error fetching invoice stats', { error, query: req.query });
-    next(error);
-  }
-});
-
-// Cleanup on shutdown
-process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
 });
 
 export default router;
