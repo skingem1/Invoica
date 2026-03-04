@@ -1,45 +1,23 @@
 /**
- * Spam Blacklist Type Definitions
- * TypeScript interfaces and types for the spam blacklist API
+ * Spam Blacklist Utilities
+ * Simple domain validation against hardcoded blacklist
  */
 
-import type { RequestWithAdmin } from '../middleware/auth.js';
+const SPAM_BLACKLIST = [
+  'temp-mail.org',
+  'guerrillamail.com',
+  '10minutemail.com',
+] as const;
 
 /**
- * Enum representing the type of spam entry
+ * Validates if the given email domain is in the spam blacklist.
+ * @param email - The email address to validate
+ * @returns true if domain is blacklisted, false otherwise
  */
-export enum SpamEntryType {
-  EMAIL = 'email',
-  IP = 'ip',
+export function validateEmailDomain(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) {
+    return false;
+  }
+  return SPAM_BLACKLIST.includes(domain as typeof SPAM_BLACKLIST[number]);
 }
-
-/**
- * Interface representing a spam blacklist entry in the system
- */
-export interface SpamBlacklistEntry {
-  id: string;
-  type: SpamEntryType;
-  value: string;
-  reason: string;
-  created_by: string;
-  created_at: string;
-}
-
-/**
- * Input type for creating a new spam blacklist entry
- */
-export interface SpamBlacklistCreateInput {
-  type: SpamEntryType;
-  value: string;
-  reason: string;
-}
-
-/**
- * Generic API response wrapper for consistent responses across the API
- */
-export interface ApiResponse<T> {
-  data: T;
-}
-
-// Re-export the RequestWithAdmin type from auth middleware for use in spam blacklist routes
-export type { RequestWithAdmin };
