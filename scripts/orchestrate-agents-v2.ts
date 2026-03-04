@@ -26,6 +26,7 @@ import { execSync } from 'child_process';
 import * as https from 'https';
 import * as http from 'http';
 import 'dotenv/config';
+import { createMCClient } from './mc-client';
 
 // ===== Types =====
 
@@ -1707,10 +1708,20 @@ ONLY output the JSON array. No markdown, no explanation.`;
     const startTime = Date.now();
     log(c.bold, '\n🚀 Starting orchestration run...\n');
 
+    // Mission Control — connect and register this sprint run
+    const mc = createMCClient('sprint-orchestrator', 'worker');
+    let mcConnected = false;
+    try {
+      await mc.connect();
+      mcConnected = true;
+      log(c.gray, '  [MC] Connected to Mission Control');
+    } catch { log(c.gray, '  [MC] Mission Control unavailable — running without telemetry'); }
+
     // 1. Load tasks
     this.loadTasks();
     if (this.tasks.length === 0) {
       log(c.yellow, 'No tasks to execute');
+      if (mcConnected) await mc.disconnect().catch(() => {});
       return;
     }
 
@@ -1892,6 +1903,17 @@ ONLY output the JSON array. No markdown, no explanation.`;
     log(c.magenta, `  CMO reports: ${cmoReports ? 'loaded' : 'none'}`);
     log(c.blue,  `  Total time: ${elapsed}s`);
     log(c.gray,  `  Pipeline: CEO → MiniMax code → Dual review (Claude+Codex) → CEO resolves conflicts → CTO → CMO/Grok → Post-sprint analysis → Daily report`);
+
+    // Mission Control — report final stats and disconnect
+    if (mcConnected) {
+      try {
+        if (this.stats.totalTokens > 0) {
+          await mc.trackTokens(this.stats.totalTokens, 'MiniMax-M2.5');
+        }
+        await mc.disconnect();
+        log(c.gray, `  [MC] Sprint reported: ${this.stats.approved} approved / ${this.stats.rejected} rejected / ${this.stats.totalTokens} tokens`);
+      } catch { /* non-critical */ }
+    }
   }
 }
 
