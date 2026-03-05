@@ -399,7 +399,8 @@ class CEOAgent {
 
 Sprint progress update:\n- Done: ${done}/${total}\n- Pending: ${pending.map(t => t.id).join(', ') || 'none'}\n- Rejected: ${rejected.map(t => t.id).join(', ') || 'none'}\n\nTask details:\n${JSON.stringify(tasks.map(t => ({ id: t.id, status: t.status, agent: t.agent, priority: t.priority })), null, 2)}\n\nAs CEO, briefly assess:\n1. Are we on track?\n2. Any tasks to re-prioritize?\n3. Cost efficiency — are we using the right models?\n4. Any strategic adjustments needed?\n\nKeep response under 200 words.`;
     try {
-      const response = await callLLM('anthropic', 'claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 60000);
+      // Sprint progress is formulaic — MiniMax is sufficient, saves Claude budget
+      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 60000);
       const content = response.choices?.[0]?.message?.content || 'No response';
       log(c.magenta, `  CEO assessment: ${content.substring(0, 500)}`);
       return content;
@@ -564,7 +565,8 @@ Generate a concise daily report in markdown format following the template in you
 Keep it under 300 words. Be honest about failures.`;
 
     try {
-      const response = await callLLM('anthropic', 'claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 60000);
+      // Daily report is template fill-in — MiniMax is sufficient, saves Claude budget
+      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 60000);
       const report = response.choices?.[0]?.message?.content || 'Report generation failed';
 
       // Save to reports/daily/
@@ -1088,6 +1090,56 @@ function persistCEODecisions(ctoDecisions: string, ctoReport: CTOReport): void {
   }
 }
 
+// ===== Task Complexity Router =====
+// Determines which LLM to use based on signals from the task and deliverables.
+// Claude Sonnet: architectural work, many files, large existing files, complex keywords
+// MiniMax M2.5:  simple edits, stubs, config, small new files (truncation retry handles overflow)
+
+function assessTaskComplexity(
+  task: AgentTask,
+  deliverables: string[],
+): { provider: 'minimax' | 'anthropic'; model: string; routingReason: string } {
+  const ctx = (task.context || '').toLowerCase();
+
+  // Signal 1: many deliverables → always Claude (coordinating multiple files needs coherence)
+  if (deliverables.length > 2) {
+    return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `${deliverables.length} deliverables → complex` };
+  }
+
+  // Signal 2: complex architectural keywords → Claude
+  const complexPatterns = [
+    /refactor/, /architect/, /redesign/, /from.scratch/, /new.*service/, /new.*system/,
+    /middleware/, /authentication/, /authorization/, /orchestrat/, /pipeline/, /framework/,
+    /implement.*class/, /implement.*module/, /implement.*engine/, /end.to.end/, /full.*implementation/,
+  ];
+  const hasComplexKeyword = complexPatterns.some(p => p.test(ctx));
+
+  // Signal 3: simple/formulaic keywords → MiniMax
+  const simplePatterns = [
+    /add field/, /rename/, /update config/, /fix typo/, /stub/, /placeholder/,
+    /add.*route/, /add.*endpoint/, /add.*column/, /update.*message/, /change.*label/,
+    /update.*text/, /add.*import/, /add.*export/, /add.*comment/, /add.*log/,
+  ];
+  const hasSimpleKeyword = simplePatterns.some(p => p.test(ctx));
+
+  if (hasComplexKeyword && !hasSimpleKeyword) {
+    return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: 'complex task keywords' };
+  }
+
+  // Signal 4: large existing file → Claude (MiniMax truncates, degrading large-file edits)
+  for (const f of deliverables) {
+    if (existsSync(f)) {
+      const lines = readFileSync(f, 'utf-8').split('\n').length;
+      if (lines > 200) {
+        return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `large file (${lines} lines)` };
+      }
+    }
+  }
+
+  // Default: MiniMax for everything else (truncation retry handles any overflow)
+  return { provider: 'minimax', model: 'MiniMax-M2.5', routingReason: hasSimpleKeyword ? 'simple task' : 'small/unclassified task' };
+}
+
 // ===== MiniMax Coding Agent (ONE FILE PER API CALL) =====
 
 class CodingAgent {
@@ -1098,13 +1150,11 @@ class CodingAgent {
   async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
     const deliverables = [...(task.deliverables.code || []), ...(task.deliverables.tests || []), ...(task.deliverables.docs || [])];
-    // Route model based on whether deliverable files exist:
-    // - New file creation (doesn't exist) -> Claude Sonnet (no output truncation)
-    // - Editing existing file -> MiniMax M2.5 (fast, cheap, sufficient for edits)
-    const isNewFileTask = deliverables.every(f => !existsSync(f));
-    const provider: 'minimax' | 'anthropic' = isNewFileTask ? 'anthropic' : 'minimax';
-    const model = isNewFileTask ? 'claude-sonnet-4-20250514' : 'MiniMax-M2.5';
-    log(c.gray, `  -> Using ${isNewFileTask ? 'Claude Sonnet (new file)' : 'MiniMax-M2.5 (existing file edit)'}`);
+    // Complexity-aware model routing:
+    // Claude Sonnet → complex tasks (many files, complex keywords, large existing files)
+    // MiniMax M2.5  → simple tasks (small edits, config, stubs) + truncation retry as safety net
+    const { provider, model, routingReason } = assessTaskComplexity(task, deliverables);
+    log(c.gray, `  -> Using ${model} [${routingReason}]`);
 
     // Pre-flight: validate all deliverable files exist for non-feature tasks
     // If a file doesn't exist and we're asked to modify it, skip rather than hallucinate
