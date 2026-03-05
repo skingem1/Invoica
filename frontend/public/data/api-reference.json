@@ -73,8 +73,8 @@
   },
   {
     "method": "GET",
-    "path": "/",
-    "description": "GET /",
+    "path": "/v1/invoices/number/:number",
+    "description": "Get invoice by invoice number",
     "auth": "None",
     "tags": [
       "invoices"
@@ -82,8 +82,17 @@
   },
   {
     "method": "GET",
-    "path": "/:id",
-    "description": "GET /:id",
+    "path": "/v1/invoices/:id",
+    "description": "Get invoice by UUID",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices",
+    "description": "GET /v1/invoices",
     "auth": "None",
     "tags": [
       "invoices"
@@ -91,8 +100,8 @@
   },
   {
     "method": "POST",
-    "path": "/",
-    "description": "POST /",
+    "path": "/v1/invoices",
+    "description": "Create a new invoice",
     "auth": "None",
     "tags": [
       "invoices"
@@ -100,62 +109,8 @@
   },
   {
     "method": "PATCH",
-    "path": "/:id",
-    "description": "PATCH /:id",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "DELETE",
-    "path": "/:id",
-    "description": "DELETE /:id",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "POST",
-    "path": "/:id/resend",
-    "description": "POST /:id/resend",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "GET",
-    "path": "/merchant/:merchantId",
-    "description": "GET /merchant/:merchantId",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "GET",
-    "path": "/customer/:customerId",
-    "description": "GET /customer/:customerId",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "POST",
-    "path": "/:id/mark-paid",
-    "description": "POST /:id/mark-paid",
-    "auth": "None",
-    "tags": [
-      "invoices"
-    ]
-  },
-  {
-    "method": "GET",
-    "path": "/stats/summary",
-    "description": "GET /stats/summary",
+    "path": "/v1/invoices/:id/status",
+    "description": "PATCH /v1/invoices/:id/status",
     "auth": "None",
     "tags": [
       "invoices"

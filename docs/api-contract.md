@@ -1,6 +1,6 @@
 # Invoica API Contract
 
-*Auto-generated 2026-03-04 from backend/src/routes/*
+*Auto-generated 2026-03-05 from backend/src/routes/*
 
 ## Base URL
 ```
@@ -54,44 +54,24 @@ Health check — returns API status and uptime
 
 ## Invoices
 
-### `GET /`
-GET /
+### `GET /v1/invoices/number/:number`
+Get invoice by invoice number
 **Auth:** None
 
-### `GET /:id`
-GET /:id
+### `GET /v1/invoices/:id`
+Get invoice by UUID
 **Auth:** None
 
-### `POST /`
-POST /
+### `GET /v1/invoices`
+GET /v1/invoices
 **Auth:** None
 
-### `PATCH /:id`
-PATCH /:id
+### `POST /v1/invoices`
+Create a new invoice
 **Auth:** None
 
-### `DELETE /:id`
-DELETE /:id
-**Auth:** None
-
-### `POST /:id/resend`
-POST /:id/resend
-**Auth:** None
-
-### `GET /merchant/:merchantId`
-GET /merchant/:merchantId
-**Auth:** None
-
-### `GET /customer/:customerId`
-GET /customer/:customerId
-**Auth:** None
-
-### `POST /:id/mark-paid`
-POST /:id/mark-paid
-**Auth:** None
-
-### `GET /stats/summary`
-GET /stats/summary
+### `PATCH /v1/invoices/:id/status`
+PATCH /v1/invoices/:id/status
 **Auth:** None
 
 ## Ledger
