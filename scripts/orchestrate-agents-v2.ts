@@ -42,7 +42,7 @@ interface AgentTask {
     tests?: string[];
     docs?: string[];
   };
-  status: 'pending' | 'in_progress' | 'review' | 'approved' | 'rejected' | 'done';
+  status: 'pending' | 'in_progress' | 'review' | 'approved' | 'rejected' | 'done' | 'skipped';
   output?: {
     files: string[];
     commit: string;
@@ -1108,12 +1108,36 @@ class CodingAgent {
 
     // Pre-flight: validate all deliverable files exist for non-feature tasks
     // If a file doesn't exist and we're asked to modify it, skip rather than hallucinate
-    if (task.type !== 'feature' && task.type !== 'docs') {
+    if (task.type !== 'feature' && (task as any).type !== 'docs') {
       const missing = deliverables.filter(f => !existsSync(f));
       if (missing.length > 0) {
         log(c.red, `  ✗ Pre-flight FAILED: File(s) not found: ${missing.join(', ')}`);
         log(c.red, `  ✗ Skipping task ${task.id} — deliverable files do not exist in repo`);
         throw new Error(`PREFLIGHT_FAILED: Files not found: ${missing.join(', ')}`);
+      }
+    }
+
+    // Pre-flight: validate new-file paths are inside real project directories
+    // CEO sometimes hallucinates paths like 'agents/src/core/' or 'packages/agents/src/'
+    // which don't exist. Catch these before generating anything.
+    const VALID_PATH_PREFIXES = [
+      'backend/', 'frontend/', 'agents/', 'scripts/', 'shared/',
+      'website/', 'docs-site/', 'apps/', 'sdk/', 'x402-base/', 'x402-evm/', 'x402-test/',
+      'supabase/', 'infrastructure/',
+    ];
+    // Invalid patterns: paths that look like monorepo sub-dirs that don't exist
+    const INVALID_PATH_PATTERNS = [
+      /^agents\/src\//, // agents/src/... — real agent dirs are agents/<name>/
+      /^packages\//, // no packages/ dir
+      /^src\/agents\//, // no src/agents/ dir
+    ];
+    for (const filepath of deliverables) {
+      const isValidPrefix = VALID_PATH_PREFIXES.some(p => filepath.startsWith(p));
+      const isInvalidPattern = INVALID_PATH_PATTERNS.some(r => r.test(filepath));
+      if (!isValidPrefix || isInvalidPattern) {
+        log(c.red, `  ✗ Path validation FAILED: "${filepath}" is not in a valid project directory`);
+        log(c.red, `  ✗ Valid prefixes: ${VALID_PATH_PREFIXES.join(', ')}`);
+        throw new Error(`INVALID_PATH: "${filepath}" is not in a recognized project directory`);
       }
     }
 
@@ -1195,6 +1219,37 @@ Write ONLY the content for "${filepath}". Rules:
         if (/^\s*```/m.test(fileContent)) {
           log(c.yellow, `  ! WARNING: Residual code fences detected in ${filepath} after stripping`);
         }
+
+        // TRUNCATION PRE-CHECK: Detect if MiniMax cut off output mid-function
+        // If code ends inside an open block (unclosed braces) or with an incomplete statement,
+        // retry once with a "continue" prompt before sending to supervisor review.
+        const truncationDetected = this.detectTruncation(fileContent);
+        if (truncationDetected && provider === 'minimax') {
+          log(c.yellow, `  ! TRUNCATION detected in ${filepath} — retrying with continuation prompt...`);
+          const continuationPrompt = `The previous response for "${filepath}" was TRUNCATED — it ended mid-function or with an incomplete block. Here is what was generated so far:
+
+\`\`\`typescript
+${fileContent.substring(fileContent.length - 1500)}
+\`\`\`
+
+Continue from where it left off and output ONLY the remaining code (no duplicated content). Output a COMPLETE, valid TypeScript/JavaScript file ending with the final closing brace.`;
+          try {
+            const contResponse = await callLLM(provider, model, this.systemPrompt, continuationPrompt, 120000);
+            let contContent = contResponse.choices?.[0]?.message?.content || '';
+            contContent = contContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+            const contBlocks = this.extractCodeBlocks(contContent);
+            const continuation = contBlocks.length > 0 ? contBlocks[0] : this.stripResidualFences(contContent);
+            if (continuation.length > 50) {
+              // Merge: use the original up to the last complete line, then append continuation
+              fileContent = fileContent + '\n' + continuation;
+              fileContent = this.stripResidualFences(fileContent);
+              log(c.green, `  ✓ Continuation merged for ${filepath} (+${continuation.length} chars)`);
+            }
+          } catch (contErr: any) {
+            log(c.yellow, `  ! Continuation failed: ${contErr.message}`);
+          }
+        }
+
         createdFiles.push({ path: filepath, content: fileContent });
       } catch (error: any) {
         log(c.red, `  ✗ Failed to generate ${filepath}: ${error.message}`);
@@ -1301,6 +1356,41 @@ Write ONLY the content for "${filepath}". Rules:
     // Remove trailing fence if present at end
     cleaned = cleaned.replace(/\n\s*```\s*$/, '');
     return cleaned.trim();
+  }
+
+  // TRUNCATION DETECTION: Check if generated code ends mid-function
+  // Returns true if the code appears to be truncated (open braces, incomplete statement, etc.)
+  private detectTruncation(content: string): boolean {
+    if (!content || content.length < 100) return false;
+    const trimmed = content.trimEnd();
+    const lastLine = trimmed.split('\n').pop()?.trim() || '';
+    const last200 = trimmed.substring(Math.max(0, trimmed.length - 200));
+
+    // Signs of truncation:
+    // 1. Ends with a partial statement (no semicolon, no closing brace on last line)
+    const endsAbruptly = lastLine.length > 0 && !lastLine.match(/^[}\]);,]/);
+    // 2. Ends mid-string or mid-comment
+    const endsMidString = (trimmed.match(/`/g) || []).length % 2 !== 0;
+    // 3. Significantly more open braces than close braces (>3 imbalance)
+    const openBraces = (content.match(/\{/g) || []).length;
+    const closeBraces = (content.match(/\}/g) || []).length;
+    const braceImbalance = openBraces - closeBraces;
+    // 4. Last meaningful content is a function signature or opening block
+    const endsOnOpener = /(\{|=>|then\(|catch\(|=>\s*)$/.test(last200.trimEnd());
+
+    if (braceImbalance > 3) {
+      log(c.yellow, `  ! Truncation signal: brace imbalance ${openBraces} open vs ${closeBraces} close`);
+      return true;
+    }
+    if (endsMidString) {
+      log(c.yellow, `  ! Truncation signal: odd number of backticks (mid-template-string)`);
+      return true;
+    }
+    if (endsOnOpener && endsAbruptly) {
+      log(c.yellow, `  ! Truncation signal: ends on opener with no closing`);
+      return true;
+    }
+    return false;
   }
 
   private commitChanges(task: AgentTask, files: string[]): void {
@@ -1750,6 +1840,28 @@ ONLY output the JSON array. No markdown, no explanation.`;
 
     // 3. Execute coding tasks with review loop
     log(c.blue, '\n--- Phase 2: Sprint Execution ---');
+
+    // Auto-cascade: if a task is rejected, immediately mark all downstream dependents as skipped
+    // This prevents tasks from being stuck as 'pending' forever across retries
+    let cascaded = true;
+    while (cascaded) {
+      cascaded = false;
+      for (const task of this.tasks) {
+        if (task.status !== 'pending') continue;
+        const deps = task.dependencies || [];
+        const blockedBy = deps.filter(d => {
+          const depTask = this.tasks.find(t => t.id === d);
+          return depTask && (depTask.status === 'rejected' || depTask.status === 'skipped');
+        });
+        if (blockedBy.length > 0) {
+          task.status = 'skipped';
+          (task as any).skippedReason = `Blocked by: ${blockedBy.join(', ')}`;
+          log(c.yellow, `  Auto-skipped ${task.id}: blocked by rejected/skipped deps [${blockedBy.join(', ')}]`);
+          cascaded = true;
+        }
+      }
+    }
+
     const pending = this.tasks.filter(t => t.status === 'pending');
     for (const task of pending) {
       // Check dependencies
@@ -1763,6 +1875,26 @@ ONLY output the JSON array. No markdown, no explanation.`;
         continue;
       }
       await this.executeTask(task);
+
+      // After each task, cascade any newly-rejected dependencies
+      cascaded = true;
+      while (cascaded) {
+        cascaded = false;
+        for (const t of this.tasks) {
+          if (t.status !== 'pending') continue;
+          const tDeps = t.dependencies || [];
+          const tBlocked = tDeps.filter(d => {
+            const depTask = this.tasks.find(x => x.id === d);
+            return depTask && (depTask.status === 'rejected' || depTask.status === 'skipped');
+          });
+          if (tBlocked.length > 0) {
+            t.status = 'skipped';
+            (t as any).skippedReason = `Blocked by: ${tBlocked.join(', ')}`;
+            log(c.yellow, `  Auto-skipped ${t.id}: blocked by rejected/skipped deps [${tBlocked.join(', ')}]`);
+            cascaded = true;
+          }
+        }
+      }
     }
     // 4. CTO data-driven analysis + CMO reports
     log(c.cyan, '\n--- Phase 3: CTO Data-Driven Analysis + CMO Reports ---');

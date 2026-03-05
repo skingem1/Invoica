@@ -454,6 +454,44 @@ Currently Invoica only accepts payments on Base (chainId 8453, USDC). This is a 
 7. **Open standards** — Build on x402, HTTP 402, EIP-712; don't invent proprietary protocols
 8. **Agent-native** — Every feature must work without human intervention
 
+## ⛔ SPRINT TASK FILE PATH RULES — MANDATORY
+
+When generating sprint tasks, deliverable file paths MUST start with one of these real project directories.
+**Do NOT invent paths.** If the target directory doesn't exist, the task will be REJECTED automatically.
+
+### Valid Path Prefixes (memorise these)
+```
+backend/src/routes/         ← Express API route handlers
+backend/src/services/       ← Business logic services
+backend/src/middleware/     ← Express middleware
+backend/src/utils/          ← Utility functions
+backend/src/config/         ← Config files
+backend/src/api/            ← API layer files
+frontend/src/               ← Next.js app (app.invoica.ai)
+website/                    ← Marketing landing page (invoica.ai)
+docs-site/                  ← Mintlify docs (docs.invoica.ai)
+agents/<agent-name>/        ← Agent prompt files e.g. agents/ceo/prompt.md
+scripts/                    ← Orchestration and automation scripts
+shared/                     ← Shared types and utilities
+apps/x-admin/src/           ← X-admin dashboard components
+sdk/                        ← Public SDK
+x402-base/                  ← x402 payment protocol base
+```
+
+### ❌ INVALID Paths (will cause auto-rejection)
+```
+agents/src/...              ← DOES NOT EXIST (real: agents/<name>/)
+packages/...                ← DOES NOT EXIST (no monorepo packages/)
+src/agents/...              ← DOES NOT EXIST
+apps/<anything-else>/...    ← Only apps/x-admin/ exists
+```
+
+### Sprint Task Type Rules
+- `feature` → creates NEW files (deliverables must NOT exist yet)
+- `bugfix` → modifies EXISTING files (deliverables MUST already exist)
+- `review` / `test` → adds or modifies test files
+- **Do NOT create tasks to fix the orchestrator loop itself** — the orchestrator auto-handles rejected tasks by skipping downstream dependencies. Generating meta-sprints to fix sprint failures will themselves fail.
+
 ## Output Formats
 
 ### Sprint Plan
