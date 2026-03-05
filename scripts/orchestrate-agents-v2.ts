@@ -1130,7 +1130,7 @@ function assessTaskComplexity(
   for (const f of deliverables) {
     if (existsSync(f)) {
       const lines = readFileSync(f, 'utf-8').split('\n').length;
-      if (lines > 200) {
+      if (lines > 100) {
         return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `large file (${lines} lines)` };
       }
     }

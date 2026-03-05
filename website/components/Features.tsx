@@ -10,10 +10,23 @@ interface FeatureItem {
 
 const features: FeatureItem[] = [
   {
-    title: 'Automated Invoicing',
-    description: 'Generate professional invoices for every AI agent transaction. Line items, tax breakdowns, and PDF delivery — fully automated.',
+    title: 'x402 Inference',
+    description: 'Pay-per-use LLM calls at 0.003 USDC each. No API key rotation, no monthly bills — agents pay exactly what they use via on-chain EIP-712 proofs.',
     gradient: 'from-[#635BFF] to-[#818CF8]',
     glowColor: 'shadow-[#635BFF]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="10" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="14" cy="14" r="10" fill="currentColor" opacity="0.06" />
+        <path d="M10 14h3l2-4 2 8 2-4h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Automated Invoicing',
+    description: 'Generate and retrieve invoices for every agent transaction via REST. Every payment is recorded with a unique invoice number and full line-item detail.',
+    gradient: 'from-[#10B981] to-[#34D399]',
+    glowColor: 'shadow-[#10B981]/25',
     icon: (
       <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
         <rect x="5" y="3" width="18" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
@@ -24,37 +37,8 @@ const features: FeatureItem[] = [
     ),
   },
   {
-    title: 'Tax Compliance',
-    description: 'Multi-jurisdiction VAT and sales tax calculation. Automatic rate lookup, reverse charge handling, and audit-ready reporting.',
-    gradient: 'from-[#10B981] to-[#34D399]',
-    glowColor: 'shadow-[#10B981]/25',
-    icon: (
-      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
-        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" fill="currentColor" opacity="0.08" />
-        <path d="M10.5 13.5l2.5 2.5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    title: 'Budget Enforcement',
-    description: 'Hierarchical spending limits per agent, team, or department. Transactions exceeding budgets are blocked before execution.',
-    gradient: 'from-[#F59E0B] to-[#FBBF24]',
-    glowColor: 'shadow-[#F59E0B]/25',
-    icon: (
-      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
-        <rect x="3" y="6" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="3" y="6" width="22" height="16" rx="3" fill="currentColor" opacity="0.06" />
-        <path d="M3 11h22" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="18" cy="18" r="2" stroke="currentColor" strokeWidth="1.5" />
-        <circle cx="22" cy="18" r="2" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M7 18h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
     title: 'Settlement Detection',
-    description: 'Dual on-chain monitoring on Base — poll-based and event-driven. Multichain support in development.',
+    description: 'Real-time on-chain settlement tracking on Base. Every payment includes verified txHash, network, and payer identity — no manual reconciliation.',
     gradient: 'from-[#8B5CF6] to-[#A78BFA]',
     glowColor: 'shadow-[#8B5CF6]/25',
     icon: (
@@ -68,22 +52,34 @@ const features: FeatureItem[] = [
     ),
   },
   {
-    title: 'TypeScript SDK',
-    description: '100 modules, 26 React hooks, 19 UI components. Fully typed, tree-shakeable, and designed for developer experience.',
+    title: 'Business Verification',
+    description: 'Validate business identity across 6 jurisdictions before payment: EU VIES, UK Companies House, France SIRENE, Canada, Japan NTA, and Israel.',
+    gradient: 'from-[#F59E0B] to-[#FBBF24]',
+    glowColor: 'shadow-[#F59E0B]/25',
+    icon: (
+      <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
+        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M14 3L4 8v4c0 7.18 4.28 13.3 10 15 5.72-1.7 10-7.82 10-15V8L14 3z" fill="currentColor" opacity="0.08" />
+        <path d="M10.5 13.5l2.5 2.5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Ledger Export',
+    description: 'Download your complete invoice and settlement history as CSV. Full audit trail ready for accounting software or compliance review.',
     gradient: 'from-[#3B82F6] to-[#60A5FA]',
     glowColor: 'shadow-[#3B82F6]/25',
     icon: (
       <svg className="w-7 h-7" viewBox="0 0 28 28" fill="none">
-        <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="3" y="3" width="22" height="22" rx="4" fill="currentColor" opacity="0.06" />
-        <path d="M8 18V11h5v1.8h-3V18H8z" fill="currentColor" />
-        <path d="M14.5 14.6c0-.5.1-.9.4-1.3.3-.3.6-.6 1-.8.4-.2.9-.3 1.4-.3.8 0 1.5.2 2 .7.5.4.7 1 .7 1.7h-2c0-.3-.1-.5-.2-.6-.2-.2-.3-.2-.6-.2-.2 0-.4.1-.5.2-.2.1-.2.3-.2.5 0 .2.1.4.3.5.2.2.5.3.9.5.5.2.9.3 1.2.5.4.2.6.5.9.8.2.3.3.8.3 1.3s-.1 1-.4 1.3c-.3.3-.6.6-1 .8-.4.2-.9.3-1.4.3-.8 0-1.5-.2-2-.7-.5-.5-.8-1.1-.8-1.8h2.1c0 .3.1.5.3.7.2.2.4.2.6.2.3 0 .4-.1.5-.2.2-.1.2-.3.2-.5 0-.2-.1-.4-.3-.6-.2-.2-.5-.3-1-.5-.5-.2-.9-.3-1.2-.5-.4-.2-.6-.5-.8-.8-.3-.3-.3-.7-.3-1.2z" fill="currentColor" />
+        <rect x="5" y="3" width="18" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M9 8h10M9 12h10M9 16h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M18 19v5m0 0l-2-2m2 2l2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
     title: 'Developer Dashboard',
-    description: 'Manage API keys, view invoices, monitor settlements, and configure webhooks from a single interface.',
+    description: 'Manage API keys, browse invoices, monitor settlements, and view payment history from a clean web UI at app.invoica.ai.',
     gradient: 'from-[#EC4899] to-[#F472B6]',
     glowColor: 'shadow-[#EC4899]/25',
     icon: (

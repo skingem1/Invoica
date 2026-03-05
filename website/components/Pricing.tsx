@@ -1,67 +1,45 @@
 'use client';
 
-const tiers = [
+const betaColumns = [
   {
-    name: 'Developer',
+    title: 'Invoicing & Settlements',
     price: 'Free',
-    period: '',
-    description: 'Everything you need to build and test your first AI agent integration.',
-    badge: null,
+    priceDetail: 'unlimited during beta',
     features: [
-      'Up to 1,000 invoices / month',
-      '$10K processed volume / month',
-      'x402 payment settlement',
-      'Webhook notifications',
-      'Full API & SDK access',
-      'Sandbox environment',
-      'Community support',
+      'Create & retrieve invoices via REST',
+      'Real-time settlement detection on Base',
+      'Verified txHash on every payment',
+      'CSV ledger export',
+      'Developer dashboard at app.invoica.ai',
     ],
-    cta: 'Start Building →',
-    href: 'https://app.invoica.ai/api-keys',
-    highlighted: false,
-    ctaClass: 'bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white hover:shadow-lg hover:shadow-invoica-purple/30 hover:-translate-y-0.5',
+    gradient: 'from-[#635BFF] to-[#818CF8]',
   },
   {
-    name: 'Growth',
-    price: '0.5%',
-    period: 'of volume',
-    description: 'For production deployments with growing agent transaction volume.',
-    badge: 'Most Popular',
+    title: 'Business Verification',
+    price: 'Free',
+    priceDetail: '6 jurisdictions',
     features: [
-      'Unlimited invoices',
-      'Unlimited processed volume',
-      'Advanced settlement dashboard',
-      'Multi-jurisdiction tax compliance',
-      'Budget enforcement per agent',
-      'Priority webhook delivery',
-      'Email & Slack support',
-      'Advanced analytics',
+      'EU VIES validation',
+      'UK Companies House',
+      'France SIRENE',
+      'Canada CRA',
+      'Japan NTA',
+      'Israel',
     ],
-    cta: 'Start for Free →',
-    href: 'https://app.invoica.ai/api-keys',
-    highlighted: true,
-    ctaClass: 'bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white hover:shadow-lg hover:shadow-invoica-purple/30 hover:-translate-y-0.5',
+    gradient: 'from-[#10B981] to-[#34D399]',
   },
   {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    description: 'For large-scale agent fleets with compliance, RBAC, and SLA requirements.',
-    badge: null,
+    title: 'AI Inference',
+    price: '0.003',
+    priceDetail: 'USDC per call',
     features: [
-      'Everything in Growth',
-      'RBAC & team permissions',
-      'Custom tax jurisdiction rules',
-      'Dedicated settlement monitoring',
-      'SLA guarantees (99.99% uptime)',
-      'Dedicated account manager',
-      'Custom integrations & contracts',
-      'On-chain audit trails',
+      'x402 EIP-712 payment proof',
+      'No API key rotation',
+      'No monthly subscription',
+      'Pay exactly what you use',
+      'On-chain payment record',
     ],
-    cta: 'Contact Sales',
-    href: 'mailto:sales@invoica.ai',
-    highlighted: false,
-    ctaClass: 'border-2 border-invoica-gray-200 text-invoica-blue hover:border-invoica-purple hover:text-invoica-purple hover:bg-invoica-purple/5',
+    gradient: 'from-[#F59E0B] to-[#FBBF24]',
   },
 ];
 
@@ -69,73 +47,67 @@ export default function Pricing() {
   return (
     <section id="pricing" className="py-28 bg-invoica-gray-50 relative">
       <div className="max-w-7xl mx-auto px-6">
+        {/* Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center justify-center mb-6">
             <div className="h-px w-12 bg-gradient-to-r from-transparent to-invoica-purple" />
-            <span className="mx-4 text-xs font-semibold text-invoica-purple uppercase tracking-widest">Pricing</span>
+            <span className="mx-4 text-xs font-semibold text-invoica-purple uppercase tracking-widest">Beta Program</span>
             <div className="h-px w-12 bg-gradient-to-l from-transparent to-invoica-purple" />
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-invoica-blue mb-6 tracking-tight">
-            Simple, transparent pricing
+            Free During Beta
           </h2>
           <p className="text-lg text-invoica-gray-500 max-w-2xl mx-auto">
-            Start free. Pay as your agents scale. No hidden fees, no invoices for your invoices.
+            No credit card. No commitment. Everything is free while we&apos;re in beta —
+            except AI inference, which is pay-per-use on-chain.
           </p>
         </div>
 
+        {/* Three-column benefit grid */}
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {tiers.map((tier) => (
+          {betaColumns.map((col) => (
             <div
-              key={tier.name}
-              className={`relative rounded-2xl p-8 transition-all duration-300 ${
-                tier.highlighted
-                  ? 'bg-white shadow-2xl shadow-invoica-purple/10 border-2 border-invoica-purple scale-105 z-10'
-                  : 'bg-white shadow-sm border border-invoica-gray-200 hover:shadow-lg hover:border-invoica-gray-300'
-              }`}
+              key={col.title}
+              className="relative rounded-2xl p-8 bg-white shadow-sm border border-invoica-gray-200 hover:shadow-lg hover:border-invoica-gray-300 transition-all duration-300"
             >
-              {tier.badge && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 bg-gradient-to-r from-invoica-purple to-invoica-purple-light text-white text-xs font-semibold rounded-full shadow-lg shadow-invoica-purple/30">
-                  {tier.badge}
-                </div>
-              )}
+              {/* Gradient accent bar */}
+              <div className={`h-1 w-12 rounded-full bg-gradient-to-r ${col.gradient} mb-6`} />
 
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-invoica-blue mb-2">{tier.name}</h3>
-                <div className="flex items-baseline gap-1.5 mb-3">
-                  <span className="text-5xl font-bold text-invoica-blue tracking-tight">{tier.price}</span>
-                  {tier.period && (
-                    <span className="text-invoica-gray-400 text-sm">{tier.period}</span>
-                  )}
-                </div>
-                <p className="text-sm text-invoica-gray-500">{tier.description}</p>
+              <h3 className="text-lg font-semibold text-invoica-blue mb-4">{col.title}</h3>
+
+              <div className="flex items-baseline gap-1.5 mb-6">
+                <span className="text-4xl font-bold text-invoica-blue tracking-tight">{col.price}</span>
+                <span className="text-invoica-gray-400 text-sm">{col.priceDetail}</span>
               </div>
 
-              <ul className="space-y-4 mb-10">
-                {tier.features.map((feature) => (
+              <ul className="space-y-3">
+                {col.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3 text-sm text-invoica-gray-600">
-                    <svg className="w-5 h-5 text-invoica-purple flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4 text-invoica-purple flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     {feature}
                   </li>
                 ))}
               </ul>
-
-              <a
-                href={tier.href}
-                className={`block w-full text-center py-3.5 rounded-xl text-sm font-semibold transition-all duration-300 ${tier.ctaClass}`}
-              >
-                {tier.cta}
-              </a>
             </div>
           ))}
         </div>
 
-        {/* Bottom note */}
-        <p className="text-center text-sm text-invoica-gray-400 mt-12">
-          All plans include full API access, webhook support, and on-chain settlement detection.{' '}
-          <a href="https://invoica.mintlify.app" className="text-invoica-purple hover:underline">Read the docs →</a>
-        </p>
+        {/* Single CTA */}
+        <div className="text-center mt-16">
+          <a
+            href="https://app.invoica.ai/api-keys"
+            className="inline-flex items-center px-10 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
+          >
+            Get API Keys — Free Beta
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          </a>
+          <p className="text-sm text-invoica-gray-400 mt-4">
+            Sign up with email or Google / GitHub OAuth.{' '}
+            <a href="https://invoica.mintlify.app" className="text-invoica-purple hover:underline">Read the docs →</a>
+          </p>
+        </div>
       </div>
     </section>
   );

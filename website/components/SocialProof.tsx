@@ -1,10 +1,10 @@
 'use client';
 
 const stats = [
-  { value: 'x402', label: 'Native Protocol', description: 'First-class support for x402 EIP-712 payment proofs' },
-  { value: '100+', label: 'SDK Modules', description: 'Fully typed TypeScript with 26 React hooks' },
-  { value: 'Base', label: 'Mainnet Live', description: 'Real settlements on Base. Multichain support in development.' },
-  { value: '<10m', label: 'Time to First Invoice', description: 'From API key to production invoice in minutes' },
+  { value: '22', label: 'Invoices Created', description: 'Real invoices generated and stored on-chain since launch' },
+  { value: '14', label: 'Settlements on Base', description: 'Confirmed on-chain payments with verified txHash' },
+  { value: '6', label: 'Countries Verified', description: 'EU VIES, UK, France, Canada, Japan, Israel' },
+  { value: '0.003', label: 'USDC per AI Call', description: 'Pay exactly what you use — no monthly subscription' },
 ];
 
 export default function SocialProof() {
