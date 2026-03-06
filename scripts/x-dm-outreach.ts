@@ -235,6 +235,80 @@ function assertOk(res: { status: number; body: any }, context: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Anthropic API
+// ---------------------------------------------------------------------------
+async function callClaude(system: string, user: string, maxTokens = 200): Promise<string> {
+  const body = JSON.stringify({
+    model: 'claude-haiku-4-5',
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: 'user', content: user }],
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.anthropic.com',
+      port: 443,
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(body).toString(),
+      },
+    }, res => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString();
+        if ((res.statusCode ?? 0) < 200 || (res.statusCode ?? 0) >= 300) {
+          return reject(new Error(`Anthropic API error (${res.statusCode}): ${raw.slice(0, 200)}`));
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          const text = parsed.content?.[0]?.text?.trim() || '';
+          resolve(text);
+        } catch (e) { reject(e); }
+      });
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// DM Personalization
+// ---------------------------------------------------------------------------
+async function generatePersonalizedDM(candidate: Candidate): Promise<string> {
+  const system = `You write cold outreach DMs for @invoica_ai — the Financial OS for AI Agents (automated invoicing, on-chain settlement on Base, pay-per-use AI inference at 0.003 USDC/call, free beta).
+
+Rules:
+- 1-2 sentences max. Under 280 characters total.
+- Start with their first name (no "Hey there!" or "Hi!")
+- Reference ONE specific thing from their bio or tweet — not generic
+- Describe Invoica in 1 clause: "financial OS for AI agents — automated invoicing + on-chain settlement"
+- End with: "Free beta at invoica.ai — happy to walk you through it."
+- No hashtags. No emoji. No filler phrases like "great work" or "love what you're building".
+- Return ONLY the DM text, nothing else.`;
+
+  const firstName = candidate.name.split(/\s+/)[0] || candidate.username;
+  const userPrompt = `Target: @${candidate.username} (${firstName})
+Bio: ${candidate.bio}
+Their tweet: "${candidate.matchingTweet.slice(0, 200)}"
+
+Write the DM.`;
+
+  const text = await callClaude(system, userPrompt, 200);
+  if (!text) throw new Error('Claude returned empty DM');
+
+  // Enforce 280 char limit
+  return text.length > 280 ? text.slice(0, 277) + '...' : text;
+}
+
+// ---------------------------------------------------------------------------
 // Candidate interface
 // ---------------------------------------------------------------------------
 interface Candidate {
