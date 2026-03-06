@@ -49,6 +49,7 @@ schedule:
     - draft-content
     - trend-monitor
     - engagement-reply
+    - dm-outreach
 
 media_approval:
   text_posts: autonomous
