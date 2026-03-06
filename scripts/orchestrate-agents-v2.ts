@@ -1443,6 +1443,47 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
     return false;
   }
 
+  // ── TypeScript syntax gate ──────────────────────────────────────────────────────
+  // Runs tsc --noEmit and returns any TS1xxx (syntax) errors touching the given
+  // files. TS2xxx semantic errors are ignored — they pre-exist and don't crash
+  // the backend. Called before supervisor review so broken code never gets
+  // approved.
+  private runTsCheck(files: string[]): { passed: boolean; errors: string } {
+    try {
+      execSync('npx tsc --noEmit --project tsconfig.json 2>&1', {
+        timeout: 45000,
+        stdio: 'pipe',
+      });
+      return { passed: true, errors: '' };
+    } catch (err: any) {
+      const output: string = (err.stdout || err.stderr || err.message || '').toString();
+      // Only care about TS1xxx SYNTAX errors — TS2xxx are pre-existing type errors
+      const syntaxLines = output
+        .split('\n')
+        .filter(line => /error TS1\d{3}/.test(line));
+
+      if (syntaxLines.length === 0) {
+        // Only semantic errors → pass (backend-wrapper also ignores these)
+        return { passed: true, errors: '' };
+      }
+
+      // Filter to errors in files we actually touched
+      const relevantErrors = syntaxLines.filter(line =>
+        files.some(f => line.includes(f)),
+      );
+
+      if (relevantErrors.length === 0) {
+        // Syntax errors in unrelated files — not our fault, pass
+        return { passed: true, errors: '' };
+      }
+
+      return {
+        passed: false,
+        errors: relevantErrors.slice(0, 10).join('\n'),
+      };
+    }
+  }
+
   private commitChanges(task: AgentTask, files: string[]): void {
     if (files.length === 0) return;
     try {
@@ -1769,6 +1810,28 @@ ONLY output the JSON array. No markdown, no explanation.`;
         log(c.red, `  No files produced for ${task.id}`);
         task.status = 'rejected';
         return;
+      }
+
+      // ── TypeScript syntax gate (before supervisor — cheap, instant) ────────
+      const tsCheck = this.runTsCheck(result.files);
+      if (!tsCheck.passed) {
+        this.stats.rejected++;
+        log(c.red, `  ✗ TypeScript SYNTAX gate FAILED — auto-rejecting without supervisor`);
+        log(c.red, `\n${tsCheck.errors}\n`);
+        lastReview = {
+          verdict: 'REJECTED',
+          score: 0,
+          summary: `TypeScript syntax errors (TS1xxx) detected — auto-rejected before supervisor review`,
+          issues: [{ severity: 'critical', file: result.files[0] || 'unknown', description: tsCheck.errors }],
+          strengths: [],
+        };
+        try {
+          execSync('git reset --hard HEAD~1', { timeout: 10000 });
+          log(c.gray, '  Reset to previous commit (dropped TS-broken code)');
+        } catch {
+          log(c.gray, '  Reset skipped');
+        }
+        continue; // next attempt with feedback
       }
 
       // Dual Supervisor review (Claude + Codex in parallel)
