@@ -670,15 +670,42 @@ function printStatus(): void {
     });
   }
 }
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+function printUsage(): void {
+  console.log(`
+x-dm-outreach.ts — X/Twitter DM Outreach for Invoica
 
-// ---------------------------------------------------------------------------
-// CLI entry point
-// ---------------------------------------------------------------------------
+Usage:
+  ts-node scripts/x-dm-outreach.ts --run        Full cycle: discover → generate → send
+  ts-node scripts/x-dm-outreach.ts --dry-run    Discover + preview DMs, no sending
+  ts-node scripts/x-dm-outreach.ts --status     Show contacted accounts and run history
+  ts-node scripts/x-dm-outreach.ts --help       Show this message
+
+Environment variables:
+  INVOICA_X_API_KEY, INVOICA_X_API_SECRET
+  INVOICA_X_ACCESS_TOKEN, INVOICA_X_ACCESS_TOKEN_SECRET
+  INVOICA_X_BEARER_TOKEN
+  ANTHROPIC_API_KEY
+
+Note: X app must have "Read and Write and Direct Messages" permission for --run.
+Max ${MAX_DMS_PER_RUN} DMs per run, ${DM_DELAY_MS / 1000}s delay between sends.
+`);
+}
+
 if (require.main === module) {
   const arg = process.argv[2];
-  if (arg === '--status') {
+  if (arg === '--run') {
+    run(false).catch(e => { console.error('[x-dm-outreach] Fatal:', e.message); process.exit(1); });
+  } else if (arg === '--dry-run') {
+    run(true).catch(e => { console.error('[x-dm-outreach] Fatal:', e.message); process.exit(1); });
+  } else if (arg === '--status') {
     printStatus();
+  } else if (arg === '--help' || arg === '-h') {
+    printUsage();
   } else {
-    console.log('x-dm-outreach: use --run, --dry-run, or --status');
+    printUsage();
+    if (arg) process.exit(1); // unknown arg exits with error
   }
 }
