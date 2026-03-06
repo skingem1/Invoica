@@ -334,8 +334,85 @@ async function searchTargetAccounts(bearerToken: string): Promise<Candidate[]> {
 }
 
 // ---------------------------------------------------------------------------
-// CLI entry point (placeholder)
+// State Management
+// ---------------------------------------------------------------------------
+interface ContactedEntry {
+  username: string;
+  sentAt: string;
+  dmText: string;
+}
+
+interface RunEntry {
+  date: string;
+  candidates: number;
+  sent: number;
+}
+
+interface OutreachState {
+  contacted: Record<string, ContactedEntry>; // keyed by userId
+  runs: RunEntry[];
+}
+
+function ensureDir(d: string): void {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+}
+
+function loadState(): OutreachState {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+      return {
+        contacted: parsed?.contacted && typeof parsed.contacted === 'object' ? parsed.contacted : {},
+        runs:      Array.isArray(parsed?.runs) ? parsed.runs : [],
+      };
+    }
+  } catch { /* reset on parse error */ }
+  return { contacted: {}, runs: [] };
+}
+
+function saveState(state: OutreachState): void {
+  ensureDir(REPORTS_DIR);
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+function filterNewCandidates(candidates: Candidate[], state: OutreachState): Candidate[] {
+  return candidates.filter(c => !state.contacted[c.userId]);
+}
+
+// ---------------------------------------------------------------------------
+// Status Display
+// ---------------------------------------------------------------------------
+function printStatus(): void {
+  const state = loadState();
+  const contacted = Object.entries(state.contacted);
+  console.log(`\n=== X DM Outreach Status ===`);
+  console.log(`Total accounts contacted: ${contacted.length}`);
+  if (contacted.length > 0) {
+    console.log('\nContacted accounts:');
+    contacted.forEach(([, entry]) => {
+      console.log(`  @${entry.username} — ${entry.sentAt.slice(0, 10)}`);
+      const preview = entry.dmText.length > 80 ? entry.dmText.slice(0, 80) + '...' : entry.dmText;
+      console.log(`    DM: ${preview}`);
+    });
+  }
+  console.log(`\nRun history (last 5):`);
+  if (state.runs.length === 0) {
+    console.log('  (no runs yet)');
+  } else {
+    state.runs.slice(-5).forEach(r => {
+      console.log(`  ${r.date}: ${r.candidates} candidates, ${r.sent} sent`);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CLI entry point
 // ---------------------------------------------------------------------------
 if (require.main === module) {
-  console.log('x-dm-outreach: use --run, --dry-run, or --status');
+  const arg = process.argv[2];
+  if (arg === '--status') {
+    printStatus();
+  } else {
+    console.log('x-dm-outreach: use --run, --dry-run, or --status');
+  }
 }
