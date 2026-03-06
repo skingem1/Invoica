@@ -1460,7 +1460,7 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
       // Only care about TS1xxx SYNTAX errors — TS2xxx are pre-existing type errors
       const syntaxLines = output
         .split('\n')
-        .filter(line => /error TS1\d{3}/.test(line));
+        .filter(line => /error TS1\d{3}(?!\d)/.test(line));
 
       if (syntaxLines.length === 0) {
         // Only semantic errors → pass (backend-wrapper also ignores these)
@@ -1469,7 +1469,7 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
 
       // Filter to errors in files we actually touched
       const relevantErrors = syntaxLines.filter(line =>
-        files.some(f => line.includes(f)),
+        files.some(f => line.includes(f) || line.includes(require('path').basename(f))),
       );
 
       if (relevantErrors.length === 0) {
@@ -1828,8 +1828,9 @@ ONLY output the JSON array. No markdown, no explanation.`;
         try {
           execSync('git reset --hard HEAD~1', { timeout: 10000 });
           log(c.gray, '  Reset to previous commit (dropped TS-broken code)');
-        } catch {
-          log(c.gray, '  Reset skipped');
+        } catch (resetErr: any) {
+          log(c.yellow, `  ! Reset failed (no prior commit?): ${resetErr.message?.substring(0, 80)}`);
+          try { execSync('git restore .', { timeout: 5000 }); } catch {}
         }
         continue; // next attempt with feedback
       }
