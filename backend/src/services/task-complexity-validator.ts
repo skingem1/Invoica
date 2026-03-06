@@ -4,7 +4,7 @@
  * Emergency killswitch module for the sprint pipeline.
  * Created manually on 2026-03-06 to unblock sprint-runner (see EMERGENCY-001).
  *
- * EMERGENCY_SUSPEND_ORCHESTRATION=true blocks ORCH-*/AGENT-034-* cascade tasks
+ * EMERGENCY_SUSPEND_ORCHESTRATION=true blocks ORCH-* and AGENT-034-* cascade tasks
  * that caused a 36-hour pipeline stall (CEO escalation 2026-03-06).
  */
 
