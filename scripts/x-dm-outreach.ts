@@ -478,6 +478,128 @@ async function searchTargetAccounts(bearerToken: string): Promise<Candidate[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
+function appendRunLog(entries: string[]): void {
+  ensureDir(REPORTS_DIR);
+  const date = new Date().toISOString().slice(0, 10);
+  const logPath = path.join(REPORTS_DIR, `dm-outreach-${date}.md`);
+  if (!fs.existsSync(logPath)) {
+    fs.writeFileSync(logPath, `# DM Outreach Log — ${date}\n\n`);
+  }
+  fs.appendFileSync(logPath, entries.join('\n') + '\n\n');
+}
+
+// ---------------------------------------------------------------------------
+// Main Run
+// ---------------------------------------------------------------------------
+async function run(dryRun: boolean): Promise<void> {
+  console.log(`\n[x-dm-outreach] Starting ${dryRun ? 'DRY RUN' : 'LIVE RUN'}`);
+  const creds = loadCredentials();
+  const state = loadState();
+  const date = new Date().toISOString().slice(0, 10);
+
+  // Step 1: Discover candidates
+  console.log('\n→ Discovering target accounts...');
+  const allCandidates = await searchTargetAccounts(creds.bearerToken);
+  console.log(`  Found ${allCandidates.length} candidates from search`);
+
+  // Step 2: Filter already-contacted
+  const newCandidates = filterNewCandidates(allCandidates, state);
+  console.log(`  ${newCandidates.length} new (not yet contacted)`);
+
+  const toContact = newCandidates.slice(0, MAX_DMS_PER_RUN);
+  console.log(`  Will contact: ${toContact.length} (cap: ${MAX_DMS_PER_RUN})`);
+
+  if (toContact.length === 0) {
+    console.log('\n  No new candidates to contact. Done.');
+    state.runs.push({ date, candidates: allCandidates.length, sent: 0 });
+    saveState(state);
+    return;
+  }
+
+  const logEntries: string[] = [
+    `## Run at ${new Date().toISOString()}`,
+    `**Mode:** ${dryRun ? 'dry-run' : 'live'}`,
+    `**Candidates:** ${allCandidates.length} found, ${toContact.length} selected`,
+    '',
+  ];
+
+  let sentCount = 0;
+
+  // Step 3: Generate + send
+  for (const candidate of toContact) {
+    console.log(`\n→ @${candidate.username} (${candidate.followersCount} followers)`);
+    console.log(`  Bio: ${candidate.bio.slice(0, 80)}`);
+    console.log(`  Tweet: ${candidate.matchingTweet.slice(0, 80)}`);
+
+    let dmText: string;
+    try {
+      console.log('  Generating personalized DM...');
+      dmText = await generatePersonalizedDM(candidate);
+      console.log(`  DM (${dmText.length} chars): ${dmText}`);
+    } catch (e: any) {
+      console.log(`  ❌ Generation failed: ${e.message}`);
+      logEntries.push(`### @${candidate.username}`, `❌ DM generation failed: ${e.message}`, '');
+      continue;
+    }
+
+    logEntries.push(
+      `### @${candidate.username} (${candidate.userId})`,
+      `**Bio:** ${candidate.bio}`,
+      `**Tweet:** ${candidate.matchingTweet}`,
+      `**DM:** ${dmText}`,
+      '',
+    );
+
+    if (dryRun) {
+      console.log('  [DRY RUN] Would send — skipping');
+      logEntries.push('**Result:** DRY RUN — not sent', '');
+      continue;
+    }
+
+    console.log('  Sending DM...');
+    const result = await sendDM(candidate.userId, dmText, creds);
+
+    if (result.success) {
+      console.log(`  ✅ Sent! Conversation: ${result.dmConversationId}`);
+      sentCount++;
+
+      state.contacted[candidate.userId] = {
+        username: candidate.username,
+        sentAt: new Date().toISOString(),
+        dmText,
+      };
+      saveState(state);
+
+      logEntries.push(`**Result:** ✅ Sent — conversation ${result.dmConversationId}`, '');
+
+      if (sentCount < toContact.length) {
+        console.log(`  Waiting ${DM_DELAY_MS / 1000}s before next DM...`);
+        await new Promise(r => setTimeout(r, DM_DELAY_MS));
+      }
+    } else if (result.permissionError) {
+      console.log(`\n  ❌ PERMISSION ERROR — stopping run\n`);
+      console.log(result.error);
+      logEntries.push(`**Result:** ❌ Permission error — run stopped`, result.error ?? '', '');
+      break;
+    } else {
+      console.log(`  ❌ Failed: ${result.error}`);
+      logEntries.push(`**Result:** ❌ Failed: ${result.error}`, '');
+    }
+  }
+
+  // Record run
+  state.runs.push({ date, candidates: allCandidates.length, sent: sentCount });
+  saveState(state);
+  appendRunLog(logEntries);
+
+  console.log(`\n[x-dm-outreach] Done. Sent: ${sentCount}/${toContact.length}`);
+  console.log(`Log: reports/x-admin/dm-outreach-${date}.md`);
+}
+
+
+// ---------------------------------------------------------------------------
 // State Management
 // ---------------------------------------------------------------------------
 interface ContactedEntry {
