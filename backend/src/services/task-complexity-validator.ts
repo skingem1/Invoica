@@ -29,10 +29,10 @@ export function validateTask(task: {
     const id   = (task.id ?? '').toUpperCase();
 
     // Block: feature tasks about orchestration (prevents ORCH-001 child spawning)
-    if (task.type === 'feature' && (desc.includes('orchestrat') || id.startsWith('ORCH-'))) {
+    if (task.type === 'feature' && (desc.includes('orchestrat') || desc.includes('orch-'))) {
       return {
         allowed: false,
-        reason: ,
+        reason: 'Emergency killswitch: feature task with orchestration keywords blocked',
       };
     }
 
@@ -40,7 +40,7 @@ export function validateTask(task: {
     if (id.startsWith('ORCH-')) {
       return {
         allowed: false,
-        reason: ,
+        reason: 'Emergency killswitch: ORCH-* task ID blocked',
       };
     }
 
@@ -48,7 +48,7 @@ export function validateTask(task: {
     if (/^AGENT-034-/.test(id)) {
       return {
         allowed: false,
-        reason: ,
+        reason: 'Emergency killswitch: AGENT-034-* cascade task blocked',
       };
     }
   }
