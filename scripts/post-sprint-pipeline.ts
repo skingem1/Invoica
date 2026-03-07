@@ -272,7 +272,7 @@ function createBugFixSprint(sprintName: string, tasks: CtoDecision['bugFixTasks'
     });
   }
 
-  writeFileSync(fixFile, JSON.stringify(fixTasks, null, 2));
+  writeFileSync(fixFile, JSON.stringify({ tasks: fixTasks }, null, 2));
   return fixFile;
 }
 

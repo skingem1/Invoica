@@ -1596,7 +1596,7 @@ class Orchestrator {
       process.exit(1);
     }
     const sprint = JSON.parse(readFileSync(sprintFile, 'utf-8'));
-    this.tasks = sprint.tasks || [];
+    this.tasks = Array.isArray(sprint) ? sprint : (sprint.tasks || []);
 
     // Normalize deliverables: CEO planner may emit flat string[] instead of {code,tests,docs}
     for (const task of this.tasks) {
