@@ -390,7 +390,7 @@ class CEOAgent {
   }
 
   async reviewSprintProgress(tasks: AgentTask[]): Promise<string> {
-    const done = tasks.filter(t => t.status === 'done').length;
+    const done = tasks.filter(t => ['done','approved'].includes(t.status)).length;
     const total = tasks.length;
     const pending = tasks.filter(t => t.status === 'pending');
     const rejected = tasks.filter(t => t.status === 'rejected');
@@ -520,7 +520,7 @@ Wrap all decisions in a JSON array. Be concise.`;
   }
   async generateDailyReport(tasks: AgentTask[], stats: { tasksExecuted: number; approved: number; rejected: number; conflicts?: number; escalations?: number }, ctoReport: string, ctoDecisions: string): Promise<void> {
     log(c.magenta, '\n[ceo] Generating daily report for owner...');
-    const done = tasks.filter(t => t.status === 'done').length;
+    const done = tasks.filter(t => ['done','approved'].includes(t.status)).length;
     const rejected = tasks.filter(t => t.status === 'rejected').length;
     const pending = tasks.filter(t => t.status === 'pending').length;
     const today = new Date().toISOString().split('T')[0];
@@ -594,7 +594,7 @@ class CTODataCollector {
         if (sprintFiles.length > 0) {
           const latestSprint = JSON.parse(readFileSync(`${sprintDir}/${sprintFiles[0]}`, 'utf-8'));
           const tasks = latestSprint.tasks || [];
-          const done = tasks.filter((t: any) => t.status === 'done').length;
+          const done = tasks.filter((t: any) => ['done','approved'].includes(t.status)).length;
           const rejected = tasks.filter((t: any) => t.status === 'rejected').length;
           sections.push(`### Sprint Results (${sprintFiles[0].replace('.json', '')})`);
           sections.push(`- ${tasks.length} tasks, ${done} approved, ${rejected} rejected`);
@@ -775,7 +775,7 @@ Rules:
 
     // Build sprint summary for context
     const totalTasks = tasks.length;
-    const done = tasks.filter((t: any) => t.status === 'done').length;
+    const done = tasks.filter((t: any) => ['done','approved'].includes(t.status)).length;
     const doneManual = tasks.filter((t: any) => t.status === 'done-manual').length;
     const rejected = tasks.filter((t: any) => t.status === 'rejected').length;
     const autoRate = totalTasks > 0 ? ((done / totalTasks) * 100).toFixed(0) : '0';
@@ -1965,7 +1965,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
             const subDeps = subtask.dependencies || [];
             const unmetSubDeps = subDeps.filter(d => {
               const depSt = subtasks.find(s => s.id === d);
-              return depSt && depSt.status !== 'done';
+              return depSt && !['approved', 'done'].includes(depSt.status);
             });
             if (unmetSubDeps.length > 0) {
               log(c.yellow, `  Skipping sub-task ${subtask.id}: unmet deps [${unmetSubDeps.join(', ')}]`);
@@ -2061,7 +2061,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
       const deps = task.dependencies || [];
       const unmetDeps = deps.filter(d => {
         const depTask = this.tasks.find(t => t.id === d);
-        return depTask && depTask.status !== 'done';
+        return depTask && !['approved', 'done'].includes(depTask.status);
       });
       if (unmetDeps.length > 0) {
         log(c.yellow, `  Skipping ${task.id}: unmet deps [${unmetDeps.join(', ')}]`);
