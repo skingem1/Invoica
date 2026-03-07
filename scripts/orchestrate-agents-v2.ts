@@ -1805,6 +1805,31 @@ ONLY output the JSON array. No markdown, no explanation.`;
     return false;
   }
 
+
+  // ── TypeScript syntax gate ───────────────────────────────────────────────
+  // Called before supervisor review so broken syntax never gets approved.
+  private runTsCheck(files: string[]): { passed: boolean; errors: string } {
+    try {
+      execSync('npx tsc --noEmit --project tsconfig.json 2>&1', {
+        timeout: 45000,
+        stdio: 'pipe',
+        cwd: '/home/invoica/apps/Invoica',
+      });
+      return { passed: true, errors: '' };
+    } catch (err: any) {
+      const output: string = (err.stdout || err.stderr || err.message || '').toString();
+      const syntaxLines = output
+        .split('\n')
+        .filter((line: string) => /error TS1\d{3}(?!\d)/.test(line));
+      if (syntaxLines.length === 0) return { passed: true, errors: '' };
+      const relevantErrors = syntaxLines.filter((line: string) =>
+        files.some((f: string) => line.includes(f) || line.includes(require('path').basename(f))),
+      );
+      if (relevantErrors.length === 0) return { passed: true, errors: '' };
+      return { passed: false, errors: relevantErrors.slice(0, 10).join('\n') };
+    }
+  }
+
   // ===== Main task executor with CTO auto-decomposition =====
 
   private async executeTask(task: AgentTask): Promise<void> {
