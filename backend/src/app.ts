@@ -41,7 +41,8 @@ app.use((_req, res) => {
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err.message);
-  const statusCode = typeof (err as any).status === 'number' ? (err as any).status : 500;
+  const rawStatus = (err as any).statusCode ?? (err as any).status;
+  const statusCode = typeof rawStatus === "number" && rawStatus >= 100 && rawStatus < 600 ? rawStatus : 500;
   res.status(statusCode).json({ success: false, error: { message: err.message, code: 'INTERNAL_ERROR' } });
 });
 
