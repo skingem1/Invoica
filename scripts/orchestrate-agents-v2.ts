@@ -835,7 +835,15 @@ Respond with a structured markdown report containing:
 }
 \`\`\`
 
-Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.`;
+6. A compact memory entry (REQUIRED — written directly to long-term company memory):
+```memory
+## Sprint Memory — ${date}
+- Auto rate: ${autoRate}% (${done}/${totalTasks} tasks approved)
+- Key failure: [1 sentence root cause, or "none" if all passed]
+- Lesson: [1 concrete actionable lesson for future sprints]
+```
+
+Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.\`;
 
     try {
       const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
@@ -854,6 +862,26 @@ Rules: Be specific — reference task IDs, rejection counts, concrete patterns. 
 
       log(c.cyan, `  Post-sprint analysis complete (${elapsed}s)`);
       log(c.cyan, `  Report saved: ${reportPath}`);
+
+      // ── Write sprint lessons to long-term memory ────────────────────────────────────
+      try {
+        const memMatch = content.match(/## Sprint Memory[^\n]*\n([\s\S]*?)(?=\n##|$)/);
+        if (memMatch) {
+          const memEntry = `\n## Sprint Memory — ${date}\n${memMatch[1].trim()}\n`;
+          const memPaths = ['./memory/long-term-memory.md', '/home/invoica/memory/long-term-memory.md'];
+          for (const mp of memPaths) {
+            if (existsSync(mp)) {
+              const existing = readFileSync(mp, 'utf-8');
+              writeFileSync(mp, existing + memEntry);
+            }
+          }
+          log(c.cyan, `  ✓ Sprint lessons written to long-term memory`);
+        } else {
+          log(c.gray, `  No memory entry in post-sprint report — skipping`);
+        }
+      } catch (memErr: any) {
+        log(c.yellow, `  Memory write skipped: ${memErr.message}`);
+      }
 
       // Try to extract proposals and add to approved-proposals tracker for CEO review
       const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) || content.match(/\{[\s\S]*"proposals"[\s\S]*\}/);
