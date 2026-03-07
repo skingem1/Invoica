@@ -1,0 +1,11 @@
+name: task-complexity-analyzer
+role: "Scores task complexity before execution to prevent truncation failures"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: every_sprint
+created_by: cto_proposal
+created_at: "2026-03-04T08:17:59.214Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

@@ -1,0 +1,11 @@
+name: task-complexity-validator
+role: "Validates task complexity before assignment to prevent MiniMax truncation"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: every_sprint
+created_by: cto_proposal
+created_at: "2026-03-05T01:00:55.123Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

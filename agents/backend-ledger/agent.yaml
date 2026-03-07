@@ -6,6 +6,8 @@ working_directory: ./backend
 context_files:
   - ../../docs/accounting-principles.md
   - ../../shared/code-style-guide.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Use double-entry accounting
   - Atomic budget operations

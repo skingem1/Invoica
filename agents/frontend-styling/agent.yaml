@@ -1,0 +1,11 @@
+name: frontend-styling
+role: "Specialized in CSS/styling tasks for frontend components"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: on_demand
+created_by: cto_proposal
+created_at: "2026-03-04T10:01:12.530Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

@@ -16,6 +16,8 @@ context_files:
   - ../../reports/cmo/communication-plan.md
   - ../../reports/invoica-x-admin/content-calendar.md
   - ../../reports/invoica-x-admin/latest-post-log.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Stay focused on Invoica product, x402 protocol, AI agent economy
   - ALL posts must align with CMO communication plan and brand voice

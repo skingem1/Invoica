@@ -6,6 +6,8 @@ working_directory: ./frontend
 context_files:
   - ../../docs/ui-requirements.md
   - ../../shared/code-style-guide.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Use Next.js 14 App Router
   - TailwindCSS for styling

@@ -28,6 +28,8 @@ context_files:
   # Latest CEO priorities + sprint brief for continuity
   - ../../reports/ceo/latest-priorities.md
   - ../../reports/ceo/sprint-brief.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 authority:
   - Create and name new agents (via Skills Agent)
   - Set company-wide rules and standards

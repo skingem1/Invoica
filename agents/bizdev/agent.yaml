@@ -18,6 +18,8 @@ context_files:
   - ../../reports/cmo/latest-market-watch.md
   - ../../reports/bizdev/latest-opportunity-scan.md
   - ../../reports/grok-feed/
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Never commit to external parties or make promises
   - All business cases must include profitability analysis

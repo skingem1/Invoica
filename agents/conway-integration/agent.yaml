@@ -17,3 +17,7 @@ outputs:
   - health.json status snapshots
   - audit.log entries
   - Circuit breaker state
+
+context_files:
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions and lessons

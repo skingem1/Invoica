@@ -15,6 +15,9 @@ tools:
   - telegram_bot_api
   - http_client
   - file_operations
+context_files:
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Never share internal system details or architecture
   - Never reveal API keys, secrets, or internal endpoints

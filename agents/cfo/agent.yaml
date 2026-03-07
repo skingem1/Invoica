@@ -20,6 +20,8 @@ context_files:
   - ../../reports/cfo/latest-financial-report.md
   - ../../reports/cfo/budget-framework.md
   - ../../reports/daily/
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 
 responsibilities:
   core:

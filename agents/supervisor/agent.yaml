@@ -13,6 +13,8 @@ context_files:
   - ../../docs/api-contract.md
   - ../../docs/database-schema.sql
   - ../../shared/code-style-guide.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Never approve code with hardcoded secrets
   - Reject code without tests

@@ -1,0 +1,11 @@
+name: sprint-health-monitor
+role: "Monitors sprint progress and alerts on stalled or failing sprints"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: hourly
+created_by: cto_proposal
+created_at: "2026-03-07T08:21:31.023Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

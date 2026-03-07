@@ -1,0 +1,11 @@
+name: sprint-recovery
+role: "Monitors sprint execution, detects stalled tasks, and triggers automatic recovery"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: every_sprint
+created_by: cto_proposal
+created_at: "2026-03-05T06:30:53.247Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

@@ -1,0 +1,11 @@
+name: frontend-routing
+role: "Specialized agent for CSS routing, Tailwind patterns, and frontend styling issues that block frontend tasks"
+llm: anthropic/claude-sonnet-4-20250514
+reports_to: ceo
+trigger: on_demand
+created_by: cto_proposal
+created_at: "2026-03-04T12:17:21.419Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

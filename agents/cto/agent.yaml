@@ -29,6 +29,8 @@ context_files:
   - ../../reports/cto/ceo-feedback/  # CEO decisions on proposals
   - ../../reports/cto/approved-proposals.json  # Implementation tracker
   - ../../reports/cto/email-escalations/  # Escalated support emails
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - NEVER implement changes without CEO approval
   - Always read docs/learnings.md before proposing changes

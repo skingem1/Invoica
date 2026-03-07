@@ -17,6 +17,8 @@ context_files:
   - ../../reports/cmo/invoica-communication-plan.md
   - ../../reports/cmo/content-calendar.md
   - ../../reports/x-admin/latest-post-log.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - ALL posts must use "Invoica" and "@invoica_ai" — never any other brand name
   - ALL posts must align with the Invoica communication plan

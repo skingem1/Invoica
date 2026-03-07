@@ -1,0 +1,11 @@
+name: implementation-tracker
+role: "Verifies approved CTO proposals are actually implemented in codebase"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: every_sprint
+created_by: cto_proposal
+created_at: "2026-03-04T11:31:07.025Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons

@@ -3,6 +3,9 @@ role: Security Engineer
 description: Security middleware and API authentication
 tools: [claude_code, file_operations]
 working_directory: ./backend
+context_files:
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Follow OWASP guidelines
   - Implement rate limiting

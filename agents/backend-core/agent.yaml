@@ -7,6 +7,8 @@ context_files:
   - ../../docs/api-contract.md
   - ../../docs/database-schema.sql
   - ../../shared/code-style-guide.md
+  - ../../memory/daily-continuity.md   # yesterday company activity
+  - ../../memory/long-term-memory.md   # institutional decisions and lessons
 constraints:
   - Use TypeScript strict mode
   - Write tests for all functions (Jest)

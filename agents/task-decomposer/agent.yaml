@@ -1,0 +1,11 @@
+name: task-decomposer
+role: "Automatically splits complex tasks into MiniMax-friendly sub-tasks"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: on_demand
+created_by: cto_proposal
+created_at: "2026-03-04T20:00:55.348Z"
+context_files:
+  - docs/learnings.md
+  - memory/daily-continuity.md   # yesterday company activity
+  - memory/long-term-memory.md   # institutional decisions & lessons
