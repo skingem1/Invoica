@@ -271,3 +271,45 @@ export class ApiError extends Error {
     this.data = data;
   }
 }
+
+// ── Admin Dashboard ───────────────────────────────────────────────────────────
+
+export interface AdminProcess {
+  id: number;
+  name: string;
+  status: string;
+  uptime: number | null;
+  restarts: number;
+  memory: number;
+  cpu: number;
+  pid: number | null;
+}
+
+export interface AdminSprintTask {
+  id: string;
+  type: string;
+  status: string;
+  agent: string;
+}
+
+export interface AdminSprint {
+  file: string;
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  tasks: AdminSprintTask[];
+}
+
+export interface AdminSystemData {
+  processes: AdminProcess[];
+  commits: string[];
+  sprint: AdminSprint | null;
+  serverTime: string;
+}
+
+export async function fetchAdminSystem(): Promise<AdminSystemData> {
+  const result = await apiGet<{ data: AdminSystemData }>('/v1/admin/system');
+  return (result as any).data ?? result;
+}
+

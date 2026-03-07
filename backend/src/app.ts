@@ -7,6 +7,7 @@ import settlementRoutes from './routes/settlements';
 import healthRoutes from './routes/health';
 import aiInferenceRoutes from './routes/ai-inference';
 import ledgerRoutes from './routes/ledger';
+import adminRoutes from './routes/admin';
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use(webhookRoutes);
 app.use(settlementRoutes);
 app.use(aiInferenceRoutes);
 app.use(ledgerRoutes);
+app.use(adminRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { message: 'Not found', code: 'NOT_FOUND' } });
