@@ -1443,6 +1443,47 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
     return false;
   }
 
+  // ── TypeScript syntax gate ──────────────────────────────────────────────────────
+  // Runs tsc --noEmit and returns any TS1xxx (syntax) errors touching the given
+  // files. TS2xxx semantic errors are ignored — they pre-exist and don't crash
+  // the backend. Called before supervisor review so broken code never gets
+  // approved.
+  private runTsCheck(files: string[]): { passed: boolean; errors: string } {
+    try {
+      execSync('npx tsc --noEmit --project tsconfig.json 2>&1', {
+        timeout: 45000,
+        stdio: 'pipe',
+      });
+      return { passed: true, errors: '' };
+    } catch (err: any) {
+      const output: string = (err.stdout || err.stderr || err.message || '').toString();
+      // Only care about TS1xxx SYNTAX errors — TS2xxx are pre-existing type errors
+      const syntaxLines = output
+        .split('\n')
+        .filter(line => /error TS1\d{3}(?!\d)/.test(line));
+
+      if (syntaxLines.length === 0) {
+        // Only semantic errors → pass (backend-wrapper also ignores these)
+        return { passed: true, errors: '' };
+      }
+
+      // Filter to errors in files we actually touched
+      const relevantErrors = syntaxLines.filter(line =>
+        files.some(f => line.includes(f) || line.includes(require('path').basename(f))),
+      );
+
+      if (relevantErrors.length === 0) {
+        // Syntax errors in unrelated files — not our fault, pass
+        return { passed: true, errors: '' };
+      }
+
+      return {
+        passed: false,
+        errors: relevantErrors.slice(0, 10).join('\n'),
+      };
+    }
+  }
+
   private commitChanges(task: AgentTask, files: string[]): void {
     if (files.length === 0) return;
     try {
@@ -1450,8 +1491,32 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
       execSync(`git add ${filesList}`, { timeout: 10000 });
       execSync(`git commit -m "feat(${task.agent}): ${task.id} - ${task.type}" --no-verify`, { timeout: 10000 });
       log(c.green, `  ✓ Committed: ${files.length} files for ${task.id}`);
+
+      // ── Git verification: ensure every written file is in the commit ──────
+      // If a file is missing (e.g. gitignored, write failed silently, or the
+      // commit was a no-op), the task is marked failed rather than "done".
+      const committedRaw = execSync('git show --name-only --format="" HEAD', {
+        timeout: 10000,
+        encoding: 'utf-8',
+      }).trim();
+      const committedFiles = new Set(
+        committedRaw.split('\n').map((f: string) => f.trim()).filter(Boolean),
+      );
+
+      const missing = files
+        .map(f => f.replace(/^\.\//, ''))   // normalize ./foo -> foo (git show omits ./)
+        .filter(f => !committedFiles.has(f));
+      if (missing.length > 0) {
+        throw new Error(
+          `GIT_VERIFICATION_FAILED: ${missing.length} file(s) not found in commit: ${missing.join(', ')}. ` +
+          `Check .gitignore, write permissions, or whether git add succeeded.`,
+        );
+      }
+      log(c.green, `  ✓ Git verification OK: all ${files.length} file(s) confirmed in commit`);
     } catch (error: any) {
-      log(c.yellow, `  ! Commit skipped: ${error.message?.substring(0, 100)}`);
+      log(c.yellow, `  ! Commit error: ${error.message?.substring(0, 200)}`);
+      // Re-throw so executeTask() catches it and treats this attempt as failed
+      throw error;
     }
   }
 }
@@ -1763,12 +1828,65 @@ ONLY output the JSON array. No markdown, no explanation.`;
       this.stats.tasksExecuted++;
 
       // Execute with rejection feedback if retrying
-      const result = await agent.execute(task, lastReview);
+      const headBefore = (() => {
+        try { return execSync('git rev-parse HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); }
+        catch { return ''; }
+      })();
+      let result: { files: string[]; model: string };
+      try {
+        result = await agent.execute(task, lastReview);
+      } catch (execErr: any) {
+        log(c.red, `  ✗ agent.execute failed: ${execErr.message?.substring(0, 200)}`);
+        this.stats.rejected++;
+        task.status = 'rejected';
+        lastReview = {
+          verdict: 'REJECTED',
+          score: 0,
+          summary: execErr.message,
+          issues: [{ severity: 'critical', file: 'unknown', description: execErr.message }],
+          strengths: [],
+        };
+        try {
+          const headAfter = execSync('git rev-parse HEAD', { encoding: 'utf-8', timeout: 5000 }).trim();
+          if (headAfter !== headBefore) {
+            execSync('git reset --hard HEAD~1', { timeout: 10000 });
+            log(c.gray, '  Reset to previous commit (dropped failed task commit)');
+          } else {
+            log(c.gray, '  No commit was made — skipping reset');
+          }
+        } catch {
+          log(c.gray, '  Reset skipped');
+        }
+        continue;
+      }
 
       if (result.files.length === 0) {
         log(c.red, `  No files produced for ${task.id}`);
         task.status = 'rejected';
         return;
+      }
+
+      // ── TypeScript syntax gate (before supervisor — cheap, instant) ────────
+      const tsCheck = this.runTsCheck(result.files);
+      if (!tsCheck.passed) {
+        this.stats.rejected++;
+        log(c.red, `  ✗ TypeScript SYNTAX gate FAILED — auto-rejecting without supervisor`);
+        log(c.red, `\n${tsCheck.errors}\n`);
+        lastReview = {
+          verdict: 'REJECTED',
+          score: 0,
+          summary: `TypeScript syntax errors (TS1xxx) detected — auto-rejected before supervisor review`,
+          issues: [{ severity: 'critical', file: result.files[0] || 'unknown', description: tsCheck.errors }],
+          strengths: [],
+        };
+        try {
+          execSync('git reset --hard HEAD~1', { timeout: 10000 });
+          log(c.gray, '  Reset to previous commit (dropped TS-broken code)');
+        } catch (resetErr: any) {
+          log(c.yellow, `  ! Reset failed (no prior commit?): ${resetErr.message?.substring(0, 80)}`);
+          try { execSync('git restore .', { timeout: 5000 }); } catch {}
+        }
+        continue; // next attempt with feedback
       }
 
       // Dual Supervisor review (Claude + Codex in parallel)

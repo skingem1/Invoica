@@ -12,6 +12,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
+      max_restarts: 10,        // stop crash-looping after 10 failed starts
+      min_uptime: "10s",       // only counts as a stable start if it lives 10s
+      restart_delay: 3000,     // 3s between restart attempts
       env: {
         // x402 seller wallet — receives USDC from agent inference payments
         X402_SELLER_WALLET: "0x3e127c918C83714616CF2416f8A620F1340C19f1",
@@ -308,6 +311,9 @@ module.exports = {
       },
       error_file: "/home/invoica/apps/Invoica/logs/sprint-runner-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/sprint-runner-out.log",
+      max_restarts: 5,
+      min_uptime: "30s",
+      restart_delay: 5000,
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
@@ -369,6 +375,23 @@ module.exports = {
       },
       error_file: "/home/invoica/apps/Invoica/logs/docs-generator-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/docs-generator-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
+      name: "pm2-process-watchdog",
+      script: "./scripts/pm2-process-watchdog.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: false,
+      watch: false,
+      cron_restart: "*/5 * * * *",
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/watchdog-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/watchdog-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
   ]

@@ -3,36 +3,36 @@
     "version": "1.7.0",
     "date": "2026-03-06",
     "changes": [
-      "Implemented complexity-aware LLM routing with CEO cost reduction and model selection optimization",
-      "Added sustainable MiniMax pipeline with auto-skip cascades and transitive dependency resolution",
-      "Fixed heartbeat edge function health checks with increased 15s timeout for reliability",
-      "Introduced orchestrator poll-based backend readiness detection after PM2 reload",
-      "Enhanced invoices router with Prisma enum replacement using plain const objects to prevent crashes",
-      "Added agent autonomy improvements including self-healing capabilities and post-sprint smoke testing"
+      "X DM outreach agent (x-dm) with OAuth, candidate dedup, and Claude personalization",
+      "Orchestrator hardening — TypeScript syntax gate, git deliverables verification, path normalization",
+      "Live docs auto-generation system — CHANGELOG.md and API reference synced to frontend",
+      "Autonomous CMO → X-admin integration for daily social content orchestration",
+      "Multi-chain architecture sprint (Base + Polygon + Solana settlement routes)",
+      "Emergency bugfix EMERGENCY-001 and task complexity validator for pipeline stability"
     ]
   },
   {
     "version": "1.6.0",
     "date": "2026-03-01",
     "changes": [
-      "Implemented autonomous post-sprint CI/CD pipeline with automated testing and Vercel deployment",
-      "Added CMO weekly content plan generator with CEO approval gate and Sunday scheduling",
-      "Introduced agent wallet spending for x402 USDC-based LLM inference cost management",
-      "Added Mission Control dashboard for real-time agent operations visibility and orchestration",
-      "Implemented live documentation auto-generation system with data-driven changelog and API reference",
-      "Added institutional memory system for autonomous agent knowledge persistence"
+      "x402 agent wallet spending — agents autonomously pay USDC for LLM calls via EIP-3009",
+      "Batched x402 settlement queue (50 calls or 5 min flush) at 0.003 USDC per call",
+      "CMO weekly content plan generator with Sunday 06:00 UTC automation",
+      "Post-sprint autonomous test→CTO review→Vercel deploy pipeline",
+      "Mission Control ops dashboard for monitoring agent execution in real-time",
+      "Heartbeat system with Telegram alerts, 6h summaries, and dead-man's switch"
     ]
   },
   {
     "version": "1.5.0",
     "date": "2026-02-27",
     "changes": [
-      "Added real API keys management page with full CRUD operations for dashboard",
-      "Implemented x402 payment integration with 0.003 USDC per-call pricing and batched settlement queue",
-      "Added multi-chain support for Base, Polygon, and Solana blockchain networks",
-      "Fixed invoice router with v1 routes and correct route ordering for reliable endpoint access",
-      "Launched Telegram support bot integration with CEO assistant and customer support channels",
-      "Added company profile with registry verification across 12 countries during onboarding"
+      "X POST agent (x-admin) with autonomous content calendar and CEO/CTO review gates",
+      "Telegram CEO bot with real execution tools (shell, file write, GitHub issues)",
+      "Email support monitoring via CTO agent — IMAP/SMTP for support@invoica.ai",
+      "Multi-RPC on-chain balance checks and low-balance wallet alerts",
+      "API keys dashboard CRUD with secure key generation and revocation",
+      "TypeScript SDK build system and first public SDK release"
     ]
   },
   {
