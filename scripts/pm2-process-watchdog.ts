@@ -28,7 +28,7 @@ interface Pm2Process {
 
 function sendTelegram(message: string): Promise<void> {
   const botToken = process.env.CEO_TELEGRAM_BOT_TOKEN;
-  const chatId   = process.env.OWNER_TELEGRAM_CHAT_ID;
+  const chatId   = process.env.OWNER_TELEGRAM_CHAT_ID || process.env.CEO_TELEGRAM_CHAT_ID;
   if (!botToken || !chatId) {
     console.log('[watchdog] Telegram not configured -- skipping alert');
     return Promise.resolve();
@@ -57,10 +57,13 @@ async function main() {
   let pm2List: Pm2Process[];
   try {
     const raw = execSync('pm2 jlist', { encoding: 'utf-8', timeout: 10000 });
-    pm2List = JSON.parse(raw);
+    // PM2 sometimes prepends warning lines before the JSON array
+    const jsonStart = raw.indexOf('[');
+    if (jsonStart === -1) throw new Error('No JSON array found in pm2 jlist output');
+    pm2List = JSON.parse(raw.slice(jsonStart));
   } catch (e: any) {
-    console.log(`[watchdog] Could not read PM2 process list: ${e.message}`);
-    process.exit(0);
+    console.error(`[watchdog] Could not read PM2 process list: ${e.message}`);
+    process.exit(1);  // treat as watchdog failure, not success
   }
 
   const processMap = new Map(pm2List.map(p => [p.name, p]));
