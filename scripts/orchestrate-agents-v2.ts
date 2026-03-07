@@ -835,15 +835,15 @@ Respond with a structured markdown report containing:
 }
 \`\`\`
 
-6. A compact memory entry (REQUIRED — written directly to long-term company memory):
-```memory
-## Sprint Memory — ${date}
+6. A compact memory entry (REQUIRED \u2014 written directly to long-term company memory):
+\`\`\`memory
+## Sprint Memory \u2014 ${new Date().toISOString().split('T')[0]}
 - Auto rate: ${autoRate}% (${done}/${totalTasks} tasks approved)
 - Key failure: [1 sentence root cause, or "none" if all passed]
 - Lesson: [1 concrete actionable lesson for future sprints]
-```
+\`\`\`
 
-Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.\`;
+Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.`;
 
     try {
       const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
@@ -867,7 +867,7 @@ Rules: Be specific — reference task IDs, rejection counts, concrete patterns. 
       try {
         const memMatch = content.match(/## Sprint Memory[^\n]*\n([\s\S]*?)(?=\n##|$)/);
         if (memMatch) {
-          const memEntry = `\n## Sprint Memory — ${date}\n${memMatch[1].trim()}\n`;
+          const memEntry = `\n## Sprint Memory — ${new Date().toISOString().split('T')[0]}\n${memMatch[1].trim()}\n`;
           const memPaths = ['./memory/long-term-memory.md', '/home/invoica/memory/long-term-memory.md'];
           for (const mp of memPaths) {
             if (existsSync(mp)) {
