@@ -2,32 +2,32 @@
 
 All notable changes to Invoica are documented here.
 
-## [1.7.0] — 2026-03-06
+## [1.7.0] — 2026-03-07
 
-- X DM outreach agent (x-dm) with OAuth, candidate dedup, and Claude personalization
-- Orchestrator hardening — TypeScript syntax gate, git deliverables verification, path normalization
-- Live docs auto-generation system — CHANGELOG.md and API reference synced to frontend
-- Autonomous CMO → X-admin integration for daily social content orchestration
-- Multi-chain architecture sprint (Base + Polygon + Solana settlement routes)
-- Emergency bugfix EMERGENCY-001 and task complexity validator for pipeline stability
+- Completed multi-chain architecture expansion (Base, Polygon, Solana) with chain detection
+- Hardened orchestrator with TypeScript syntax gate, deliverable file verification, and path normalization
+- Enhanced agent autonomy with skill delegation and CEO-assigned task handling
+- Fixed PM2 process stability with restart limits and watchdog monitoring
+- Auto-generated live documentation system for API contract and changelog
+- Improved x402 settlement queue with batching (50 calls/5 min) and 0.003 USDC pricing
 
 ## [1.6.0] — 2026-03-01
 
-- x402 agent wallet spending — agents autonomously pay USDC for LLM calls via EIP-3009
-- Batched x402 settlement queue (50 calls or 5 min flush) at 0.003 USDC per call
-- CMO weekly content plan generator with Sunday 06:00 UTC automation
-- Post-sprint autonomous test→CTO review→Vercel deploy pipeline
-- Mission Control ops dashboard for monitoring agent execution in real-time
-- Heartbeat system with Telegram alerts, 6h summaries, and dead-man's switch
+- Launched autonomous agent framework with 37 agents across CFO, CMO, CTO, BizDev, and tax roles
+- Implemented memory protocol for long-term institutional memory across agent sprints
+- Added post-sprint pipeline automation with test→CTO review→Vercel deploy
+- Integrated Telegram bot with real execution tools (/pull, /sprint, /update commands)
+- Deployed email support monitoring (support@invoica.ai IMAP/SMTP) with auto-response
+- Added Mission Control dashboard for real-time agent operations visibility
 
 ## [1.5.0] — 2026-02-27
 
-- X POST agent (x-admin) with autonomous content calendar and CEO/CTO review gates
-- Telegram CEO bot with real execution tools (shell, file write, GitHub issues)
-- Email support monitoring via CTO agent — IMAP/SMTP for support@invoica.ai
-- Multi-RPC on-chain balance checks and low-balance wallet alerts
-- API keys dashboard CRUD with secure key generation and revocation
-- TypeScript SDK build system and first public SDK release
+- Added X/Twitter marketing automation with autonomous posting agent (@invoica_ai)
+- Implemented x402 payment system with agent wallet spending on USDC
+- Added support ticket system with Supabase backend integration
+- Deployed Telegram bots for customer support and CEO assistant commands
+- Added self-service signup and API key onboarding flow
+- Implemented system status pages for dashboard and public website
 
 ## [1.4.0] — 2026-02-20
 

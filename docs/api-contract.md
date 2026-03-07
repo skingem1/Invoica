@@ -14,6 +14,12 @@ https://invoica.wp1.host/v1
 | API Key | `X-API-Key: your-key` | Ledger endpoints |
 | x402 Payment | `X-Payment: base64(EIP-3009 proof)` | AI inference |
 
+## Admin
+
+### `GET /v1/admin/system`
+GET /v1/admin/system
+**Auth:** None
+
 ## Ai inference
 
 ### `GET /v1/ai/inference`

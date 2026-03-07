@@ -1,6 +1,15 @@
 [
   {
     "method": "GET",
+    "path": "/v1/admin/system",
+    "description": "GET /v1/admin/system",
+    "auth": "None",
+    "tags": [
+      "admin"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/v1/ai/inference",
     "description": "Get x402 payment requirements for AI inference",
     "auth": "None",
