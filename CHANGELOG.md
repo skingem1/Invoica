@@ -2,31 +2,32 @@
 
 All notable changes to Invoica are documented here.
 
-## [1.7.0] — 2026-03-07
+## [1.7.0] — 2026-03-06
 
-- Hardened agent orchestration with TypeScript syntax gate before supervisor review
-- Implemented multi-chain architecture supporting Base, Polygon, and Solana with unified settlement
-- Added complexity-aware LLM routing to reduce CEO token spend by 40% while maintaining quality
-- Enhanced orchestrator with deliverable file verification in git and path normalization
-- Fixed agent memory protocol to prevent hallucination and ensure consistent {tasks:[]} format across all pipelines
-- Added PM2 process watchdog with restart limits and Telegram alerts for system stability
+- Completed multi-chain architecture support: Base, Polygon, and Solana payment settlement
+- Added TypeScript syntax gate in orchestrator with deliverable file verification in git
+- Implemented X DM outreach automation with Claude-personalized message generation
+- Added admin dashboard with clean seed data and improved invoice management
+- Fixed invoices router with proper v1 route ordering and GET /invoices/number/:number lookup
+- Hardened PM2 process watchdog with restart limits and JSON parse guards
 
 ## [1.6.0] — 2026-03-01
 
-- Launched post-sprint automation pipeline: test → CTO review → Vercel deploy with no manual intervention
-- Added autonomous CMO weekly content plan generator with Sunday scheduling and CEO approval gates
-- Implemented agent wallet spending on USDC for LLM calls with configurable settlement batching
-- Added git-autodeploy system — server self-deploys from GitHub every 5 minutes with crash recovery
-- Implemented live docs auto-generation system with weekly changelog and API reference updates
-- Added Telegram bot with real execution tools: /run shell commands, /write files, create GitHub issues
+- Deployed autonomous post-sprint CI/CD pipeline: test → CTO review → Vercel deploy
+- Added CMO weekly content plan generator with CEO→X-admin approval workflow
+- Launched Mission Control agent ops visibility dashboard with live PM2 process monitoring
+- Implemented memory protocol across all 37 agents for institutional knowledge persistence
+- Added git-autodeploy system with self-healing cron checks every 5 minutes
+- Integrated Telegram bot with live wallet balance alerts and sprint command execution
 
 ## [1.5.0] — 2026-02-27
 
-- Added agent memory protocol — all 37 agents now write back to long-term memory after every sprint
-- Implemented x402 payment settlement with USDC pricing (0.003 USDC per call) and batched queue processing
-- Added autonomous X posting agent (@invoica_ai) with CEO/CTO review gates and content calendar
-- Implemented Mission Control integration for real-time agent operations visibility
-- Added Telegram support bot with /report, /pm2, /health, /sprint commands for ops monitoring
+- Added Telegram bot integration with CEO assistant and customer support capabilities
+- Implemented x402 payment protocol with agent wallet spending for LLM calls
+- Added email support monitoring via IMAP/SMTP for support@invoica.ai
+- Launched public beta with new onboarding flow: company profile → pricing → API key
+- Added company registry verification across 12 countries during signup
+- Implemented Stripe billing integration with usage analytics dashboard
 
 ## [1.4.0] — 2026-02-20
 
