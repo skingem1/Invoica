@@ -1,0 +1,59 @@
+{
+  "tasks": [
+    {
+      "id": "ACQ-001",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add UTM tracking to all invoica.ai CTA buttons",
+      "context": "Add UTM parameters to every CTA on invoica.ai so we can track which acquisition channel drives signups. The CTAs link to the signup page. Append ?utm_source=SOURCE&utm_medium=MEDIUM&utm_campaign=CAMPAIGN to each link. Sources to track: hn (Hacker News), reddit, twitter, direct. File to edit: website/components/Hero.tsx — add utm_source=hn to the primary CTA link. Also check website/components/Pricing.tsx and website/components/Footer.tsx if they exist, add utm params there too. This is a 10-minute task. One file only, small change.",
+      "deliverables": {"code": ["website/components/Hero.tsx"], "tests": [], "docs": []},
+      "status": "pending"
+    },
+    {
+      "id": "ACQ-002",
+      "agent": "cmo",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Draft Paygentic competitive teardown report",
+      "context": "Research and document a competitive analysis of Paygentic vs Invoica. Paygentic is flagged as our closest product-level competitor with LLM billing tooling overlap. Write a structured report covering: (1) What Paygentic does — their product, features, pricing, positioning; (2) What they're missing vs Invoica — x402 protocol, on-chain settlement, agent-native design; (3) Our differentiation — autonomous invoicing, 14 live settlements, Base network, free beta; (4) Recommended counter-positioning for invoica.ai messaging; (5) Accounts to target on X/Twitter for competitive intelligence. Save to reports/cmo/competitive-analysis-paygentic.md. Max 400 words.",
+      "deliverables": {"code": [], "tests": [], "docs": ["reports/cmo/competitive-analysis-paygentic.md"]},
+      "status": "pending"
+    },
+    {
+      "id": "BRAND-002",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Update Hero subtext and CTA copy to match brand guidelines v2",
+      "context": "Update website/components/Hero.tsx to match approved brand guidelines v2.0. Current state: h1 is already correct ('The Financial OS for AI Agents'). Changes needed: (1) Update the subtext/description paragraph to: 'Your agents can now pay, invoice, and settle autonomously. Built on x402 — the open protocol for agent payments.' (2) Update the primary CTA button text to: 'Claim Free Beta Access' (3) Add a trust line below the CTA: 'Built on the x402 protocol • 14 real settlements live on Base' as small muted text. Do NOT change any layout, colors, or structure — only text content. File: website/components/Hero.tsx only.",
+      "deliverables": {"code": ["website/components/Hero.tsx"], "tests": [], "docs": []},
+      "status": "pending"
+    },
+    {
+      "id": "DOCS-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Create agent quickstart guide for docs",
+      "context": "Create docs/agent-quickstart.md — a concise (max 120 lines) quickstart guide for AI agent developers integrating Invoica. Structure: (1) What Invoica does in 2 sentences; (2) Prerequisites — x402 wallet, Invoica API key (free at invoica.ai); (3) Install — npm install @invoica/sdk; (4) Create your first invoice — 10-line code snippet using the SDK; (5) On-chain settlement — how it works in 3 sentences; (6) Supported chains — Base (live), Polygon (coming); (7) Support — link to invoica.ai/docs. Use TypeScript code snippets. Keep it scannable — developers should be able to integrate in under 10 minutes.",
+      "deliverables": {"code": [], "tests": [], "docs": ["docs/agent-quickstart.md"]},
+      "status": "pending"
+    },
+    {
+      "id": "HEALTH-001",
+      "agent": "devops",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Add valid agent names list to CEO review system prompt",
+      "context": "The CEO auto-generates sprint tasks with wrong agent names like 'backend' and 'agents' causing immediate task rejection. Fix by updating agents/ceo/prompt.md to include the exact valid agent name list. Find the section in agents/ceo/prompt.md that describes agents or sprint generation. Add a section called 'VALID AGENT NAMES FOR SPRINT TASKS' with this exact list: backend-core (backend API, routes, services, Prisma models), backend-ledger (payment ledger, settlements, blockchain), backend-tax (tax engine, VAT/GST, compliance), frontend (Next.js dashboard, UI components, pages), frontend-routing (Next.js routes, navigation, middleware), frontend-styling (CSS, Tailwind, design tokens), devops (PM2 config, scripts, CI/CD, ecosystem.config.js), security (auth, API keys, rate limiting). Add: 'NEVER use agent names: backend, frontend-core, agents, coding, developer — these do not exist'. File: agents/ceo/prompt.md only.",
+      "deliverables": {"code": ["agents/ceo/prompt.md"], "tests": [], "docs": []},
+      "status": "pending"
+    }
+  ]
+}

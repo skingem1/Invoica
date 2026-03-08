@@ -1,0 +1,43 @@
+{
+  "tasks": [
+    {
+      "id": "MCP-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "urgent",
+      "dependencies": [],
+      "description": "Create Invoica MCP Server \u2014 tools for create_invoice, list_invoices, check_settlement",
+      "context": "Create a Model Context Protocol (MCP) server at backend/src/mcp/invoica-mcp-server.ts that exposes Invoica as an MCP tool provider.\n\nMCP servers let Claude, Cursor, Windsurf, and other AI assistants call Invoica directly. This is viral developer distribution.\n\nWHAT TO BUILD:\nA standalone MCP server (runs as a separate process) using the @modelcontextprotocol/sdk package.\n\nFILE: backend/src/mcp/invoica-mcp-server.ts (max 200 lines)\n\nTOOLS TO EXPOSE:\n1. create_invoice \u2014 creates an invoice via Invoica API\n   Input: { amount: number, currency: string, customerEmail: string, customerName: string, apiKey: string }\n   Output: { invoiceId, paymentUrl, amount, status }\n\n2. list_invoices \u2014 lists recent invoices for an API key\n   Input: { apiKey: string, limit?: number }\n   Output: array of invoice summaries\n\n3. check_settlement \u2014 checks if an invoice has been settled on-chain\n   Input: { invoiceId: string, apiKey: string }\n   Output: { settled: boolean, txHash?, chain?, amount? }\n\nIMPLEMENTATION PATTERN:\n- Use @modelcontextprotocol/sdk Server class with StdioServerTransport\n- Each tool calls the Invoica REST API at process.env.INVOICA_API_URL (default: https://api.invoica.ai)\n- Use native fetch for HTTP calls (no extra dependencies)\n- Handle errors gracefully \u2014 return error message as tool result, not throw\n\nPACKAGE ADDITIONS needed in package.json:\n- @modelcontextprotocol/sdk: ^1.0.0\n\nAlso create backend/src/mcp/README.md (max 30 lines) with:\n- One-line install instruction: npx -y @invoica/mcp\n- Claude Desktop config JSON snippet (mcpServers block)\n- Cursor config snippet\n- The 3 available tools listed briefly",
+      "deliverables": {
+        "code": [
+          "backend/src/mcp/invoica-mcp-server.ts",
+          "backend/src/mcp/README.md"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "MCP-002",
+      "agent": "devops",
+      "type": "feature",
+      "priority": "urgent",
+      "dependencies": [
+        "MCP-001"
+      ],
+      "description": "Add MCP server to ecosystem.config.js and package.json bin entry",
+      "context": "After MCP-001 creates the MCP server file, wire it up for distribution.\n\n1. Add to ecosystem.config.js a new PM2 entry for local dev testing:\n{\n  name: invoica-mcp,\n  script: ./backend/src/mcp/invoica-mcp-server.ts,\n  interpreter: node,\n  interpreter_args: -r ts-node/register,\n  cwd: /home/invoica/apps/Invoica,\n  autorestart: false,\n  env: { TS_NODE_TRANSPILE_ONLY: true, INVOICA_API_URL: https://api.invoica.ai }\n}\n\n2. In package.json, add to bin:\n{ invoica-mcp: ./backend/src/mcp/invoica-mcp-server.ts }\n\nThis enables: npx invoica-mcp as the install command for users.",
+      "deliverables": {
+        "code": [
+          "ecosystem.config.js",
+          "package.json"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending",
+      "skippedReason": "Blocked by: MCP-001"
+    }
+  ]
+}
