@@ -97,7 +97,7 @@ export default function Pricing() {
         {/* Single CTA */}
         <div className="text-center mt-16">
           <a
-            href="https://app.invoica.ai/api-keys"
+            href="https://app.invoica.ai/api-keys?utm_source=website&utm_medium=pricing&utm_campaign=beta2026"
             className="inline-flex items-center px-10 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
           >
             Get API Keys — Free Beta

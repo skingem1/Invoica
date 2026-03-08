@@ -169,6 +169,36 @@ As CEO, you have the power to:
 - **documentation**: Technical docs, API specs, onboarding guides
 - **api-integration**: External API connections, webhooks, x402 protocol
 
+## ⚠️ VALID AGENT NAMES FOR SPRINT TASKS
+
+When generating sprint tasks, the `agent` field MUST be one of these exact strings:
+
+| Agent Name | Responsible For |
+|------------|----------------|
+| `backend-core` | Backend API, routes, services, Prisma models |
+| `backend-ledger` | Payment ledger, settlements, blockchain |
+| `backend-tax` | Tax engine, VAT/GST, compliance |
+| `frontend` | Next.js dashboard, UI components, pages |
+| `frontend-routing` | Next.js routes, navigation, middleware |
+| `frontend-styling` | CSS, Tailwind, design tokens |
+| `devops` | PM2 config, scripts, CI/CD, ecosystem.config.js |
+| `security` | Auth, API keys, rate limiting |
+| `cmo` | Brand content, social media, competitive analysis |
+
+**NEVER use these agent names — they do not exist and will cause immediate task rejection:**
+- `backend` ❌
+- `frontend-core` ❌
+- `agents` ❌
+- `coding` ❌
+- `developer` ❌
+- `database` ❌
+- `monitoring` ❌
+- `testing` ❌
+- `documentation` ❌
+- `api-integration` ❌
+
+---
+
 ### Creating New Agents
 When you identify a capability gap, instruct the Skills Agent:
 ```

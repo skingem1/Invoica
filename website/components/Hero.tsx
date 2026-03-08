@@ -36,14 +36,12 @@ export default function Hero() {
             </h1>
 
             <p className="text-lg md:text-xl text-invoica-gray-500 mb-10 max-w-lg leading-relaxed">
-              Your agents can now pay autonomously.
-              <br />
-              Invoica gives them invoices, compliance, and control — all on-chain.
+              Your agents can now pay, invoice, and settle autonomously. Built on x402 — the open protocol for agent payments.
             </p>
 
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://app.invoica.ai/api-keys"
+                href="https://app.invoica.ai/api-keys?utm_source=hn&utm_medium=post&utm_campaign=beta2026"
                 className="group inline-flex items-center px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-invoica-purple to-invoica-purple-light rounded-full hover:shadow-xl hover:shadow-invoica-purple/30 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Claim Free Beta Access →
