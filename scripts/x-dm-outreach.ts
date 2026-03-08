@@ -320,16 +320,14 @@ interface SendDMResult {
 }
 
 async function sendDM(userId: string, message: string, creds: XCredentials): Promise<SendDMResult> {
-  const url = 'https://api.twitter.com/2/dm_conversations';
-  const payload = {
-    participant_ids: [userId],
-    message: { text: message },
-  };
+  // Use the 1-1 DM endpoint — POST /2/dm_conversations/with/:participant_id/messages
+  // NOT /2/dm_conversations which is the Group DM endpoint and requires conversation_type + 2+ participants
+  const url = `https://api.twitter.com/2/dm_conversations/with/${userId}/messages`;
+  const payload = { text: message };
   const body = JSON.stringify(payload);
   const authHeader = buildOAuthHeader('POST', url, creds);
 
   return new Promise((resolve, reject) => {
-    // Use parsedUrl for the URL object to avoid shadowing the response body variable
     const parsedUrl = new URL(url);
     const req = https.request({
       hostname: parsedUrl.hostname,
@@ -353,7 +351,8 @@ async function sendDM(userId: string, message: string, creds: XCredentials): Pro
         if (res.statusCode === 201) {
           resolve({
             success: true,
-            dmConversationId: parsed?.data?.dm_conversation_id,
+            // 1-1 endpoint returns dm_conversation_id + dm_event_id
+            dmConversationId: parsed?.data?.dm_conversation_id ?? parsed?.data?.dm_event_id,
           });
         } else if (res.statusCode === 403) {
           resolve({
