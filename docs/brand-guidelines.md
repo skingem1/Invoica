@@ -1,56 +1,66 @@
-## Brand Review Complete
+# Invoica Brand Guidelines v2.0
+*Updated 2026-03-08 — founder-approved*
 
-I have completed a comprehensive brand review for Invoica. This analysis draws on competitive research into leading fintech and developer tool brands (Stripe, Linear, Vercel, Coinbase), the x402 protocol ecosystem, and developer trust principles.
+## Identity
 
-### Key Deliverables
+| | |
+|---|---|
+| **Company & Product** | Invoica |
+| **Tagline** | The Financial OS for AI Agents |
+| **Twitter** | @invoica_ai |
+| **Positioning** | Stripe for AI Agents — invoice middleware on the x402 protocol |
 
-**1. Invoica Brand Guidelines v1.0** — The complete brand identity system including:
-- Brand strategy and positioning ("The Stripe for AI Agents")
-- Visual identity (color palette, typography, logo system)
-- Brand voice and messaging framework
-- Competitive analysis and differentiation strategy
-- Design system principles (speed, discoverability, consistency, resilience)
-- Strategic recommendations with timeline
+## Color Palette
 
-**2. Executive Summary** — A concise overview for CEO decision-making with immediate, short-term, and long-term action items.
+| Name | Hex | Usage |
+|---|---|---|
+| Invoica Blue | #0A2540 | Primary text, trust |
+| Agentic Purple | #635BFF | CTAs, highlights, gradients |
+| Hero Dark | #0F172A | Hero background (dark theme) |
+| Hero Navy | #1E3A8A | Hero gradient end |
+| Teal Accent | #14B8A6 | Live indicators, orbital rings |
+| Warm Gold | #F59E0B | Premium accents |
 
-### Company & Product Identity
+## Typography
 
-| Level | Name | Purpose |
-|-------|------|---------|
-| **Company & Product** | **Invoica** (@invoica_ai) | Financial OS for autonomous AI agents |
-| **Product** | **Invoica** | Financial OS for AI agents (first product) |
+- **Headings:** Inter Semibold / Bold
+- **Body:** Inter Regular / Medium
+- **Code:** JetBrains Mono
 
-*(Company name confirmed: Invoica is both the company and the product.)*
+## Hero Section (approved — Option A)
 
-### Core Brand Identity
 
-**Color Palette:**
-- **Invoica Blue** (#0A2540) — Trust and stability (borrowed from Stripe)
-- **Agentic Purple** (#635BFF) — Innovation and action (borrowed from Stripe)
-- **10-shade neutral system** — For backgrounds, text, borders (inspired by Vercel's Geist)
 
-**Typography:**
-- Headings: Inter (Semibold, Bold)
-- Body: Inter (Regular, Medium)
-- Code: JetBrains Mono
+Background: dark navy gradient 
+Text: white / slate-300
+Live dot: green pulsing before 14 real settlements
 
-**Brand Positioning:**
-We are the financial operating system for the agentic economy, building on top of the x402 protocol to provide invoicing, accounting, reconciliation, and compliance for AI agents.
+## Hero Visual Direction (Launchpad Portal)
 
-### Strategic Differentiation
+- Center: K logo as open gateway with 3 concentric orbital rings
+- Rings: slow pulsing/rotating animation — represent recursive memory layers
+- Tiny teal particles orbiting rings — represent autonomous agents
+- Subtle Tunisian geometric motif faded into innermost ring (visible on hover)
+- Palette: deep indigo + vibrant teal + warm gold
 
-We are the only brand that combines:
-1. **Fintech trust** (Stripe's deep blue, professional tone)
-2. **Developer-tool minimalism** (Linear's dark-mode native, generous whitespace)
-3. **Systematic design** (Vercel's semantic color scales)
-4. **Agentic economy focus** (x402 ecosystem positioning)
+## Homepage Structure (approved v2)
 
-### Next Steps Awaiting CEO Approval
+1. Hero — Option A + portal logo animation
+2. Problem — keep current copy
+3. How Invoica Works — 3-step visual flow
+   - Step 1: Agent makes x402 call → Invoica auto-generates invoice
+   - Step 2: On-chain settlement detected in real time
+   - Step 3: Compliance & ledger ready for accounting
+4. Features — current list + small screenshots
+5. Developer Experience — code example (keep as-is)
+6. Enterprise — keep current version
+7. By the Numbers — add Live on Base badge next to 14 settlements
+8. Beta CTA — larger, repeat portal logo
+9. Footer — GitHub, Telegram, Docs, Built by 26 AI agents under one founder
 
-1. Finalize logo design (commission professional designer)
-2. Redesign invoica.ai with new brand identity
-3. Update developer documentation
-4. Launch updated social media presence
+## Voice & Tone
 
-Please review the attached brand guidelines and executive summary and provide your approval or requested modifications.
+- Concise, technical, founder-authentic
+- Never marketing-speak
+- Protocol for AI alone — always add the x402/autonomous context
+- No generic fintech imagery — the portal logo IS the visual identity
