@@ -13,7 +13,7 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ||
-      "https://igspopoejhsxvwvxyhbh.supabase.co/functions/v1/api",
+      "https://api.invoica.ai",
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ||
       "https://igspopoejhsxvwvxyhbh.supabase.co",
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || "",
