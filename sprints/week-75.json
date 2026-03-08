@@ -72,6 +72,26 @@
       "status": "pending"
     },
     {
+      "id": "NPM-001",
+      "agent": "devops",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "npm publish pipeline for @invoica/mcp — GitHub Actions + mcp-package scaffold",
+      "context": "NPM_TOKEN is already set as a GitHub Actions secret. The @invoica npm org exists. We need to wire up the publish pipeline so `npx @invoica/mcp` works after the first tag push.\n\nThe root package.json is private — we cannot publish from it. Solution: create a standalone mcp-package/ directory that IS the npm package, compiled from the TypeScript source.\n\nCREATE THESE 4 FILES:\n\n1. tsconfig.mcp.json (root level) — narrow compile config for just the MCP server:\n{\n  \"extends\": \"./tsconfig.json\",\n  \"compilerOptions\": {\n    \"outDir\": \"./dist/mcp\",\n    \"rootDir\": \"./backend/src/mcp\",\n    \"declaration\": false,\n    \"declarationMap\": false,\n    \"sourceMap\": false\n  },\n  \"include\": [\"backend/src/mcp/**/*\"],\n  \"exclude\": [\"node_modules\", \"dist\"]\n}\n\n2. mcp-package/package.json — the publishable npm package:\n{\n  \"name\": \"@invoica/mcp\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Invoica MCP Server — create invoices, list payments, and check on-chain settlements from Claude, Cursor & Windsurf\",\n  \"bin\": { \"invoica-mcp\": \"./index.js\" },\n  \"files\": [\"index.js\", \"README.md\"],\n  \"engines\": { \"node\": \">=18.0.0\" },\n  \"dependencies\": { \"@modelcontextprotocol/sdk\": \"^1.0.0\" },\n  \"keywords\": [\"mcp\", \"invoica\", \"x402\", \"ai-agents\", \"payments\", \"invoicing\"],\n  \"license\": \"MIT\"\n}\n\n3. mcp-package/README.md — npm README (copy the content from backend/src/mcp/README.md exactly — read that file and reproduce it here).\n\n4. .github/workflows/publish-mcp.yml — GitHub Actions publish workflow:\n\nname: Publish @invoica/mcp\n\non:\n  push:\n    tags:\n      - 'npm-v*'\n\njobs:\n  publish:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '22'\n          registry-url: 'https://registry.npmjs.org'\n      - name: Install dependencies\n        run: npm ci\n      - name: Compile MCP server\n        run: npx tsc -p tsconfig.mcp.json\n      - name: Build mcp-package/index.js (add shebang + compiled output)\n        run: |\n          printf '#!/usr/bin/env node\\n' > mcp-package/index.js\n          cat dist/mcp/invoica-mcp-server.js >> mcp-package/index.js\n          chmod +x mcp-package/index.js\n      - name: Publish to npm\n        working-directory: mcp-package\n        run: npm publish --access public\n        env:\n          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}\n\nThat is everything. Max 25 lines per file. After this ships, the publish command is:\n  git tag npm-v1.0.0 && git push origin npm-v1.0.0\n\nDo NOT create mcp-package/index.js — the workflow generates it at publish time from the compiled TypeScript. Only create the 4 files listed above.",
+      "deliverables": {
+        "code": [
+          "tsconfig.mcp.json",
+          "mcp-package/package.json",
+          "mcp-package/README.md",
+          ".github/workflows/publish-mcp.yml"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
       "id": "ACQ-003",
       "agent": "cmo",
       "type": "feature",
