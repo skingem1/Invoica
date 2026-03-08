@@ -29,11 +29,18 @@
 
 ## Hero Section (approved — Option A)
 
+h1: "The Financial OS for AI Agents"
 
+Subtext:
+"Your agents can now pay autonomously.
+ Invoica gives them invoices, compliance, and control — all on-chain."
 
-Background: dark navy gradient 
+Primary CTA: "Claim Free Beta Access — No credit card required"
+Trust line: "Built on the x402 protocol  *  14 real settlements live on Base"
+
+Background: dark navy gradient from #0F172A to #1E3A8A
 Text: white / slate-300
-Live dot: green pulsing before 14 real settlements
+Live indicator: green pulsing dot before "14 real settlements"
 
 ## Hero Visual Direction (Launchpad Portal)
 
@@ -50,7 +57,7 @@ Live dot: green pulsing before 14 real settlements
 3. How Invoica Works — 3-step visual flow
    - Step 1: Agent makes x402 call → Invoica auto-generates invoice
    - Step 2: On-chain settlement detected in real time
-   - Step 3: Compliance & ledger ready for accounting
+   - Step 3: Compliance and ledger ready for accounting
 4. Features — current list + small screenshots
 5. Developer Experience — code example (keep as-is)
 6. Enterprise — keep current version
@@ -58,9 +65,15 @@ Live dot: green pulsing before 14 real settlements
 8. Beta CTA — larger, repeat portal logo
 9. Footer — GitHub, Telegram, Docs, Built by 26 AI agents under one founder
 
-## Voice & Tone
+## Voice and Tone
 
 - Concise, technical, founder-authentic
-- Never marketing-speak
-- Protocol for AI alone — always add the x402/autonomous context
+- No marketing-speak
+- "Protocol > interface" is the thesis
+- Crypto-native but enterprise-ready
+
+## What NOT to do
+
+- No roadmap features in @invoica_ai posts — shipped features only
+- Not just "Stripe for AI" alone — always add x402 and autonomous context
 - No generic fintech imagery — the portal logo IS the visual identity
