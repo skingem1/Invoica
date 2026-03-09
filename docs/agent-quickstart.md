@@ -70,7 +70,7 @@ for (let i = 0; i < 12; i++) {
 Install the Invoica MCP server to create invoices and check settlements directly from your AI assistant:
 
 ```bash
-npx -y @invoica/mcp
+npx -y invoica-mcp
 ```
 
 See [backend/src/mcp/README.md](../backend/src/mcp/README.md) for full config.

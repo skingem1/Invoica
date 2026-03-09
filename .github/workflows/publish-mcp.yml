@@ -1,4 +1,4 @@
-name: Publish @invoica/mcp
+name: Publish invoica-mcp
 
 on:
   push:
@@ -36,6 +36,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
         working-directory: mcp-package
-        run: npm publish --access public 2>&1
+        run: npm publish 2>&1
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

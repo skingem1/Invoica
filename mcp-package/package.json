@@ -1,5 +1,5 @@
 {
-  "name": "@invoica/mcp",
+  "name": "invoica-mcp",
   "version": "1.0.0",
   "description": "Invoica MCP Server — create invoices, list payments, and check on-chain settlements from Claude, Cursor & Windsurf",
   "bin": { "invoica-mcp": "./index.js" },

@@ -3,7 +3,7 @@
  * Exposes Invoica as a Model Context Protocol tool provider.
  * Compatible with Claude Desktop, Cursor, Windsurf, and any MCP client.
  *
- * Usage: npx -y @invoica/mcp
+ * Usage: npx -y invoica-mcp
  * Env:   INVOICA_API_URL (default: https://api.invoica.ai)
  */
 

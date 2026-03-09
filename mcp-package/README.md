@@ -5,7 +5,7 @@ Let Claude, Cursor, Windsurf, and any MCP client create invoices and check settl
 ## Install (one command)
 
 ```bash
-npx -y @invoica/mcp
+npx -y invoica-mcp
 ```
 
 ## Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`)
