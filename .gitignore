@@ -8,6 +8,13 @@ coverage/
 .turbo/
 .env.local
 
+# Local-only sensitive files — never commit
+.DS_Store
+*.rtf
+npm_recovery_codes.txt
+SkinMemory/
+mcp-package/index.js
+
 # Conway governance temp files
 .circuit-breaker.json
 x402-evm/node_modules/

@@ -4,7 +4,7 @@
 
 ## Base URL
 ```
-https://invoica.wp1.host/v1
+https://api.invoica.ai/v1
 ```
 
 ## Authentication

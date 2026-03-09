@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { randomBytes } from 'crypto';
+import { supabase } from '../lib/supabase';
 
 /**
  * API Key Service
@@ -241,6 +242,26 @@ export const createApiKey = async (input: CreateApiKeyInput): Promise<ApiKeyResp
     lastUsedAt: null,
   });
   
+  // Persist to Supabase for cross-restart durability and ledger/auth access
+  supabase.from('ApiKey').insert({
+    id: createdKey.id,
+    customerId: createdKey.customerId,
+    customerEmail: createdKey.customerEmail,
+    keyHash: createdKey.keyHash,
+    keyPrefix: createdKey.keyPrefix,
+    name: createdKey.name,
+    tier: createdKey.tier,
+    plan: createdKey.plan,
+    permissions: JSON.stringify(createdKey.permissions),
+    isActive: true,
+    expiresAt: createdKey.expiresAt ? createdKey.expiresAt.toISOString() : null,
+    lastUsedAt: null,
+    createdAt: createdKey.createdAt.toISOString(),
+    updatedAt: createdKey.updatedAt.toISOString(),
+  }).then(({ error }) => {
+    if (error) console.error('[api-keys] Supabase persist failed:', error.message);
+  });
+
   // Return with the unhashed key (only time it's available)
   return {
     ...createdKey,
@@ -304,7 +325,10 @@ export const updateApiKey = async (
  * Invalidate (deactivate) an API key
  */
 export const invalidateApiKey = async (id: string): Promise<ApiKey> => {
-  return apiKeyRepository.update(id, { isActive: false });
+  const updated = await apiKeyRepository.update(id, { isActive: false });
+  supabase.from('ApiKey').update({ isActive: false, updatedAt: new Date().toISOString() }).eq('id', id)
+    .then(({ error }) => { if (error) console.error('[api-keys] Supabase invalidate failed:', error.message); });
+  return updated;
 };
 
 /**
@@ -328,15 +352,37 @@ export const rotateApiKey = async (id: string): Promise<ApiKeyResponse> => {
   const keyHash = await hashApiKey(newApiKey);
   const keyPrefix = getKeyPrefix(newApiKey);
   
-  // Update in database
+  // Update in memory
   await apiKeyRepository.update(id, {
     keyHash,
     keyPrefix,
     lastUsedAt: null,
   });
-  
+
+  const newKeyRecord = (await apiKeyRepository.findById(id))!;
+
+  // Sync rotation to Supabase
+  supabase.from('ApiKey').update({ isActive: false, updatedAt: new Date().toISOString() }).eq('id', id)
+    .then(({ error }) => { if (error) console.error('[api-keys] Supabase rotate-deactivate failed:', error.message); });
+  supabase.from('ApiKey').insert({
+    id: newKeyRecord.id,
+    customerId: newKeyRecord.customerId,
+    customerEmail: newKeyRecord.customerEmail,
+    keyHash: newKeyRecord.keyHash,
+    keyPrefix: newKeyRecord.keyPrefix,
+    name: newKeyRecord.name,
+    tier: newKeyRecord.tier,
+    plan: newKeyRecord.plan,
+    permissions: JSON.stringify(newKeyRecord.permissions),
+    isActive: true,
+    expiresAt: null,
+    lastUsedAt: null,
+    createdAt: newKeyRecord.createdAt.toISOString(),
+    updatedAt: newKeyRecord.updatedAt.toISOString(),
+  }).then(({ error }) => { if (error) console.error('[api-keys] Supabase rotate-insert failed:', error.message); });
+
   return {
-    ...(await apiKeyRepository.findById(id))!,
+    ...newKeyRecord,
     key: newApiKey,
   };
 };

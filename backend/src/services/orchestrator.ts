@@ -17,37 +17,21 @@ interface AgentRejectionState {
   pausedUntil?: Date;
 }
 
-interface TaskState {
+interface QualityCheckResult {
   taskId: string;
-  parentTaskId?: string;
-  rejectionCount: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'split';
-  agentId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  originalScope?: string;
-  subtasks?: string[];
-}
-
-interface SubtaskDefinition {
-  taskId: string;
-  parentTaskId: string;
-  scope: string;
-  priority: number;
+  passed: boolean;
+  reason?: string;
 }
 
 /**
  * Orchestrates task execution and manages agent health monitoring
  * Prevents cascade failures by pausing agents with consecutive rejections
- * Automatically splits tasks after quality gate rejection threshold
  */
 export class Orchestrator extends EventEmitter {
   private readonly logger = Logger.getInstance();
   private readonly redis: RedisService;
   private readonly rejectionStates = new Map<string, AgentRejectionState>();
-  private readonly taskStates = new Map<string, TaskState>();
   private readonly REJECTION_THRESHOLD = 2;
-  private readonly TASK_REJECTION_THRESHOLD = 5;
   private readonly PAUSE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
   constructor(redisService: RedisService) {
@@ -58,7 +42,6 @@ export class Orchestrator extends EventEmitter {
   /**
    * Processes task result and checks for rejection patterns
    * Emits warnings and pauses agents that exceed failure threshold
-   * Handles task-level rejection counting and automatic splitting
    */
   async processTaskResult(result: TaskResult): Promise<void> {
     try {
@@ -68,15 +51,10 @@ export class Orchestrator extends EventEmitter {
         status: result.status
       });
 
-      // Update task state
-      await this.updateTaskState(result);
-
       if (result.status === 'rejected') {
         await this.handleRejection(result);
-        await this.handleTaskRejection(result);
       } else if (result.status === 'completed') {
         await this.handleSuccess(result.agentId);
-        await this.handleTaskAcceptance(result.taskId);
       }
 
       // Emit result for other services to consume
@@ -91,161 +69,106 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Updates task state with result information
+   * Validates task quality without causing cascade rejections
+   * Marks only the specific failing task as rejected, not subsequent tasks
    */
-  private async updateTaskState(result: TaskResult): Promise<void> {
-    const taskState = this.taskStates.get(result.taskId) || {
-      taskId: result.taskId,
-      rejectionCount: 0,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+  async validateTaskQuality(tasks: Array<{ taskId: string; agentId: string; content: any }>): Promise<QualityCheckResult[]> {
+    const results: QualityCheckResult[] = [];
 
-    taskState.agentId = result.agentId;
-    taskState.status = result.status;
-    taskState.updatedAt = result.timestamp;
+    for (const task of tasks) {
+      try {
+        const qualityResult = await this.performQualityCheck(task);
+        results.push(qualityResult);
 
-    this.taskStates.set(result.taskId, taskState);
+        if (!qualityResult.passed) {
+          // Mark only this specific task as rejected
+          await this.processTaskResult({
+            agentId: task.agentId,
+            taskId: task.taskId,
+            status: 'rejected',
+            timestamp: new Date(),
+            error: qualityResult.reason
+          });
 
-    // Persist to Redis for durability
-    await this.redis.setJson(`task:state:${result.taskId}`, taskState);
-  }
+          this.logger.warn('Task failed quality check', {
+            taskId: task.taskId,
+            agentId: task.agentId,
+            reason: qualityResult.reason
+          });
+        }
+      } catch (error) {
+        this.logger.error('Quality check failed', {
+          taskId: task.taskId,
+          agentId: task.agentId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
 
-  /**
-   * Handles task-level rejection counting and automatic splitting
-   */
-  private async handleTaskRejection(result: TaskResult): Promise<void> {
-    const taskState = this.taskStates.get(result.taskId);
-    if (!taskState) {
-      this.logger.error('Task state not found for rejection handling', {
-        taskId: result.taskId
-      });
-      return;
-    }
+        results.push({
+          taskId: task.taskId,
+          passed: false,
+          reason: 'Quality check system error'
+        });
 
-    taskState.rejectionCount += 1;
-    taskState.updatedAt = result.timestamp;
-
-    this.logger.warn('Task rejection detected', {
-      taskId: result.taskId,
-      rejectionCount: taskState.rejectionCount,
-      threshold: this.TASK_REJECTION_THRESHOLD
-    });
-
-    if (taskState.rejectionCount >= this.TASK_REJECTION_THRESHOLD) {
-      await this.splitTask(taskState);
-    }
-
-    this.taskStates.set(result.taskId, taskState);
-    await this.redis.setJson(`task:state:${result.taskId}`, taskState);
-  }
-
-  /**
-   * Resets task rejection counter on acceptance
-   */
-  private async handleTaskAcceptance(taskId: string): Promise<void> {
-    const taskState = this.taskStates.get(taskId);
-    if (!taskState) {
-      return;
-    }
-
-    if (taskState.rejectionCount > 0) {
-      this.logger.info('Resetting task rejection counter on acceptance', {
-        taskId,
-        previousRejectionCount: taskState.rejectionCount
-      });
-
-      taskState.rejectionCount = 0;
-      taskState.updatedAt = new Date();
-
-      this.taskStates.set(taskId, taskState);
-      await this.redis.setJson(`task:state:${taskId}`, taskState);
-    }
-  }
-
-  /**
-   * Automatically splits a task into 2-3 smaller subtasks after rejection threshold
-   */
-  private async splitTask(taskState: TaskState): Promise<void> {
-    this.logger.info('Splitting task due to consecutive rejections', {
-      taskId: taskState.taskId,
-      rejectionCount: taskState.rejectionCount
-    });
-
-    const subtasks = await this.generateSubtasks(taskState);
-    
-    // Update original task status
-    taskState.status = 'split';
-    taskState.subtasks = subtasks.map(st => st.taskId);
-    taskState.updatedAt = new Date();
-
-    // Create subtask states
-    for (const subtask of subtasks) {
-      const subtaskState: TaskState = {
-        taskId: subtask.taskId,
-        parentTaskId: taskState.taskId,
-        rejectionCount: 0,
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      this.taskStates.set(subtask.taskId, subtaskState);
-      await this.redis.setJson(`task:state:${subtask.taskId}`, subtaskState);
-
-      // Queue subtask for execution
-      await this.redis.lpush('task:queue', JSON.stringify({
-        taskId: subtask.taskId,
-        parentTaskId: taskState.taskId,
-        scope: subtask.scope,
-        priority: subtask.priority
-      }));
-    }
-
-    this.taskStates.set(taskState.taskId, taskState);
-    await this.redis.setJson(`task:state:${taskState.taskId}`, taskState);
-
-    this.emit('taskSplit', {
-      originalTaskId: taskState.taskId,
-      subtasks: subtasks
-    });
-  }
-
-  /**
-   * Generates 2-3 smaller subtasks from a failed task
-   */
-  private async generateSubtasks(taskState: TaskState): Promise<SubtaskDefinition[]> {
-    const baseTaskId = taskState.taskId;
-    const timestamp = Date.now();
-
-    // Generate 2-3 subtasks with reduced scope
-    const subtasks: SubtaskDefinition[] = [
-      {
-        taskId: `${baseTaskId}-sub1-${timestamp}`,
-        parentTaskId: baseTaskId,
-        scope: 'Core functionality implementation',
-        priority: 1
-      },
-      {
-        taskId: `${baseTaskId}-sub2-${timestamp}`,
-        parentTaskId: baseTaskId,
-        scope: 'Error handling and validation',
-        priority: 2
+        // Mark this specific task as failed due to system error
+        await this.processTaskResult({
+          agentId: task.agentId,
+          taskId: task.taskId,
+          status: 'failed',
+          timestamp: new Date(),
+          error: error instanceof Error ? error.message : 'Quality check system error'
+        });
       }
+    }
+
+    return results;
+  }
+
+  /**
+   * Performs quality check on individual task
+   */
+  private async performQualityCheck(task: { taskId: string; agentId: string; content: any }): Promise<QualityCheckResult> {
+    // Basic quality checks
+    if (!task.content) {
+      return {
+        taskId: task.taskId,
+        passed: false,
+        reason: 'Task content is empty'
+      };
+    }
+
+    if (typeof task.content === 'string' && task.content.trim().length < 10) {
+      return {
+        taskId: task.taskId,
+        passed: false,
+        reason: 'Task content too short'
+      };
+    }
+
+    // Check for placeholder content
+    const placeholderPatterns = [
+      /TODO/i,
+      /PLACEHOLDER/i,
+      /FIXME/i,
+      /\[.*\]/,
+      /\{.*\}/
     ];
 
-    // Add third subtask if original scope was complex
-    if (taskState.originalScope && taskState.originalScope.length > 200) {
-      subtasks.push({
-        taskId: `${baseTaskId}-sub3-${timestamp}`,
-        parentTaskId: baseTaskId,
-        scope: 'Testing and documentation',
-        priority: 3
-      });
+    const contentStr = typeof task.content === 'string' ? task.content : JSON.stringify(task.content);
+    
+    for (const pattern of placeholderPatterns) {
+      if (pattern.test(contentStr)) {
+        return {
+          taskId: task.taskId,
+          passed: false,
+          reason: `Contains placeholder content: ${pattern.source}`
+        };
+      }
     }
 
-    return subtasks;
+    return {
+      taskId: task.taskId,
+      passed: true
+    };
   }
 
   /**
@@ -285,115 +208,99 @@ export class Orchestrator extends EventEmitter {
     state.pausedUntil = pausedUntil;
     this.rejectionStates.set(agentId, state);
 
-    this.logger.warn('Agent paused due to consecutive rejections', {
-      agentId,
-      consecutiveFailures: state.consecutiveFailures,
-      pausedUntil
-    });
+    try {
+      await this.redis.pauseQueue(`agent:${agentId}`, this.PAUSE_DURATION_MS);
+      
+      this.logger.error('Agent paused due to consecutive rejections', {
+        agentId,
+        consecutiveFailures: state.consecutiveFailures,
+        pausedUntil: pausedUntil.toISOString()
+      });
 
-    // Pause the agent's queue in Redis
-    await this.redis.set(`agent:${agentId}:paused`, 'true');
-    await this.redis.expireat(`agent:${agentId}:paused`, Math.floor(pausedUntil.getTime() / 1000));
+      this.emit('agentPaused', {
+        agentId,
+        reason: 'consecutive_rejections',
+        pausedUntil
+      });
 
-    this.emit('agentPaused', {
-      agentId,
-      reason: 'consecutive_rejections',
-      pausedUntil
-    });
+      // Schedule automatic resume
+      setTimeout(() => {
+        this.resumeAgent(agentId);
+      }, this.PAUSE_DURATION_MS);
 
-    // Schedule automatic resume
-    setTimeout(() => {
-      this.resumeAgent(agentId);
-    }, this.PAUSE_DURATION_MS);
+    } catch (error) {
+      this.logger.error('Failed to pause agent queue', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**
-   * Handles successful task completion by resetting agent failure state
+   * Handles successful task completion by resetting rejection state
    */
   private async handleSuccess(agentId: string): Promise<void> {
     const currentState = this.rejectionStates.get(agentId);
     
     if (currentState && currentState.consecutiveFailures > 0) {
-      this.logger.info('Resetting agent failure state after success', {
+      this.logger.info('Agent recovered from rejections', {
         agentId,
         previousFailures: currentState.consecutiveFailures
       });
 
+      // Reset failure count on success
       currentState.consecutiveFailures = 0;
       this.rejectionStates.set(agentId, currentState);
     }
   }
 
   /**
-   * Resumes a paused agent
+   * Resumes paused agent and clears rejection state
    */
   private async resumeAgent(agentId: string): Promise<void> {
-    const state = this.rejectionStates.get(agentId);
-    
-    if (state && state.isPaused) {
-      state.isPaused = false;
-      state.pausedUntil = undefined;
-      this.rejectionStates.set(agentId, state);
+    try {
+      const state = this.rejectionStates.get(agentId);
+      
+      if (state && state.isPaused) {
+        await this.redis.resumeQueue(`agent:${agentId}`);
+        
+        state.isPaused = false;
+        state.pausedUntil = undefined;
+        state.consecutiveFailures = 0;
+        this.rejectionStates.set(agentId, state);
 
-      await this.redis.del(`agent:${agentId}:paused`);
-
-      this.logger.info('Agent resumed after pause period', { agentId });
-      this.emit('agentResumed', { agentId });
-    }
-  }
-
-  /**
-   * Checks if an agent is currently paused
-   */
-  async isAgentPaused(agentId: string): Promise<boolean> {
-    const state = this.rejectionStates.get(agentId);
-    
-    if (state?.isPaused && state.pausedUntil) {
-      if (new Date() > state.pausedUntil) {
-        await this.resumeAgent(agentId);
-        return false;
+        this.logger.info('Agent resumed after pause period', { agentId });
+        
+        this.emit('agentResumed', { agentId });
       }
-      return true;
+    } catch (error) {
+      this.logger.error('Failed to resume agent', {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
-
-    return false;
   }
 
   /**
-   * Gets current task state
-   */
-  getTaskState(taskId: string): TaskState | undefined {
-    return this.taskStates.get(taskId);
-  }
-
-  /**
-   * Gets agent rejection state
+   * Gets current rejection state for an agent
    */
   getAgentState(agentId: string): AgentRejectionState | undefined {
     return this.rejectionStates.get(agentId);
   }
 
   /**
-   * Loads task states from Redis on startup
+   * Checks if agent is currently paused
    */
-  async loadTaskStates(): Promise<void> {
-    try {
-      const keys = await this.redis.keys('task:state:*');
-      
-      for (const key of keys) {
-        const taskState = await this.redis.getJson(key) as TaskState;
-        if (taskState) {
-          this.taskStates.set(taskState.taskId, taskState);
-        }
-      }
+  isAgentPaused(agentId: string): boolean {
+    const state = this.rejectionStates.get(agentId);
+    return state?.isPaused || false;
+  }
 
-      this.logger.info('Loaded task states from Redis', {
-        count: this.taskStates.size
-      });
-    } catch (error) {
-      this.logger.error('Failed to load task states from Redis', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+  /**
+   * Manually resume a paused agent (for admin intervention)
+   */
+  async forceResumeAgent(agentId: string): Promise<void> {
+    await this.resumeAgent(agentId);
   }
 }

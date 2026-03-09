@@ -1,12 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { ApiKeyRotationService, ApiKey, RotateKeyResponse, ApiKeyRotationError } from '../services/api-key-rotation';
-import { createApiKey, createApiKeySchema, getCustomerApiKeys, updateApiKey } from '../services/api-keys';
+import { createApiKey, createApiKeySchema, getCustomerApiKeys, updateApiKey, rotateApiKey, invalidateApiKey } from '../services/api-keys';
 
 const router = Router();
-
-// Initialize the rotation service
-const apiKeyService = new ApiKeyRotationService();
 
 /**
  * Validation schemas
@@ -87,29 +83,26 @@ router.get('/v1/api-keys', extractUserId, async (req: Request, res: Response, ne
 
 /**
  * POST /v1/api-keys/:id/rotate
- * Rotate an existing API key.
- * Generates a new key, sets old key expiry to 24 hours from now.
+ * Rotate an existing API key (scoped by key ID only).
  */
-router.post('/v1/api-keys/:id/rotate', extractUserId, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/v1/api-keys/:id/rotate', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as Request & { userId: string }).userId;
     const keyId = req.params.id;
-
     const keyIdValidation = keyIdSchema.safeParse(keyId);
     if (!keyIdValidation.success) {
-      res.status(400).json({
-        error: 'Invalid Request',
-        message: 'Invalid key ID format',
-        details: keyIdValidation.error.errors,
-      });
+      res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });
       return;
     }
-
-    const result: RotateKeyResponse = await apiKeyService.rotateKey(keyId, userId);
+    const result = await rotateApiKey(keyId);
     res.status(200).json({
-      apiKey: result.newKey,
-      keyId: result.newKeyId,
-      expiresOldKeyAt: result.expiresOldKeyAt,
+      success: true,
+      data: {
+        id: result.id,
+        key: result.key,
+        keyPrefix: result.keyPrefix,
+        isActive: result.isActive,
+        createdAt: result.createdAt,
+      },
     });
   } catch (error) {
     next(error);
@@ -132,24 +125,17 @@ router.post('/v1/api-keys/:id/revoke', async (req: Request, res: Response, next:
 
 /**
  * DELETE /v1/api-keys/:id
- * Revoke an API key immediately (sets is_active = false).
+ * Invalidate an API key immediately.
  */
-router.delete('/v1/api-keys/:id', extractUserId, async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/v1/api-keys/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = (req as Request & { userId: string }).userId;
     const keyId = req.params.id;
-
     const keyIdValidation = keyIdSchema.safeParse(keyId);
     if (!keyIdValidation.success) {
-      res.status(400).json({
-        error: 'Invalid Request',
-        message: 'Invalid key ID format',
-        details: keyIdValidation.error.errors,
-      });
+      res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });
       return;
     }
-
-    await apiKeyService.revokeKey(keyId, userId);
+    await invalidateApiKey(keyId);
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -161,15 +147,6 @@ router.delete('/v1/api-keys/:id', extractUserId, async (req: Request, res: Respo
  */
 router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('API Keys Route Error:', err);
-
-  if (err instanceof ApiKeyRotationError) {
-    const statusCode = (err as any).statusCode || 500;
-    res.status(statusCode).json({
-      error: (err as any).code,
-      message: err.message,
-    });
-    return;
-  }
 
   if (err instanceof z.ZodError) {
     res.status(400).json({

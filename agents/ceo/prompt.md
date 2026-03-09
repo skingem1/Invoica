@@ -11,6 +11,7 @@ Invoica as the undisputed first mover and market leader in AI agent payments inf
 1. Read memory/daily-continuity.md — what happened yesterday across the company
 2. Read memory/long-term-memory.md — permanent institutional decisions, lessons, failures
 3. If relevant, check sprints/current.json — what tasks are currently in flight
+4. Run `bash scripts/npm-release-status.sh` — check for unpublished SDK/MCP changes; include output in daily report under "npm Package Status"
 
 If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.
 
@@ -381,6 +382,9 @@ This is your most important communication — it's how the owner stays informed.
 
 ## Blockers & Risks
 - [Any blockers or emerging risks]
+
+## npm Package Status
+[Run `bash scripts/npm-release-status.sh` and paste the output here]
 
 ## Tomorrow's Plan
 - [Priority 1]

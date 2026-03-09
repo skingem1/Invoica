@@ -43,7 +43,7 @@ export async function requireApiKey(
     res.status(401).json({
       success: false,
       error: {
-        message: 'Missing or invalid API key. Use Authorization: Bearer sk_<key>',
+        message: 'Missing or invalid API key. Use X-API-Key: sk_<key> header (or Authorization: Bearer sk_<key>)',
         code: 'UNAUTHORIZED',
       },
     });

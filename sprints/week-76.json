@@ -1,0 +1,90 @@
+{
+  "tasks": [
+    {
+      "id": "FIX-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "BUG-001: Fix rotate and delete API key routes — wrong service being called",
+      "context": "The rotate and delete handlers in routes/api-keys.ts call ApiKeyRotationService (which queries a non-existent Supabase table 'api_keys' with column 'user_id'). The correct functions are already in services/api-keys.ts and use the same in-memory store as create/list. This causes every rotate and delete to return KEY_NOT_FOUND.\n\nEDIT: backend/src/routes/api-keys.ts\n\nStep 1 — Fix imports (lines 1-9):\n- Remove line 3: import { ApiKeyRotationService, ApiKey, RotateKeyResponse, ApiKeyRotationError } from '../services/api-key-rotation';\n- Remove line 9: const apiKeyService = new ApiKeyRotationService();\n- Change line 4 to add rotateApiKey and invalidateApiKey:\n  FROM: import { createApiKey, createApiKeySchema, getCustomerApiKeys, updateApiKey } from '../services/api-keys';\n  TO:   import { createApiKey, createApiKeySchema, getCustomerApiKeys, updateApiKey, rotateApiKey, invalidateApiKey } from '../services/api-keys';\n\nStep 2 — Fix the rotate handler (around line 93):\nReplace the body of the POST /v1/api-keys/:id/rotate handler. Remove the extractUserId middleware from this route (key rotation should scope by key ID only — no user header needed). Replace the entire handler:\n\nrouter.post('/v1/api-keys/:id/rotate', async (req: Request, res: Response, next: NextFunction) => {\n  try {\n    const keyId = req.params.id;\n    const keyIdValidation = keyIdSchema.safeParse(keyId);\n    if (!keyIdValidation.success) {\n      res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });\n      return;\n    }\n    const result = await rotateApiKey(keyId);\n    res.status(200).json({\n      success: true,\n      data: {\n        id: result.id,\n        key: result.key,\n        keyPrefix: result.keyPrefix,\n        isActive: result.isActive,\n        createdAt: result.createdAt,\n      },\n    });\n  } catch (error) {\n    next(error);\n  }\n});\n\nStep 3 — Fix the delete handler (around line 137):\nReplace the DELETE /v1/api-keys/:id handler. Remove extractUserId from the delete route as well:\n\nrouter.delete('/v1/api-keys/:id', async (req: Request, res: Response, next: NextFunction) => {\n  try {\n    const keyId = req.params.id;\n    const keyIdValidation = keyIdSchema.safeParse(keyId);\n    if (!keyIdValidation.success) {\n      res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });\n      return;\n    }\n    await invalidateApiKey(keyId);\n    res.status(204).send();\n  } catch (error) {\n    next(error);\n  }\n});\n\nStep 4 — Fix the error handler at the bottom (around line 162):\nRemove the ApiKeyRotationError branch since we no longer use that service:\n\nrouter.use((err: Error, req: Request, res: Response, next: NextFunction) => {\n  console.error('API Keys Route Error:', err);\n  if (err instanceof z.ZodError) {\n    res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Invalid request data', details: err.errors });\n    return;\n  }\n  res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: 'An unexpected error occurred' });\n});\n\nDo NOT change any other routes (create, list, revoke). Max 190 lines total for the file.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/api-keys.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    },
+    {
+      "id": "FIX-003",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "BUG-003: Make API key creation persist to Supabase — fixes ledger verification and post-restart auth",
+      "context": "The createApiKey() function in services/api-keys.ts only writes to InMemoryApiKeyRepository. After a PM2 restart, all keys are gone. The requireApiKey middleware (apiKeyAuth.ts) and the ledger route both query Supabase 'ApiKey' table directly — so newly created keys always fail authentication after a restart, and the entire ledger feature is blocked.\n\nThe auth middleware uses keyPrefix = rawKey.slice(3, 11) (8 hex chars after 'sk_'). The current getKeyPrefix() returns rawKey.substring(0, 8) which includes 'sk_'. These are inconsistent — fix both.\n\nEDIT: backend/src/services/api-keys.ts\n\nIMPORTANT: Keep the InMemoryApiKeyRepository and all existing exports exactly as they are. ONLY add Supabase persistence as a secondary write alongside the in-memory write. This is additive-only — do not remove or rename any existing functions or exports.\n\nStep 1 — Add supabase import at the top (after existing imports):\nimport { supabase } from '../lib/supabase';\n\nStep 2 — Fix getKeyPrefix() to be consistent with apiKeyAuth.ts (which uses slice(3, 11)):\nFIND:\n  export const getKeyPrefix = (apiKey: string): string => {\n    return apiKey.substring(0, 8);\n  };\nREPLACE WITH:\n  export const getKeyPrefix = (apiKey: string): string => {\n    // Return 8 hex chars after the 'sk_' prefix — matches apiKeyAuth.ts and ledger.ts\n    return apiKey.slice(API_KEY_PREFIX.length, API_KEY_PREFIX.length + 8);\n  };\n\nStep 3 — Add Supabase write inside createApiKey(), AFTER the existing apiKeyRepository.create() call.\nFind the section where apiKeyRepository.create() is called (around line 213+). After the in-memory create succeeds, add a fire-and-forget Supabase write. Do NOT await it in the main flow (to avoid breaking existing tests if Supabase is unavailable). Add this block AFTER the in-memory create and BEFORE the return statement:\n\n  // Persist to Supabase for cross-restart durability and ledger/auth access\n  supabase.from('ApiKey').insert({\n    id: createdKey.id,\n    customerId: createdKey.customerId,\n    customerEmail: createdKey.customerEmail,\n    keyHash: createdKey.keyHash,\n    keyPrefix: createdKey.keyPrefix,\n    name: createdKey.name,\n    tier: createdKey.tier,\n    plan: createdKey.plan,\n    permissions: JSON.stringify(createdKey.permissions),\n    isActive: true,\n    expiresAt: createdKey.expiresAt ? createdKey.expiresAt.toISOString() : null,\n    lastUsedAt: null,\n    createdAt: createdKey.createdAt.toISOString(),\n    updatedAt: createdKey.updatedAt.toISOString(),\n  }).then(({ error }) => {\n    if (error) console.error('[api-keys] Supabase persist failed:', error.message);\n  });\n\nStep 4 — Add Supabase sync inside invalidateApiKey(), AFTER the in-memory update:\nFind invalidateApiKey() function. After the existing apiKeyRepository.update() call, add:\n\n  supabase.from('ApiKey').update({ isActive: false, updatedAt: new Date().toISOString() }).eq('id', id)\n    .then(({ error }) => { if (error) console.error('[api-keys] Supabase invalidate failed:', error.message); });\n\nStep 5 — Add Supabase sync inside rotateApiKey(), AFTER the in-memory operations:\nFind rotateApiKey() function. After the existing in-memory operations (update old key, create new key), add:\n\n  // Sync deactivation and new key to Supabase\n  supabase.from('ApiKey').update({ isActive: false, updatedAt: new Date().toISOString() }).eq('id', id)\n    .then(({ error }) => { if (error) console.error('[api-keys] Supabase rotate-deactivate failed:', error.message); });\n  supabase.from('ApiKey').insert({\n    id: newKeyRecord.id,\n    customerId: newKeyRecord.customerId,\n    customerEmail: newKeyRecord.customerEmail,\n    keyHash: newKeyRecord.keyHash,\n    keyPrefix: newKeyRecord.keyPrefix,\n    name: newKeyRecord.name,\n    tier: newKeyRecord.tier,\n    plan: newKeyRecord.plan,\n    permissions: JSON.stringify(newKeyRecord.permissions),\n    isActive: true,\n    expiresAt: null,\n    lastUsedAt: null,\n    createdAt: newKeyRecord.createdAt.toISOString(),\n    updatedAt: newKeyRecord.updatedAt.toISOString(),\n  }).then(({ error }) => { if (error) console.error('[api-keys] Supabase rotate-insert failed:', error.message); });\n\nThat is everything. Do NOT change InMemoryApiKeyRepository, do NOT change any interfaces or exports, do NOT change getCustomerApiKeys (leave it as is). Only the 5 changes above. The variable name for the in-memory create result may vary — read the actual createApiKey() function code before editing to get the exact variable name for createdKey.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/api-keys.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    },
+    {
+      "id": "FIX-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "BUG-002: Generate SQL to delete corrupted invoice rows (test data with Unix timestamp as invoiceNumber)",
+      "context": "A Unix timestamp (1772554801) was inserted as an invoiceNumber in the Invoice table (confirmed to be test data, not real user invoices). Since the system generates new invoice numbers via MAX(invoiceNumber) + 1, all subsequent invoices get numbers like 1772554802, 1772554803, etc.\n\nCREATE: scripts/fix-invoice-sequence.sql\n\nThe file should contain exactly this SQL (copy verbatim):\n\n-- Invoica Invoice Sequence Fix — Delete test data with corrupted invoiceNumber\n-- Run in Supabase Dashboard → SQL Editor → New Query\n-- Confirmed: rows with invoiceNumber > 1_000_000_000 are test data, safe to delete\n\nBEGIN;\n\n-- Preview what will be deleted (run this first, verify before committing)\nSELECT id, \"invoiceNumber\", status, \"customerEmail\", \"createdAt\"\nFROM \"Invoice\"\nWHERE \"invoiceNumber\" > 1000000000\nORDER BY \"invoiceNumber\" ASC;\n\n-- Delete corrupted test rows\nDELETE FROM \"Invoice\"\nWHERE \"invoiceNumber\" > 1000000000;\n\n-- Verify: all remaining invoices should have small sequential numbers\nSELECT\n  COUNT(*) AS remaining_invoices,\n  MAX(\"invoiceNumber\") AS highest_invoice_num\nFROM \"Invoice\";\n\nCOMMIT;\n\nAlso create scripts/fix-invoice-sequence.md:\n\n# Invoice Sequence Fix\n\n1. Open Supabase Dashboard → SQL Editor → New Query\n2. Paste scripts/fix-invoice-sequence.sql\n3. Run the SELECT first — confirm the rows shown are test data\n4. Then run DELETE + COMMIT\n5. After this, new invoices will resume from a sane sequential number\n\nMax 25 lines each file.",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "scripts/fix-invoice-sequence.sql",
+          "scripts/fix-invoice-sequence.md"
+        ]
+      },
+      "status": "done"
+    },
+    {
+      "id": "FIX-005",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "BUG-005: Webhooks — wire Prisma persistence into routes (replace stub with real storage)",
+      "context": "backend/src/routes/webhooks.ts is a pure stub — POST creates an in-memory object that's never stored, GET always returns [], DELETE accepts any string and returns success without touching the DB. The WebhookRepository class (Prisma-backed) already exists in services/webhook/types.ts and the WebhookRegistration Prisma model exists in prisma/schema.prisma.\n\nREWRITE: backend/src/routes/webhooks.ts\n\nFull replacement (keep the same file path, same route paths /v1/webhooks):\n\nimport { Router, Request, Response, NextFunction } from 'express';\nimport { WebhookRepository } from '../services/webhook/types';\nimport { prisma } from '../lib/prisma';\n\nconst router = Router();\nconst repo = new WebhookRepository(prisma);\n\n// POST /v1/webhooks — register a new webhook endpoint\nrouter.post('/v1/webhooks', async (req: Request, res: Response, next: NextFunction) => {\n  try {\n    const { url, events, secret } = req.body;\n    if (!url || typeof url !== 'string' || !events || !Array.isArray(events) || events.length === 0) {\n      res.status(400).json({ success: false, error: { message: 'url and events[] are required', code: 'VALIDATION_ERROR' } });\n      return;\n    }\n    if (!secret || typeof secret !== 'string' || secret.length < 16) {\n      res.status(400).json({ success: false, error: { message: 'secret must be at least 16 characters', code: 'VALIDATION_ERROR' } });\n      return;\n    }\n    const registration = await repo.register(url, events, secret);\n    res.status(201).json({ success: true, data: registration });\n  } catch (err) { next(err); }\n});\n\n// GET /v1/webhooks — list all registered webhooks\nrouter.get('/v1/webhooks', async (_req: Request, res: Response, next: NextFunction) => {\n  try {\n    const webhooks = await repo.listAll();\n    res.json({ success: true, data: webhooks, meta: { total: webhooks.length } });\n  } catch (err) { next(err); }\n});\n\n// DELETE /v1/webhooks/:id — permanently delete a webhook\nrouter.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {\n  try {\n    const { id } = req.params;\n    const existing = await repo.findById(id);\n    if (!existing) {\n      res.status(404).json({ success: false, error: { message: 'Webhook not found', code: 'NOT_FOUND' } });\n      return;\n    }\n    await repo.delete(id);\n    res.json({ success: true, data: { id, deleted: true } });\n  } catch (err) { next(err); }\n});\n\nexport default router;\n\nBEFORE writing this file, read backend/src/lib/prisma.ts to confirm the exact export name (it may be 'export const prisma' or 'export default prisma'). Use whatever the file exports. Also read services/webhook/types.ts lines 60-67 to confirm listAll() and delete() method signatures before using them.\n\nMax 55 lines for the file.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/webhooks.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    },
+    {
+      "id": "FIX-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "low",
+      "dependencies": [],
+      "description": "BUG-004: Fix auth error message — mentions Bearer only, but X-API-Key is the documented header",
+      "context": "The requireApiKey middleware in middleware/apiKeyAuth.ts returns an error message that says 'Use Authorization: Bearer sk_<key>' but the API accepts BOTH headers. The api-contract.md documents X-API-Key as the primary header. The error message should mention both.\n\nEDIT: backend/src/middleware/apiKeyAuth.ts\n\nFind this exact line (around line 46):\n  message: 'Missing or invalid API key. Use Authorization: Bearer sk_<key>',\n\nReplace with:\n  message: 'Missing or invalid API key. Use X-API-Key: sk_<key> header (or Authorization: Bearer sk_<key>)',\n\nThat is the ONLY change. One line. Do not touch anything else in this file.",
+      "deliverables": {
+        "code": [
+          "backend/src/middleware/apiKeyAuth.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    }
+  ]
+}
