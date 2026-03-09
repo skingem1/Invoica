@@ -27,6 +27,10 @@
     "blockchain"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skingem1/Invoica.git"
+  },
   "peerDependencies": {},
   "devDependencies": {
     "@types/node": "^20.10.0",
