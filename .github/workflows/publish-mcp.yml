@@ -1,5 +1,13 @@
 name: Publish invoica-mcp
 
+# Triggered by: git tag npm-vX.Y.Z && git push origin npm-vX.Y.Z
+#
+# REQUIRES: An npm "Automation" token (not a classic "Publish" token).
+#   If your npm account has 2FA enabled, classic tokens will fail on `npm publish`
+#   even though `npm whoami` and dry-run succeed.
+#   Create an Automation token at: https://www.npmjs.com/settings/<user>/tokens
+#   Then update the NPM_TOKEN secret in GitHub repo Settings → Secrets.
+
 on:
   push:
     tags:
@@ -14,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
@@ -21,31 +30,13 @@ jobs:
       - name: Compile MCP server
         run: npx tsc -p tsconfig.mcp.json
 
-      - name: Build mcp-package/index.js (add shebang + compiled output)
+      - name: Build mcp-package/index.js
         run: |
           printf '#!/usr/bin/env node\n' > mcp-package/index.js
           cat dist/mcp/invoica-mcp-server.js >> mcp-package/index.js
           chmod +x mcp-package/index.js
 
-      - name: Configure npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Debug — npm auth and package check
-        run: |
-          echo "=== npm whoami ==="
-          npm whoami || echo "WHOAMI FAILED"
-          echo "=== mcp-package/package.json ==="
-          cat mcp-package/package.json
-          echo "=== mcp-package contents ==="
-          ls -la mcp-package/
-          echo "=== index.js head ==="
-          head -3 mcp-package/index.js
-          echo "=== dry-run ==="
-          npm publish mcp-package/ --dry-run 2>&1 || true
-
       - name: Publish to npm
         run: npm publish mcp-package/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
