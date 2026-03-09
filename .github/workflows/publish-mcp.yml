@@ -40,7 +40,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'              # npm CLI ≥11.5.1 — required for Trusted Publishers
-          registry-url: 'https://registry.npmjs.org'
+          # registry-url intentionally omitted: setup-node writes _authToken=${NODE_AUTH_TOKEN}
+          # to .npmrc which sends an empty Bearer token that blocks OIDC Trusted Publishers auth
 
       - name: Install MCP compile dependencies
         # Install only what the MCP server actually needs — avoids the full
