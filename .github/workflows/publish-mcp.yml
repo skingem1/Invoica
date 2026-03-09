@@ -13,7 +13,7 @@ name: Publish invoica-mcp
 #          After saving, this workflow authenticates via OIDC with zero stored secrets.
 #
 # REQUIREMENTS:
-#        - npm CLI ≥ 11.5.1  (Node 24 ships with it)
+#        - npm CLI ≥ 11.5.1  (explicitly upgraded below — Node 24 bundles npm 10.x)
 #        - GitHub-hosted runner (OIDC token only issued by GitHub-hosted runners)
 #        - id-token: write permission (below)
 #
@@ -39,9 +39,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'              # npm CLI ≥11.5.1 — required for Trusted Publishers
+          node-version: '24'
           # registry-url intentionally omitted: setup-node writes _authToken=${NODE_AUTH_TOKEN}
           # to .npmrc which sends an empty Bearer token that blocks OIDC Trusted Publishers auth
+
+      - name: Upgrade npm to Trusted Publishers-capable version
+        # Node 24 bundles npm 10.x; Trusted Publishers requires npm ≥11.5.1
+        run: npm install -g npm@latest
 
       - name: Install MCP compile dependencies
         # Install only what the MCP server actually needs — avoids the full
@@ -61,7 +65,7 @@ jobs:
         run: |
           echo "npm version: $(npm --version)"
           echo "node version: $(node --version)"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([[ -n \"$ACTIONS_ID_TOKEN_REQUEST_URL\" ]] && echo yes || echo NO)"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([[ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]] && echo yes || echo NO)"
           cat ~/.npmrc 2>/dev/null || echo "no ~/.npmrc"
 
       - name: Publish to npm (Trusted Publishers OIDC + Sigstore provenance)
