@@ -42,10 +42,10 @@ jobs:
           node-version: '24'              # npm CLI ≥11.5.1 — required for Trusted Publishers
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        # --ignore-scripts skips bcrypt/prisma native addon compilation
-        # MCP server only needs @modelcontextprotocol/sdk types to compile
-        run: npm ci --ignore-scripts
+      - name: Install MCP compile dependencies
+        # Install only what the MCP server actually needs — avoids the full
+        # backend lockfile (bcrypt, prisma, viem…) which fails in CI
+        run: npm install --no-save --ignore-scripts typescript @modelcontextprotocol/sdk @types/node
 
       - name: Compile MCP server
         run: npx tsc -p tsconfig.mcp.json
