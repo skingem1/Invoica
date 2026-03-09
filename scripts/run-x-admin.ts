@@ -619,10 +619,11 @@ async function main() {
   console.log(`[x-admin] Posted today: ${Object.keys(state.posted).filter(k => state.posted[k]).join(', ') || 'none'}`);
 
   for (const slot of POST_SLOTS) {
+    if (process.env.FORCE_SLOT && process.env.FORCE_SLOT !== slot.key) { console.log(`[x-admin] Skip ${slot.key} — FORCE_SLOT=${process.env.FORCE_SLOT}`); continue; }
     if (state.posted[slot.key]) { console.log(`[x-admin] Skip ${slot.key} — done`); continue; }
 
     // 3-hour window: posts if agent runs within 3h of scheduled time
-    if (hourUTC < slot.hourUTC || hourUTC >= slot.hourUTC + 3) {
+    if (!process.env.FORCE_SLOT && (hourUTC < slot.hourUTC || hourUTC >= slot.hourUTC + 3)) {
       console.log(`[x-admin] Skip ${slot.key} — window ${slot.hourUTC}:00-${slot.hourUTC + 3}:00, now ${hourUTC}:00`);
       continue;
     }

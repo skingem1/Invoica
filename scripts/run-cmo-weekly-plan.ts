@@ -262,8 +262,10 @@ Your task: generate a weekly X/Twitter content plan for the X agent to execute.
 
 CRITICAL CONTENT RULES:
 - Updates posts: ONLY features already merged+deployed (from git commits). NEVER roadmap/future.
+  UPDATES SLOT HARD RULE: If a commit is not in "CTO Verified Shipped Features" above, it MUST NOT appear in an updates post. Gas Backstop, SOL Incinerator, Reputation API, Agent Marketplace, or ANY feature described as "planned", "coming", "in progress" = FORBIDDEN in updates posts.
 - No fabricated metrics: no invented percentages, counts, latency numbers.
 - No ETAs or "coming soon" for unshipped work.
+- NEVER use "coming soon", "planned", "in progress", "next sprint", "roadmap", "will ship" in updates posts.
 - All tweets ≤ 280 characters. Dense, specific, developer-native voice.
 - No hashtags. No engagement bait ("What do you think?").
 - Accounts to watch: max 5. Engagement must be educational, not promotional spam.
@@ -338,8 +340,10 @@ You produce a structured weekly X/Twitter content plan for the X agent to execut
 
 CRITICAL CONTENT RULES:
 - Updates posts: ONLY feature already merged+deployed (from git commits). NEVER roadmap/future.
+  UPDATES SLOT HARD RULE: If a commit is not in "CTO Verified Shipped Features" above, it MUST NOT appear in an updates post. Gas Backstop, SOL Incinerator, Reputation API, Agent Marketplace, or ANY feature described as "planned", "coming", "in progress" = FORBIDDEN in updates posts.
 - No fabricated metrics: no invented percentages, counts, latency numbers.
 - No ETAs or "coming soon" for unshipped work.
+- NEVER use "coming soon", "planned", "in progress", "next sprint", "roadmap", "will ship" in updates posts.
 - All tweets ≤ 280 characters. Dense, specific, developer-native voice.
 - No hashtags (spammy). No weak engagement bait ("What do you think?").
 - Accounts to watch: max 5. Engagement must be educational, not promotional spam.
@@ -500,6 +504,7 @@ VISION POSTS: Vision posts are ALLOWED to be aspirational about the future of th
 REJECT only if a post:
 - Contains fabricated or estimated STATISTICS (specific numbers, percentages, latency claims not from git commits)
 - References UNSHIPPED features as if they are live ("we just launched X" when X is not merged)
+- Is an UPDATES slot post containing: Gas Backstop, SOL Incinerator, Reputation API, Agent Marketplace, or words like "coming soon", "planned", "in progress", "next sprint", "roadmap", "will ship" — REJECT immediately (updates posts must only reference verified shipped commits)
 - Uses promotional spam language ("amazing", "revolutionary", "game-changing", "world-class")
 - Has direct engagement bait ("What do you think?", "Agree?", "RT if...")
 - Mentions internal sprint names, PR numbers, or internal ticket IDs (like "FE-241" directly in tweet)

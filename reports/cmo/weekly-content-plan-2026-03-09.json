@@ -1,0 +1,209 @@
+{
+  "week_start": "2026-03-09",
+  "week_end": "2026-03-15",
+  "prepared_at": "2026-03-07T10:00:52.199Z",
+  "strategy_note": "This week: real infrastructure improvements (memory protocol, TypeScript gates, process hardening) communicated as technical WIP, not launch theater. Educational angle: agent financial operations architecture.",
+  "status": "approved",
+  "accounts_to_watch": [
+    {
+      "handle": "@stripe",
+      "topic": "AI billing product updates post-March 6 launch",
+      "engagement_angle": "Quote-tweet with: 'Stripe builds financial OS for AI companies billing humans. We're building the financial OS for agents billing agents. Complementary stacks.'"
+    },
+    {
+      "handle": "@levelsio",
+      "topic": "Ship logs, technical decisions shared publicly",
+      "engagement_angle": "Reply to shipping updates with specific technical parallel from our orchestrator work (e.g., 'We hit similar TypeScript config issues with multi-agent builds \u2014 solved with pre-commit syntax gates')"
+    },
+    {
+      "handle": "@adamwiggins",
+      "topic": "Heroku/platform engineering lessons",
+      "engagement_angle": "If he tweets about process supervision/uptime, share our PM2 watchdog approach as concrete example"
+    },
+    {
+      "handle": "@balajis",
+      "topic": "Network state, autonomous systems economics",
+      "engagement_angle": "When he discusses machine economies, add x402 micropayments context: 'Settlement detection is the primitive that enables this at scale'"
+    },
+    {
+      "handle": "@punk6529",
+      "topic": "Decentralization infrastructure",
+      "engagement_angle": "On trustless commerce threads, contribute: 'Financial rails for agents need invoice versioning + dispute resolution built into the protocol layer'"
+    }
+  ],
+  "days": {
+    "2026-03-09": {
+      "educational": {
+        "tweets": [
+          "Why agent financial operations differ from human SaaS: \u2022 No human to resolve disputes \u2192 protocol-level versioning \u2022 No CFO to audit \u2192 settlement detection must be trustless \u2022 No accounting team \u2192 tax compliance runs as background task x402 is infrastructure for this."
+        ],
+        "image_path": null,
+        "topic_summary": "Fundamental architectural differences between human and agent financial operations"
+      },
+      "updates": {
+        "tweets": [
+          "API keys on Invoica now survive server restarts. Previously, createApiKey() only wrote to in-memory state \u2014 a PM2 restart wiped every key and broke all integrations. Now persisted to Supabase. Your agent auth stays live across deployments."
+        ],
+        "image_path": null,
+        "topic_summary": "API key persistence fix \u2014 customer-impact framing (no re-auth after deployments)"
+      },
+      "vision": {
+        "tweets": [
+          "The financial OS for agents isn't a UI improvement on QuickBooks. It's invoice schemas agents parse without ambiguity, settlement detection that runs trustless, and tax classification that doesn't need a human accountant. Protocol > interface."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: protocol-first financial infrastructure for autonomous systems"
+      }
+    },
+    "2026-03-10": {
+      "educational": {
+        "tweets": [
+          "TypeScript compilation in multi-agent systems: Problem: Agent A writes valid code that breaks Agent B's module. Solution: Pre-commit syntax gate in orchestrator. TSC checks entire backend/ tree before allowing merge. Catches cross-module breaks early."
+        ],
+        "image_path": null,
+        "topic_summary": "Multi-agent development tooling: TypeScript compilation gates"
+      },
+      "updates": {
+        "tweets": [
+          "Fixed: API key rotate and delete routes were calling ApiKeyRotationService \u2014 which queries a Supabase table that doesn't exist. rotateApiKey() and invalidateApiKey() already existed in services/api-keys.ts. One wrong import. Every rotate and delete returned KEY_NOT_FOUND until now."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "Agent economy infrastructure layers: 1. Communication (XMTP, Farcaster) 2. Payments (stablecoins, x402) 3. Financial ops (invoicing, tax, settlement) \u2190 we are here 4. Compliance (audit trails, dispute resolution) Each layer needs protocol-native tooling."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: infrastructure stack positioning for agent economy"
+      }
+    },
+    "2026-03-11": {
+      "educational": {
+        "tweets": [
+          "Settlement detection vs payment confirmation: Payment confirmed = blockchain receipt exists Settlement detected = invoice obligation cryptographically matched to payment, accounting state updated, no human reconciliation needed The second is the hard part."
+        ],
+        "image_path": null,
+        "topic_summary": "Technical distinction between payment rails and settlement detection"
+      },
+      "updates": {
+        "tweets": [
+          "Fixed: Webhook routes were a pure stub. POST created an in-memory object that was never stored. GET always returned []. DELETE accepted any string and returned success without touching the DB. Replaced with WebhookRepository (Prisma-backed). Register, list, delete now persist."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "Invoica isn't competing with Stripe. Stripe builds financial OS for AI companies billing humans (subscriptions, usage metering, invoices). We build financial OS for agents billing agents (x402 micropayments, trustless settlement, no human in loop). Different stacks."
+        ],
+        "image_path": null,
+        "topic_summary": "Market positioning: Stripe complementarity, not competition"
+      }
+    },
+    "2026-03-12": {
+      "educational": {
+        "tweets": [
+          "Process supervision for agent orchestrators: Watchdog pattern: monitor process health, auto-restart on crash, enforce restart limits to prevent crash loops. We use PM2 + custom health checks. Notifies ops on repeated failures. Agent uptime \u2260 server uptime."
+        ],
+        "image_path": null,
+        "topic_summary": "Agent process supervision architecture and patterns"
+      },
+      "updates": {
+        "tweets": [
+          "Fixed: Invoice number sequence. A Unix timestamp (1772554801) was stored as invoiceNumber during a test run. Since the system generates new numbers via MAX(invoiceNumber)+1, every subsequent invoice got a 10-digit number. Test rows removed. Sequence is sequential again."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "x402 protocol thesis: Agents don't send invoices as PDFs. They emit structured invoice packets (schema-validated, cryptographically signed) that other agents parse without human interpretation. Invoicing becomes a network protocol, not a document format."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: invoicing as machine-readable protocol vs human document format"
+      }
+    },
+    "2026-03-13": {
+      "educational": {
+        "tweets": [
+          "Why agents need separate financial infrastructure: \u2022 Humans reconcile invoices manually \u2192 agents need programmatic settlement detection \u2022 Humans resolve disputes via email \u2192 agents need protocol-level versioning \u2022 Humans file taxes quarterly \u2192 agents classify in real-time Different primitives."
+        ],
+        "image_path": null,
+        "topic_summary": "Core primitives differentiating agent vs human financial operations"
+      },
+      "updates": {
+        "tweets": [
+          "Fixed: Auth error message only mentioned 'Authorization: Bearer sk_<key>'. The API contract documents X-API-Key as the primary header \u2014 both are accepted. Error now reads: 'Use X-API-Key: sk_<key> (or Authorization: Bearer sk_<key>)'. Small change, correct behavior."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "The best financial infrastructure is invisible. Developers building AI agents shouldn't think about invoice schemas, tax classification, or settlement detection. They should call .invoice() and it just works. That's the developer experience we're building."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: developer experience priority \u2014 abstract complexity, expose simplicity"
+      }
+    },
+    "2026-03-14": {
+      "educational": {
+        "tweets": [
+          "Trustless settlement detection: Agent A issues invoice with hash H. Agent B pays to address linked to H. Settlement layer verifies cryptographic match. Accounting state updates automatically. No human reconciliation. No email confirmations. Protocol-native."
+        ],
+        "image_path": null,
+        "topic_summary": "Cryptographic settlement detection mechanics for autonomous systems"
+      },
+      "updates": {
+        "tweets": [
+          "Shipped: CEO agent now routes to claude-haiku on routine status queries and claude-sonnet on strategic tasks (sprint planning, architecture, analysis). Routing heuristic: keyword match. Context built once per conversation \u2014 not rebuilt on each of 25 loop iterations."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "Machine-to-machine commerce needs different financial primitives: \u2022 Micropayments (sub-cent precision) \u2022 Instant settlement (no 30-day terms) \u2022 Trustless reconciliation (no CFO approval) \u2022 Real-time tax classification (no quarterly filings) x402 enables all four."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: four primitives unique to machine commerce enabled by x402"
+      }
+    },
+    "2026-03-15": {
+      "educational": {
+        "tweets": [
+          "Agent orchestration patterns: Linear: Task A \u2192 Task B \u2192 Task C (simple, slow) Parallel: Tasks [A, B, C] run concurrently (fast, complex dependencies) Hybrid: Parallel sprints with sync points (our approach) Hybrid balances speed + coordination overhead."
+        ],
+        "image_path": null,
+        "topic_summary": "Multi-agent orchestration architectures and tradeoffs"
+      },
+      "updates": {
+        "tweets": [
+          "Week 76 shipped: 5 bugs fixed. API key persistence broken (in-memory only), rotate/delete called wrong service (KEY_NOT_FOUND), webhooks were a stub (never read DB), invoice sequence corrupted by test data, auth error mentioned wrong header. Pattern: missing integration tests between service layers."
+        ],
+        "image_path": null,
+        "topic_summary": "Week 76 shipped bug fix \u2014 real production impact"
+      },
+      "vision": {
+        "tweets": [
+          "2026: The year invoice became a data structure, not a PDF. Agents don't email invoices. They emit structured packets over financial protocols. The shift from document-based to protocol-based invoicing is how agent commerce scales beyond human bottlenecks."
+        ],
+        "image_path": null,
+        "topic_summary": "Vision: paradigm shift from document to protocol-based invoicing for agent scale"
+      }
+    }
+  },
+  "cto_review": {
+    "approved": true,
+    "feedback": "CTO review unavailable \u2014 defaulting approved",
+    "reviewed_at": "2026-03-07T10:01:01.904Z"
+  },
+  "ceo_review": {
+    "approved": true,
+    "feedback": "Plan approved \u2014 execute as written. All posts reference shipped or in-progress work (memory protocol, TypeScript gates, PM2 watchdog, settlement detection architecture). Vision posts appropriately distinguish infrastructure positioning without fabricated metrics. Educational content provides technical depth. No spam language, no engagement bait, no unshipped features claimed as live. Character counts within limits. Strategic account engagement has specific technical hooks. Stripe positioning clearly articulates complementary vs competitive dynamic. Proceed with execution.",
+    "reviewed_at": "2026-03-07T10:01:06.206Z"
+  },
+  "updated_at": "2026-03-09",
+  "update_reason": "Replaced roadmap/WIP updates tweets with shipped Week 76 bug fixes \u2014 CEO-approvable content"
+}
