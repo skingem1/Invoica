@@ -14,7 +14,7 @@
     "invoica-mcp": "./backend/src/mcp/invoica-mcp-server.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.98.0",
     "@types/bcrypt": "^6.0.0",
