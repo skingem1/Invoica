@@ -1,6 +1,6 @@
 {
   "name": "@invoica/sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Official TypeScript SDK for Invoica — Financial OS for AI Agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
