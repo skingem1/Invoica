@@ -47,6 +47,7 @@ export class GasManager {
     };
   }
 
+  // Internal: JSON-RPC eth_getBalance call
   private async rpcGetBalance(rpcUrl: string, address: string): Promise<string> {
     const res = await fetch(rpcUrl, {
       method: 'POST',
