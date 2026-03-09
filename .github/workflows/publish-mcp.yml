@@ -2,22 +2,12 @@ name: Publish invoica-mcp
 
 # Triggered by: git tag npm-vX.Y.Z && git push origin npm-vX.Y.Z
 #
-# AUTH:  npm Trusted Publishers (tokenless OIDC) — no NPM_TOKEN secret needed.
-#        Setup (one-time, manual on npmjs.com):
-#          1. Go to: https://www.npmjs.com/package/invoica-mcp → Settings → Publishing
-#          2. Add Trusted Publisher → GitHub Actions
-#          3. Fill in:
-#             - GitHub organization/user: skingem1
-#             - Repository:              Invoica
-#             - Workflow filename:       publish-mcp.yml
-#          After saving, this workflow authenticates via OIDC with zero stored secrets.
+# AUTH:  Granular Access Token stored as NPM_TOKEN repo secret.
+#        Create at: https://www.npmjs.com/settings/~/tokens
+#        → Generate New Token → Granular Access Token
+#        → Packages: invoica-mcp | Permissions: Read+Write | Bypass 2FA: ✅
 #
-# REQUIREMENTS:
-#        - npm CLI ≥ 11.5.1  (explicitly upgraded below — Node 24 bundles npm 10.x)
-#        - GitHub-hosted runner (OIDC token only issued by GitHub-hosted runners)
-#        - id-token: write permission (below)
-#
-# PROVENANCE: id-token: write also lets GitHub issue an OIDC JWT so npm can
+# PROVENANCE: id-token: write lets GitHub issue an OIDC JWT so npm can
 #        attach a Sigstore attestation to the package — permanently links
 #        this tarball to the exact commit + workflow run.  Verifiable with:
 #        npm audit signatures invoica-mcp
@@ -28,7 +18,7 @@ on:
       - 'npm-v*'
 
 permissions:
-  id-token: write   # required for both Trusted Publishers auth AND Sigstore provenance
+  id-token: write   # required for Sigstore provenance attestation
   contents: read
 
 jobs:
@@ -39,17 +29,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          # registry-url intentionally omitted: setup-node writes _authToken=${NODE_AUTH_TOKEN}
-          # to .npmrc which sends an empty Bearer token that blocks OIDC Trusted Publishers auth
-
-      - name: Upgrade npm to Trusted Publishers-capable version
-        # Node 24 bundles npm 10.x; Trusted Publishers requires npm ≥11.5.1
-        run: npm install -g npm@latest
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install MCP compile dependencies
-        # Install only what the MCP server actually needs — avoids the full
-        # backend lockfile (bcrypt, prisma, viem…) which fails in CI
         run: npm install --no-save --ignore-scripts typescript @modelcontextprotocol/sdk @types/node
 
       - name: Compile MCP server
@@ -61,13 +44,7 @@ jobs:
           cat dist/mcp/invoica-mcp-server.js >> mcp-package/index.js
           chmod +x mcp-package/index.js
 
-      - name: Diagnose npm version + OIDC env
-        run: |
-          echo "npm version: $(npm --version)"
-          echo "node version: $(node --version)"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: $([[ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]] && echo yes || echo NO)"
-          cat ~/.npmrc 2>/dev/null || echo "no ~/.npmrc"
-
-      - name: Publish to npm (Trusted Publishers OIDC + Sigstore provenance)
+      - name: Publish to npm
         run: npm publish mcp-package/ --provenance --access public
-        # No NODE_AUTH_TOKEN — npm CLI auto-detects OIDC environment via Trusted Publishers
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

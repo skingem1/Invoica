@@ -2,14 +2,8 @@ name: Publish @invoica/sdk
 
 # Triggered by: git tag sdk-vX.Y.Z && git push origin sdk-vX.Y.Z
 #
-# AUTH:  npm Trusted Publishers (tokenless OIDC) — no NPM_TOKEN secret needed.
-#        Setup (one-time, manual on npmjs.com):
-#          1. Go to: https://www.npmjs.com/package/@invoica/sdk → Settings → Publishing
-#          2. Add Trusted Publisher → GitHub Actions
-#          3. Fill in:
-#             - GitHub organization/user: skingem1
-#             - Repository:              Invoica
-#             - Workflow filename:       publish-sdk.yml
+# AUTH:  Granular Access Token stored as NPM_TOKEN repo secret.
+#        Same token as publish-mcp.yml — ensure it covers @invoica/sdk too.
 #
 # PROVENANCE: Sigstore attestation links tarball to exact commit + workflow run.
 #        Verifiable with: npm audit signatures @invoica/sdk
@@ -20,7 +14,7 @@ on:
       - 'sdk-v*'
 
 permissions:
-  id-token: write   # required for Trusted Publishers auth + Sigstore provenance
+  id-token: write   # required for Sigstore provenance
   contents: read
 
 jobs:
@@ -31,7 +25,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -40,5 +34,7 @@ jobs:
       - name: Build SDK
         run: npm run build --prefix sdk
 
-      - name: Publish to npm (Trusted Publishers OIDC + Sigstore provenance)
+      - name: Publish to npm
         run: npm publish sdk/ --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
