@@ -17,6 +17,12 @@ interface AgentRejectionState {
   pausedUntil?: Date;
 }
 
+interface QualityCheckResult {
+  taskId: string;
+  passed: boolean;
+  reason?: string;
+}
+
 /**
  * Orchestrates task execution and manages agent health monitoring
  * Prevents cascade failures by pausing agents with consecutive rejections
@@ -63,6 +69,109 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Validates task quality without causing cascade rejections
+   * Marks only the specific failing task as rejected, not subsequent tasks
+   */
+  async validateTaskQuality(tasks: Array<{ taskId: string; agentId: string; content: any }>): Promise<QualityCheckResult[]> {
+    const results: QualityCheckResult[] = [];
+
+    for (const task of tasks) {
+      try {
+        const qualityResult = await this.performQualityCheck(task);
+        results.push(qualityResult);
+
+        if (!qualityResult.passed) {
+          // Mark only this specific task as rejected
+          await this.processTaskResult({
+            agentId: task.agentId,
+            taskId: task.taskId,
+            status: 'rejected',
+            timestamp: new Date(),
+            error: qualityResult.reason
+          });
+
+          this.logger.warn('Task failed quality check', {
+            taskId: task.taskId,
+            agentId: task.agentId,
+            reason: qualityResult.reason
+          });
+        }
+      } catch (error) {
+        this.logger.error('Quality check failed', {
+          taskId: task.taskId,
+          agentId: task.agentId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        results.push({
+          taskId: task.taskId,
+          passed: false,
+          reason: 'Quality check system error'
+        });
+
+        // Mark this specific task as failed due to system error
+        await this.processTaskResult({
+          agentId: task.agentId,
+          taskId: task.taskId,
+          status: 'failed',
+          timestamp: new Date(),
+          error: error instanceof Error ? error.message : 'Quality check system error'
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Performs quality check on individual task
+   */
+  private async performQualityCheck(task: { taskId: string; agentId: string; content: any }): Promise<QualityCheckResult> {
+    // Basic quality checks
+    if (!task.content) {
+      return {
+        taskId: task.taskId,
+        passed: false,
+        reason: 'Task content is empty'
+      };
+    }
+
+    if (typeof task.content === 'string' && task.content.trim().length < 10) {
+      return {
+        taskId: task.taskId,
+        passed: false,
+        reason: 'Task content too short'
+      };
+    }
+
+    // Check for placeholder content
+    const placeholderPatterns = [
+      /TODO/i,
+      /PLACEHOLDER/i,
+      /FIXME/i,
+      /\[.*\]/,
+      /\{.*\}/
+    ];
+
+    const contentStr = typeof task.content === 'string' ? task.content : JSON.stringify(task.content);
+    
+    for (const pattern of placeholderPatterns) {
+      if (pattern.test(contentStr)) {
+        return {
+          taskId: task.taskId,
+          passed: false,
+          reason: `Contains placeholder content: ${pattern.source}`
+        };
+      }
+    }
+
+    return {
+      taskId: task.taskId,
+      passed: true
+    };
+  }
+
+  /**
    * Handles rejection by tracking consecutive failures and pausing if threshold exceeded
    */
   private async handleRejection(result: TaskResult): Promise<void> {
@@ -100,32 +209,23 @@ export class Orchestrator extends EventEmitter {
     this.rejectionStates.set(agentId, state);
 
     try {
-      // Pause the agent queue in Redis
       await this.redis.pauseQueue(`agent:${agentId}`, this.PAUSE_DURATION_MS);
-
-      this.logger.error('Agent queue paused due to consecutive rejections', {
+      
+      this.logger.error('Agent paused due to consecutive rejections', {
         agentId,
         consecutiveFailures: state.consecutiveFailures,
-        pausedUntil: pausedUntil.toISOString(),
-        pauseDurationHours: this.PAUSE_DURATION_MS / (60 * 60 * 1000)
+        pausedUntil: pausedUntil.toISOString()
       });
 
-      // Emit warning event for monitoring systems
       this.emit('agentPaused', {
         agentId,
         reason: 'consecutive_rejections',
-        consecutiveFailures: state.consecutiveFailures,
         pausedUntil
       });
 
       // Schedule automatic resume
       setTimeout(() => {
-        this.resumeAgent(agentId).catch(error => {
-          this.logger.error('Failed to auto-resume agent', {
-            agentId,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-        });
+        this.resumeAgent(agentId);
       }, this.PAUSE_DURATION_MS);
 
     } catch (error) {
@@ -138,7 +238,7 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Handles successful task completion by resetting failure counter
+   * Handles successful task completion by resetting rejection state
    */
   private async handleSuccess(agentId: string): Promise<void> {
     const currentState = this.rejectionStates.get(agentId);
@@ -149,46 +249,36 @@ export class Orchestrator extends EventEmitter {
         previousFailures: currentState.consecutiveFailures
       });
 
-      // Reset failure counter on success
+      // Reset failure count on success
       currentState.consecutiveFailures = 0;
       this.rejectionStates.set(agentId, currentState);
     }
   }
 
   /**
-   * Manually resumes a paused agent queue
+   * Resumes paused agent and clears rejection state
    */
-  async resumeAgent(agentId: string): Promise<void> {
+  private async resumeAgent(agentId: string): Promise<void> {
     try {
       const state = this.rejectionStates.get(agentId);
       
-      if (!state || !state.isPaused) {
-        this.logger.warn('Attempted to resume non-paused agent', { agentId });
-        return;
+      if (state && state.isPaused) {
+        await this.redis.resumeQueue(`agent:${agentId}`);
+        
+        state.isPaused = false;
+        state.pausedUntil = undefined;
+        state.consecutiveFailures = 0;
+        this.rejectionStates.set(agentId, state);
+
+        this.logger.info('Agent resumed after pause period', { agentId });
+        
+        this.emit('agentResumed', { agentId });
       }
-
-      // Resume the agent queue in Redis
-      await this.redis.resumeQueue(`agent:${agentId}`);
-
-      // Update state
-      state.isPaused = false;
-      state.pausedUntil = undefined;
-      state.consecutiveFailures = 0; // Reset on manual resume
-      this.rejectionStates.set(agentId, state);
-
-      this.logger.info('Agent queue resumed', { agentId });
-
-      this.emit('agentResumed', {
-        agentId,
-        resumedAt: new Date()
-      });
-
     } catch (error) {
-      this.logger.error('Failed to resume agent queue', {
+      this.logger.error('Failed to resume agent', {
         agentId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      throw error;
     }
   }
 
@@ -200,35 +290,17 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Gets all paused agents
+   * Checks if agent is currently paused
    */
-  getPausedAgents(): Array<{ agentId: string; state: AgentRejectionState }> {
-    const pausedAgents: Array<{ agentId: string; state: AgentRejectionState }> = [];
-    
-    for (const [agentId, state] of this.rejectionStates.entries()) {
-      if (state.isPaused) {
-        pausedAgents.push({ agentId, state });
-      }
-    }
-    
-    return pausedAgents;
+  isAgentPaused(agentId: string): boolean {
+    const state = this.rejectionStates.get(agentId);
+    return state?.isPaused || false;
   }
 
   /**
-   * Cleans up expired pause states
+   * Manually resume a paused agent (for admin intervention)
    */
-  async cleanupExpiredPauses(): Promise<void> {
-    const now = new Date();
-    const expiredAgents: string[] = [];
-
-    for (const [agentId, state] of this.rejectionStates.entries()) {
-      if (state.isPaused && state.pausedUntil && state.pausedUntil <= now) {
-        expiredAgents.push(agentId);
-      }
-    }
-
-    for (const agentId of expiredAgents) {
-      await this.resumeAgent(agentId);
-    }
+  async forceResumeAgent(agentId: string): Promise<void> {
+    await this.resumeAgent(agentId);
   }
 }
