@@ -16,6 +16,21 @@ cd "$APP_DIR"
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# ── Lock file guard — prevent overlapping cron runs ────────────────────────────
+# If a previous deploy is still running (e.g. pm2 save is slow), skip this run.
+LOCK_FILE="/tmp/git-autodeploy.lock"
+if [ -f "$LOCK_FILE" ]; then
+  LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
+  if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+    echo "[$TIMESTAMP] [AutoDeploy] Another instance already running (PID $LOCK_PID) — skipping this run"
+    exit 0
+  fi
+  # Stale lock — previous run crashed without cleaning up
+  echo "[$TIMESTAMP] [AutoDeploy] Stale lock file (PID $LOCK_PID gone) — removing and continuing"
+fi
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT
+
 # ── 0. ALWAYS: Self-heal ceo-ai-bot ──────────────────────────────────────────
 # Runs every 5 minutes regardless of whether there are new commits.
 # Ensures the CEO bot is always online — even if it crashed between deploys.
@@ -110,6 +125,16 @@ if echo "$CHANGED" | grep -q "^ecosystem\.config\.js$"; then
   # Persist process list so it survives server reboots
   pm2 save
   echo "[$TIMESTAMP] [AutoDeploy] PM2 ecosystem reloaded"
+fi
+
+# ── 5. Restart services whose env changed (even if no code changed) ──────────
+# .env changes don't match code file extensions — handle separately so env
+# updates (new API keys, config tweaks) actually take effect at runtime.
+if echo "$CHANGED" | grep -qE "^\.env$"; then
+  echo "[$TIMESTAMP] [AutoDeploy] .env changed → reloading backend + ceo-ai-bot with updated env"
+  pm2 reload backend --update-env
+  pm2 restart ceo-ai-bot --update-env
+  echo "[$TIMESTAMP] [AutoDeploy] env-only reload complete"
 fi
 
 echo "[$TIMESTAMP] [AutoDeploy] ✅ Done — deployed $REMOTE"

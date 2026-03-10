@@ -616,8 +616,15 @@ async function executeTool(name: string, input: Record<string, unknown>, recentH
     const timeoutMs = (input.timeout_ms as number) || 30000;
 
     // Safety: block obviously dangerous commands
-    const BLOCKED = ['rm -rf /', 'mkfs', 'dd if=', ':(){:|:&};:', 'curl.*|.*sh', 'wget.*|.*sh'];
-    if (BLOCKED.some(b => new RegExp(b).test(cmd))) {
+    // Use substring matching for literals (not RegExp — pipe chars in patterns are
+    // regex alternation, not literal pipes, causing incorrect matches/bypasses).
+    // Use explicit regex only for pipe-to-shell patterns where wildcards are intentional.
+    const BLOCKED_SUBSTRINGS = ['rm -rf /', 'mkfs', 'dd if=', ':(){:|:&};:'];
+    const BLOCKED_PATTERNS = [
+      /\bcurl\b[^|]*\|\s*\b(ba)?sh\b/i,   // curl ... | sh / bash
+      /\bwget\b[^|]*\|\s*\b(ba)?sh\b/i,   // wget ... | sh / bash
+    ];
+    if (BLOCKED_SUBSTRINGS.some(b => cmd.includes(b)) || BLOCKED_PATTERNS.some(r => r.test(cmd))) {
       return `Blocked: command looks dangerous. Refusing to execute.`;
     }
 
@@ -626,10 +633,12 @@ async function executeTool(name: string, input: Record<string, unknown>, recentH
     // CEO from committing/pushing based on a misread freeform instruction.
     const GUARDED_GIT = /git\s+(push|commit|reset\s+--hard|rebase\b|checkout\s+--)/;
     if (GUARDED_GIT.test(cmd)) {
-      // Look at the last few *user* messages in this conversation for explicit sign-off
+      // Look at the IMMEDIATELY preceding user message for explicit sign-off.
+      // Checking only the last 1 message prevents an old "go ahead" from a
+      // different topic from accidentally authorising a later destructive git op.
       const recentUserMessages = recentHistory
         .filter(m => m.role === 'user' && typeof m.content === 'string')
-        .slice(-4)
+        .slice(-1)
         .map(m => m.content as string);
       const CONFIRM_RE = /\bconfirm\b|\byes[,.]?\s*(commit|push|do it|go ahead|proceed)\b|\bgo ahead\b|\bdo it\b/i;
       const confirmed = recentUserMessages.some(msg => CONFIRM_RE.test(msg));

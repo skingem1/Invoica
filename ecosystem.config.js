@@ -35,6 +35,7 @@ module.exports = {
       max_restarts: 25,        // gateway: tolerate transient port conflicts during restarts
       min_uptime: "30s",       // only counts as stable if it lives 30s
       restart_delay: 5000,     // 5s between restart attempts
+      kill_timeout: 30000,     // 30s: give OpenClaw time to drain in-flight requests before SIGKILL
       error_file: "/home/invoica/apps/Invoica/logs/gateway-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/gateway-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
@@ -105,6 +106,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "*/30 * * * *",
+      kill_timeout: 30000,     // 30s: cron — force-kill if X API call hangs
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -126,6 +128,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 10 * * 2",
       args: "--run",
+      kill_timeout: 60000,     // 1 min: DM outreach sends up to 5 DMs with 30s delays — allow time to finish
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -144,6 +147,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 8 * * *",
       args: "market-watch",
+      kill_timeout: 30000,     // 30s: daily market watch — force-kill if Grok API hangs
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -163,6 +167,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 6 * * 0",
+      kill_timeout: 120000,    // 2 min: full weekly content plan with CTO review + CEO approval
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
@@ -182,6 +187,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 7 * * 1",
+      kill_timeout: 60000,     // 1 min: tax reg API scrape — allow for slow responses
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -199,6 +205,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 8 * * 1",
+      kill_timeout: 60000,     // 1 min: EU/Japan tax API scrape — multi-jurisdiction, allow for slow responses
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -217,6 +224,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 */2 * * *",
       args: "--source=cron",
+      kill_timeout: 60000,     // 1 min: CEO review involves Claude API calls — allow time to complete
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -235,6 +243,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 7 * * 1",
       args: "weekly-report",
+      kill_timeout: 60000,     // 1 min: CFO weekly report reads wallet balances + generates report file
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -255,6 +264,10 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "256M",
+      max_restarts: 20,        // tolerate transient crashes (network blips, API timeouts)
+      min_uptime: "10s",       // only counts as stable if it lives 10s (catches fast crash loops)
+      restart_delay: 3000,     // 3s between restart attempts
+      kill_timeout: 30000,     // 30s: Telegram long-poll may hold connection — give it time to release
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
@@ -273,6 +286,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "*/5 * * * *",
+      kill_timeout: 60000,     // 1 min: deploy may run pm2 reload + pm2 save — allow time to complete
       error_file: "/home/invoica/apps/Invoica/logs/autodeploy-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/autodeploy-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
@@ -287,6 +301,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 6 * * 0",
       args: "opportunity-scan",
+      kill_timeout: 60000,     // 1 min: opportunity scan hits external APIs — allow for slow responses
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -338,6 +353,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 * * * *",
+      kill_timeout: 60000,     // 1 min: writes daily-log + continuity + long-term-memory files — allow time
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
@@ -420,6 +436,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "*/5 * * * *",
+      kill_timeout: 30000,     // 30s: watchdog checks PM2 + optionally restarts procs — allow time to complete
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"

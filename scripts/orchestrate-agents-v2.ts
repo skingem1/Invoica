@@ -34,7 +34,7 @@ import { createMCClient } from './mc-client';
 interface AgentTask {
   id: string;
   agent: string;
-  type: 'feature' | 'bugfix' | 'review' | 'test';
+  type: 'feature' | 'bugfix' | 'review' | 'test' | 'human' | 'human_validation' | 'human_gate';
   priority: 'critical' | 'high' | 'medium' | 'low';
   dependencies: string[];
   context: string;
@@ -1944,15 +1944,26 @@ ONLY output the JSON array. No markdown, no explanation.`;
       }
 
       // Dual Supervisor review (Claude + Codex in parallel)
+      // Wrapped in try/catch: CEO API timeout during reconciliation must not crash the
+      // entire sprint — treat it as a rejection so the task loops back for another attempt.
       task.status = 'review';
-      const [review1, review2] = await Promise.all([
-        this.supervisor.reviewTask(task, result.files),
-        this.supervisor2.reviewTask(task, result.files),
-      ]);
-      const dualResult = await reconcileSupervisorReviews(review1, review2, task, this.ceo);
-      const review = dualResult.finalReview;
-      if (!dualResult.consensus) this.stats.conflicts++;
-      if (dualResult.escalatedToCEO) this.stats.escalations++;
+      let review: ReviewResult;
+      try {
+        const [review1, review2] = await Promise.all([
+          this.supervisor.reviewTask(task, result.files),
+          this.supervisor2.reviewTask(task, result.files),
+        ]);
+        const dualResult = await reconcileSupervisorReviews(review1, review2, task, this.ceo);
+        review = dualResult.finalReview;
+        if (!dualResult.consensus) this.stats.conflicts++;
+        if (dualResult.escalatedToCEO) this.stats.escalations++;
+      } catch (reviewErr: any) {
+        log(c.yellow, `\n⚠ Task ${task.id}: supervisor review failed (${reviewErr.message?.substring(0, 80)}) — treating as rejection`);
+        task.status = 'pending'; // reset so it will be retried
+        this.stats.rejected++;
+        try { execSync('git reset --hard HEAD~1', { timeout: 10000 }); } catch {}
+        continue; // next attempt
+      }
       lastReview = review;
 
       task.output = { files: result.files, commit: '', model: result.model, review };
@@ -2112,7 +2123,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
 
     // Filter out human-gate tasks — agents cannot action them (same logic as sprint-runner's executablePending)
     const HUMAN_TASK_TYPES = new Set(['human', 'human_validation', 'human_gate']);
-    const pending = this.tasks.filter(t => t.status === 'pending' && !HUMAN_TASK_TYPES.has((t as any).type));
+    const pending = this.tasks.filter(t => t.status === 'pending' && !HUMAN_TASK_TYPES.has(t.type));
     for (const task of pending) {
       // Check dependencies
       const deps = task.dependencies || [];
