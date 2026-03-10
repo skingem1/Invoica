@@ -21,7 +21,8 @@
  *       → CEO resolves conflicts → CTO analyzes → CMO reports → CEO daily report
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { execSync } from 'child_process';
 import * as https from 'https';
 import * as http from 'http';
@@ -2036,6 +2037,31 @@ ONLY output the JSON array. No markdown, no explanation.`;
   }
   async run(): Promise<void> {
     const startTime = Date.now();
+
+    // ── Concurrent-run guard ──────────────────────────────────────────
+    // Sprint-runner writes a lock before spawning us, but the orchestrator
+    // can also be called directly (CEO bot emergency sprints, manual runs).
+    // This ensures only ONE orchestration is ever running at a time.
+    const ORCH_LOCK = join(process.cwd(), 'logs', 'orchestrator.lock');
+    if (existsSync(ORCH_LOCK)) {
+      try {
+        const lockPid = parseInt(readFileSync(ORCH_LOCK, 'utf-8').trim(), 10);
+        process.kill(lockPid, 0); // throws if PID not running (stale lock)
+        log(c.yellow, `\n⚠️  Orchestrator already running (PID ${lockPid}) — aborting to prevent concurrent writes`);
+        process.exit(0);
+      } catch {
+        // Stale lock — previous run crashed; safe to proceed
+        log(c.gray, '  Removed stale orchestrator lock');
+        try { unlinkSync(ORCH_LOCK); } catch { /* ignore */ }
+      }
+    }
+    writeFileSync(ORCH_LOCK, String(process.pid));
+    const releaseLock = () => { try { unlinkSync(ORCH_LOCK); } catch { /* ignore */ } };
+    process.on('exit', releaseLock);
+    process.on('SIGINT', () => { releaseLock(); process.exit(0); });
+    process.on('SIGTERM', () => { releaseLock(); process.exit(0); });
+    // ─────────────────────────────────────────────────────────────────
+
     log(c.bold, '\n🚀 Starting orchestration run...\n');
 
     // Mission Control — connect and register this sprint run
@@ -2052,6 +2078,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
     if (this.tasks.length === 0) {
       log(c.yellow, 'No tasks to execute');
       if (mcConnected) await mc.disconnect().catch(() => {});
+      releaseLock();
       return;
     }
 
@@ -2286,6 +2313,8 @@ ONLY output the JSON array. No markdown, no explanation.`;
         log(c.gray, `  [MC] Sprint reported: ${this.stats.approved} approved / ${this.stats.rejected} rejected / ${this.stats.totalTokens} tokens`);
       } catch { /* non-critical */ }
     }
+
+    releaseLock();
   }
 }
 

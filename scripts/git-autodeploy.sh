@@ -52,14 +52,18 @@ fi
 # ── 2. New commit detected ────────────────────────────────────────────
 echo "[$TIMESTAMP] [AutoDeploy] New commit: $LOCAL → $REMOTE"
 
-# Get changed files BEFORE pulling (so we know what changed)
-CHANGED=$(git diff --name-only HEAD origin/main)
+# ── 3. Pull ───────────────────────────────────────────────────────────
+# Pull FIRST, then diff using the pre-pull hash ($LOCAL) vs new HEAD.
+# This avoids a race condition where a concurrent push between diff and pull
+# causes CHANGED to miss newly-arrived files. ORIG_HEAD is not reliable
+# with --rebase, so we use the saved $LOCAL hash directly.
+git pull origin main --quiet
+echo "[$TIMESTAMP] [AutoDeploy] Pull complete (was $LOCAL, now $(git rev-parse HEAD))"
+
+# Get changed files by comparing pre-pull hash to new HEAD
+CHANGED=$(git diff --name-only "$LOCAL" HEAD)
 echo "[$TIMESTAMP] [AutoDeploy] Changed files:"
 echo "$CHANGED" | sed 's/^/  /'
-
-# ── 3. Pull ───────────────────────────────────────────────────────────
-git pull origin main --quiet
-echo "[$TIMESTAMP] [AutoDeploy] Pull complete"
 
 # ── 4. Restart affected services ─────────────────────────────────────
 

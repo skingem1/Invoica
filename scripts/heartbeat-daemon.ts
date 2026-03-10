@@ -442,12 +442,32 @@ async function heartbeat(): Promise<void> {
   console.log(`[Heartbeat] Starting at ${new Date().toISOString()}`);
 
   // 1. Read current state
+  // IMPORTANT: read prevHealth BEFORE any writes so the gap check compares
+  // the previous run's timestamp, not the one we're about to write.
+  let prevHealthTimestamp: string | null = null;
+  try {
+    const prev = readJSON<HealthState>(HEALTH_FILE);
+    prevHealthTimestamp = prev.last_heartbeat;
+  } catch { /* first run or corrupted file — gap check will be skipped */ }
+
   let currentTier: TierState;
   try {
     currentTier = readJSON<TierState>(TIER_FILE);
   } catch {
+    // Bug fix: original catch block called readJSON again (infinite throw).
+    // Use a safe default so heartbeat never crashes on missing tier.json.
     console.error('[Heartbeat] Failed to read tier.json — using defaults');
-    currentTier = readJSON<TierState>(TIER_FILE);
+    currentTier = {
+      current_tier: 'pre_launch',
+      mrr: 0,
+      mrr_currency: 'USD',
+      last_updated: new Date().toISOString(),
+      beta_start_date: '2026-02-23',
+      billing_activation_date: '2026-04-22',
+      day_number: 0,
+      tiers: {},
+      history: [],
+    };
   }
 
   // 2. Run health checks
@@ -537,15 +557,15 @@ async function heartbeat(): Promise<void> {
     console.log(`[Heartbeat] ⚠️ WARNING: Critical tier — MRR $${mrr}`);
   }
 
-  // 13. Check heartbeat gap
-  try {
-    const prevHealth = readJSON<HealthState>(HEALTH_FILE);
-    const lastBeat = new Date(prevHealth.last_heartbeat).getTime();
+  // 13. Check heartbeat gap (uses prevHealthTimestamp captured BEFORE we wrote health.json)
+  if (prevHealthTimestamp) {
+    const lastBeat = new Date(prevHealthTimestamp).getTime();
     const gapMinutes = (Date.now() - lastBeat) / (1000 * 60);
     if (gapMinutes > 90) {
       appendAudit(`[WARNING] Heartbeat gap detected: ${Math.floor(gapMinutes)} minutes since last beat`);
+      console.log(`[Heartbeat] ⚠️ Gap: ${Math.floor(gapMinutes)} min since last heartbeat`);
     }
-  } catch {}
+  }
 
   // 14. PM2 cron service watchdog ──────────────────────────────────────
   const serviceHealths = checkCronServices();

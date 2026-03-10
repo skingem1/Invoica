@@ -20,6 +20,8 @@
       "type": "human",
       "agent": null,
       "estimate_human_hours": 2,
+      "deadline": "2026-03-17",
+      "escalation": "If PRE-001 is not completed by 2026-03-17, CEO to escalate via alternative channel (direct DM to PayAI founder on X/Telegram) and evaluate whether to proceed with Coinbase as launch facilitator instead. All downstream tasks (PAY-001, INFRA-002, TREAS-001 via human_gate) are blocked on this.",
       "description": "Two parts: (1) Register 3 Invoica services on PayAI partner portal. Use investor relationship for direct access. Get X402_SERVICE_ID_ROUTER, X402_SERVICE_ID_TREASURY, X402_SERVICE_ID_ORACLE. Also get PAYAI_VERIFY_URL (PayAI's x402 /verify endpoint — needed by INFRA-002 to seed the registry). Negotiate 50% fee reduction for PayAI users first 3 months. (2) Register PayAI as the first facilitator in the on-chain facilitator registry once INFRA-002 is deployed — provide PAYAI_VERIFY_URL and service IDs to CTO. Add all values to .env.example.",
       "outputs": ["X402_SERVICE_ID_ROUTER", "X402_SERVICE_ID_TREASURY", "X402_SERVICE_ID_ORACLE", "PAYAI_VERIFY_URL"],
       "gate_for": ["PAY-001", "INFRA-002"]
@@ -34,7 +36,9 @@
       "priority": "CRITICAL_SECURITY",
       "description": "AUDITED: wallet/keypair.json contains a REAL 64-byte Solana private key committed to the repo (confirmed: [245,255,200,179,...]). This is a live key, not a placeholder. Three steps: 1) Add wallet/keypair.json to .gitignore immediately. 2) ROTATE THE KEY — generate new keypair, transfer any funds, never use the exposed key again. 3) Document key rotation in README. This must be the very first task — do not commit any other changes to this repo before the key is rotated.",
       "repo": "Arb-bot-main/",
-      "files": [".gitignore", "README.md", "wallet/keypair.json"]
+      "files": [".gitignore", "README.md", "wallet/keypair.json"],
+      "verification_required": true,
+      "verification_deliverable": "After rotation, write the NEW wallet public key (base58) to docs/key-rotation-log.md with date. Supervisor must confirm: (1) old pubkey no longer appears in any committed file, (2) wallet/keypair.json is in .gitignore, (3) new pubkey matches the key used in README. This is the only way to prove rotation actually happened."
     },
     {
       "id": "ARB-002",
@@ -171,7 +175,8 @@
       "id": "TREAS-001",
       "title": "Treasury Manager — on-chain spending cap Solana program",
       "status": "blocked",
-      "blocked_by": ["PAY-003", "CEO_SOLANA_SPRINT"],
+      "blocked_by": ["PAY-003"],
+      "_note_removed_dep": "CEO_SOLANA_SPRINT removed 2026-03-10 — that sprint ID does not exist. TREAS-001 now gates only on PAY-003. If a dedicated Solana sprint is created later, add its real ID back here.",
       "type": "code",
       "agent": "CTO",
       "priority": "CRITICAL_SECURITY",

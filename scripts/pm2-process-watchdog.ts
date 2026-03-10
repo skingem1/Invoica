@@ -116,7 +116,10 @@ async function main() {
     }
     const status   = proc.pm2_env?.status ?? 'unknown';
     const restarts = proc.pm2_env?.restart_time ?? 0;
-    if (status !== 'online') {
+    // Skip transient states — 'launching' and 'stopping' resolve in seconds
+    // and alerting on them causes false-positive Telegram spam
+    const TRANSIENT_STATES = new Set(['launching', 'stopping', 'waiting restart']);
+    if (status !== 'online' && !TRANSIENT_STATES.has(status)) {
       issues.push(`- ${name}: status=${status}, restarts=${restarts}`);
       issueProcesses.push(name);
     }

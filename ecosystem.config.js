@@ -12,8 +12,8 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
-      max_restarts: 10,        // stop crash-looping after 10 failed starts
-      min_uptime: "10s",       // only counts as a stable start if it lives 10s
+      max_restarts: 25,        // live beta: tolerate transient crashes (DB cold starts, etc.)
+      min_uptime: "30s",       // only counts as stable if it lives 30s (catches fast crash loops)
       restart_delay: 3000,     // 3s between restart attempts
       env: {
         // x402 seller wallet — receives USDC from agent inference payments
@@ -31,8 +31,8 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "768M",
-      max_restarts: 10,        // stop crash-looping after 10 failed starts
-      min_uptime: "10s",       // only counts as a stable start if it lives 10s
+      max_restarts: 25,        // gateway: tolerate transient port conflicts during restarts
+      min_uptime: "30s",       // only counts as stable if it lives 30s
       restart_delay: 5000,     // 5s between restart attempts
       error_file: "/home/invoica/apps/Invoica/logs/gateway-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/gateway-out.log",
@@ -47,6 +47,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "*/5 * * * *",
+      kill_timeout: 60000,     // 1 min: force-kill if email handler hangs
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -82,10 +83,12 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 * * * *",
+      kill_timeout: 120000,    // 2 min: force-kill if heartbeat hangs (PM2 waits this before SIGKILL)
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
-        HEALTHCHECK_PING_URL: "https://hc-ping.com/0f88f15e-5f06-43fa-ba26-a32719bb3682"
+        // Security: read from .env — never hardcode this URL (it's a shared secret)
+        HEALTHCHECK_PING_URL: process.env.HEALTHCHECK_PING_URL || ""
       },
       error_file: "/home/invoica/apps/Invoica/logs/heartbeat-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/heartbeat-out.log",
@@ -314,6 +317,7 @@ module.exports = {
       },
       error_file: "/home/invoica/apps/Invoica/logs/sprint-runner-error.log",
       out_file: "/home/invoica/apps/Invoica/logs/sprint-runner-out.log",
+      kill_timeout: 22200000,  // 6h 10min: matches MAX_HOURS (6h) — force-kill only if orchestrator hangs beyond limit
       max_restarts: 5,
       min_uptime: "30s",
       restart_delay: 5000,
