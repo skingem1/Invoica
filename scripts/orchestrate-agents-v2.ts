@@ -1802,16 +1802,25 @@ ONLY output the JSON array. No markdown, no explanation.`;
         return false;
       }
 
-      // Dual supervisor review
-      const [review1, review2] = await Promise.all([
-        this.supervisor.reviewTask(subtask, result.files),
-        this.supervisor2.reviewTask(subtask, result.files),
-      ]);
-      const dualResult = await reconcileSupervisorReviews(review1, review2, subtask, this.ceo);
-      const review = dualResult.finalReview;
-      if (!dualResult.consensus) this.stats.conflicts++;
-      if (dualResult.escalatedToCEO) this.stats.escalations++;
-      lastReview = review;
+      // Dual supervisor review — wrapped in try/catch so a CEO/supervisor API
+      // timeout during reconciliation never crashes the subtask executor silently.
+      let review: ReviewResult;
+      try {
+        const [review1, review2] = await Promise.all([
+          this.supervisor.reviewTask(subtask, result.files),
+          this.supervisor2.reviewTask(subtask, result.files),
+        ]);
+        const dualResult = await reconcileSupervisorReviews(review1, review2, subtask, this.ceo);
+        review = dualResult.finalReview;
+        if (!dualResult.consensus) this.stats.conflicts++;
+        if (dualResult.escalatedToCEO) this.stats.escalations++;
+        lastReview = review;
+      } catch (reviewErr: any) {
+        log(c.yellow, `  ⚠ Sub-task ${subtask.id}: supervisor review failed (${reviewErr.message?.substring(0, 80)}) — treating as rejection`);
+        this.stats.rejected++;
+        try { execSync('git reset --hard HEAD~1', { timeout: 10000 }); } catch {}
+        continue;
+      }
 
       if (review.verdict === 'APPROVED') {
         this.stats.approved++;

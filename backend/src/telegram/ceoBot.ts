@@ -621,8 +621,15 @@ async function executeTool(name: string, input: Record<string, unknown>, recentH
     // Use explicit regex only for pipe-to-shell patterns where wildcards are intentional.
     const BLOCKED_SUBSTRINGS = ['rm -rf /', 'mkfs', 'dd if=', ':(){:|:&};:'];
     const BLOCKED_PATTERNS = [
-      /\bcurl\b[^|]*\|\s*\b(ba)?sh\b/i,   // curl ... | sh / bash
-      /\bwget\b[^|]*\|\s*\b(ba)?sh\b/i,   // wget ... | sh / bash
+      // Download-and-exec via any shell variant (sh, bash, zsh, dash, ksh, fish, ash)
+      /\bcurl\b[^|]*\|\s*\b(ba?sh|zsh|dash|ksh|fish|ash)\b/i,
+      /\bwget\b[^|]*\|\s*\b(ba?sh|zsh|dash|ksh|fish|ash)\b/i,
+      // Inline code execution: python/perl/ruby -c/-e (arbitrary string eval)
+      /\b(python3?|perl|ruby)\s+-[ce]\s+/i,
+      // Command substitution containing network fetch piped to shell
+      /\$\([^)]*\b(curl|wget)\b[^)]*\)\s*\|\s*\b(ba?sh|zsh|dash|ksh|fish|ash)\b/i,
+      // Backtick command sub containing network fetch piped to shell
+      /`[^`]*\b(curl|wget)\b[^`]*`\s*\|\s*\b(ba?sh|zsh|dash|ksh|fish|ash)\b/i,
     ];
     if (BLOCKED_SUBSTRINGS.some(b => cmd.includes(b)) || BLOCKED_PATTERNS.some(r => r.test(cmd))) {
       return `Blocked: command looks dangerous. Refusing to execute.`;
