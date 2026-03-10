@@ -213,6 +213,55 @@ function collectReports(state: ReviewState): ReportSet {
   return { hasNew, content: sections.join('\n\n---\n\n'), mtimes: newMtimes };
 }
 
+// ─── Completed features registry ─────────────────────────────────────────────
+// Scans all sprint JSON files and aggregates tasks with status "done"/"approved".
+// Injected into CEO context so it never re-sprints already-shipped work.
+
+function buildCompletedRegistry(): string {
+  const sprintDir = path.join(ROOT, 'sprints');
+  if (!fs.existsSync(sprintDir)) return '(no sprint history available)';
+
+  const files = fs.readdirSync(sprintDir)
+    .filter(f => f.endsWith('.json') && f !== 'current.json')
+    .sort();
+
+  const completedTasks: { id: string; description: string }[] = [];
+
+  for (const file of files) {
+    try {
+      const raw = fs.readFileSync(path.join(sprintDir, file), 'utf-8');
+      const data = JSON.parse(raw);
+      const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+      for (const task of tasks) {
+        if (task.status === 'done' || task.status === 'approved') {
+          completedTasks.push({
+            id: task.id ?? '?',
+            description: task.description ?? task.context ?? '',
+          });
+        }
+      }
+    } catch { /* skip malformed sprint files */ }
+  }
+
+  if (completedTasks.length === 0) return '(no completed tasks found in sprint history)';
+
+  // Group by task ID prefix (CHAIN, MCP, FIX, BUG, TAX, etc.)
+  const groups: Record<string, string[]> = {};
+  for (const t of completedTasks) {
+    const prefix = t.id.replace(/-\d+$/, '');
+    if (!groups[prefix]) groups[prefix] = [];
+    groups[prefix].push(`  - [${t.id}] ${t.description.slice(0, 100)}`);
+  }
+
+  const lines = ['The following features are FULLY SHIPPED. Do NOT create sprints for these.'];
+  for (const [prefix, items] of Object.entries(groups)) {
+    lines.push(`\n**${prefix}**`);
+    lines.push(...items);
+  }
+
+  return lines.join('\n');
+}
+
 // ─── Sprint trigger ──────────────────────────────────────────────────────────
 
 // ─── Sprint file generation ─────────────────────────────────────────────────
@@ -414,11 +463,12 @@ async function main() {
     console.log(`[ceo-review] New reports detected (source: ${SOURCE}) — starting CEO review`);
 
     // Load CEO context files
-    const soul         = readIfExists(path.join(ROOT, 'SOUL.md'), 2000);
-    const constitution = readIfExists(path.join(ROOT, 'constitution.md'), 1000);
-    const ceoPrompt    = readIfExists(path.join(ROOT, 'agents', 'ceo', 'prompt.md'), 2500);
+    const soul           = readIfExists(path.join(ROOT, 'SOUL.md'), 2000);
+    const constitution   = readIfExists(path.join(ROOT, 'constitution.md'), 1000);
+    const ceoPrompt      = readIfExists(path.join(ROOT, 'agents', 'ceo', 'prompt.md'), 2500);
     const prevPriorities = readIfExists(PRIORITIES_LATEST, 1500);
-    const recentSprint_ = readIfExists(SPRINT_BRIEF, 800);
+    const recentSprint_  = readIfExists(SPRINT_BRIEF, 800);
+    const completedRegistry = buildCompletedRegistry();
 
     // ── CEO system prompt ──────────────────────────────────────────────────
     const system = `${ceoPrompt.slice(0, 2000)}
@@ -434,30 +484,36 @@ A sprint can target ANY part of the system:
 
 ## STANDING STRATEGIC INITIATIVE — Multichain x402 Expansion
 
-This is a top-3 revenue priority. Currently Invoica only accepts payments on Base (chainId 8453).
+This is a top-3 revenue priority. Currently Invoica accepts payments on Base (chainId 8453) and Polygon.
 Expand in this exact order — do not skip or reorder:
 
-1. POLYGON (next) — EVM, <$0.001/tx, USDC native (0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359)
-   Implementation: extend backend/src/middleware/x402.ts + chain registry config
-   Key files: middleware/x402.ts, routes/ai-inference.ts, new config/chains.ts
-   Complexity: LOW — identical EIP-712 TransferWithAuthorization as Base, just chainId 137
+1. POLYGON ✅ DONE — Shipped. chains.ts (chainId 137), chain-registry.ts, settlement-router.ts all updated.
+   DO NOT create Polygon sprints — this is live.
 
-2. SOLANA (after Polygon is live) — AI-native ecosystem, USDC SPL token, $0.00025/tx
+2. MCP SERVER ✅ DONE — Shipped March 8, 2026. dist/mcp/invoica-mcp-server.js compiled and live.
+   DO NOT create MCP server sprints — this is live.
+
+3. SOLANA (next priority) — AI-native ecosystem, USDC SPL token, $0.00025/tx
    Implementation: new signing path — ed25519 + SPL token transfer authority
    Complexity: HIGH — non-EVM, requires separate verification function
 
-3. ARBITRUM / OPTIMISM (after Polygon) — EVM L2s, trivial chainId swaps
-   Complexity: TRIVIAL once Polygon path exists
+4. ARBITRUM / OPTIMISM (after Solana) — EVM L2s, trivial chainId swaps
+   Complexity: TRIVIAL once Polygon path is confirmed battle-tested
 
-4. ETHEREUM MAINNET (last) — enterprise high-value, expensive gas
+5. ETHEREUM MAINNET (last) — enterprise high-value, expensive gas
    Complexity: LOW — same as Base but different RPC
 
-TRIGGER a Polygon sprint when: no critical/security issues pending AND developer DX is unblocked.
+TRIGGER a Solana sprint when: no critical/security issues pending AND developer DX is unblocked.
 DO NOT wait for a CMO or CTO report to mention multichain — proactively schedule it.
+
+## CRITICAL RULE — Completed Features
+Before raising ANY feature or capability as a priority, check the Completed Features Registry
+provided in your context. Do NOT propose or create sprints for work that is already done.
+The registry is authoritative — trust it over any hardcoded assumptions.
 
 ## Sprint trigger criteria:
 - TRIGGER immediately: critical bugs, broken autonomy, security issues, revenue-blocking problems
-- TRIGGER for: multichain expansion (Polygon → Solana → Arbitrum → Ethereum) — standing priority
+- TRIGGER for: multichain expansion (Solana → Arbitrum → Ethereum — Polygon already done) — standing priority
 - TRIGGER for: high-value features CTO/CMO identified, agent improvements needed now
 - TRIGGER for: pattern of failures detected in CTO learnings/post-sprint reports
 - DEFER: low-priority improvements, cosmetic changes, already-queued backlog items
@@ -493,6 +549,8 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
       soul,
       `\n## Constitution`,
       constitution,
+      `\n## ✅ Completed & Shipped Features`,
+      completedRegistry,
       `\n## Previous Priorities`,
       prevPriorities || '(first CEO review)',
       `\n## Last Sprint Brief`,
@@ -500,7 +558,7 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
       `\n## Incoming Reports (review all of these)`,
       reports.content,
       cooldownNote,
-      `\nReview all reports. Identify priorities. Decide if a sprint is needed. Return JSON only.`,
+      `\nReview all reports. Check the Completed Features Registry above before raising priorities. Identify remaining gaps. Decide if a sprint is needed. Return JSON only.`,
     ].join('\n\n');
 
     console.log('[ceo-review] Calling CEO (Claude)...');
