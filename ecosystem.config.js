@@ -66,6 +66,7 @@ module.exports = {
       watch: false,
       cron_restart: "0 9 * * *",
       args: "full-scan",
+      kill_timeout: 300000,   // 5 min: full TechWatch scan can be slow (API calls); force-kill if hung
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json"
@@ -377,6 +378,7 @@ module.exports = {
       autorestart: false,
       watch: false,
       cron_restart: "0 4 * * *",
+      kill_timeout: 120000,   // 2 min: git operations and markdown writes can stall; force-kill if hung
       env: {
         TS_NODE_TRANSPILE_ONLY: "true",
         TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",

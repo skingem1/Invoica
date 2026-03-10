@@ -35,9 +35,13 @@ const TELEGRAM_TOKEN = process.env.CEO_TELEGRAM_BOT_TOKEN || '';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
 const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID || '';
-const ALLOWED_USER_ID = process.env.CEO_TELEGRAM_USER_ID
-  ? parseInt(process.env.CEO_TELEGRAM_USER_ID, 10)
-  : null;
+// SECURITY: CEO_TELEGRAM_USER_ID is mandatory. Without it the bot accepts commands from ANY Telegram user.
+// Set this in .env to your numeric Telegram user ID (get it from @userinfobot).
+if (!process.env.CEO_TELEGRAM_USER_ID) {
+  console.error('[CeoBot] FATAL: CEO_TELEGRAM_USER_ID env var is not set. Bot would be open to all users. Refusing to start.');
+  process.exit(1);
+}
+const ALLOWED_USER_ID = parseInt(process.env.CEO_TELEGRAM_USER_ID, 10);
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = process.env.GITHUB_REPO || 'skingem1/Invoica';
 
@@ -899,7 +903,7 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   const { chat, from, text } = update.message;
   const chatId = chat.id;
 
-  if (ALLOWED_USER_ID && from.id !== ALLOWED_USER_ID) {
+  if (from.id !== ALLOWED_USER_ID) {
     await telegramSend('sendMessage', { chat_id: chatId, text: '🔒 Private executive bot. Unauthorized access.' });
     console.warn(`[CeoBot] Unauthorized from user ${from.id} (@${from.username})`);
     return;

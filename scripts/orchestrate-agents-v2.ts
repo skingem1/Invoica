@@ -2110,7 +2110,9 @@ ONLY output the JSON array. No markdown, no explanation.`;
       }
     }
 
-    const pending = this.tasks.filter(t => t.status === 'pending');
+    // Filter out human-gate tasks — agents cannot action them (same logic as sprint-runner's executablePending)
+    const HUMAN_TASK_TYPES = new Set(['human', 'human_validation', 'human_gate']);
+    const pending = this.tasks.filter(t => t.status === 'pending' && !HUMAN_TASK_TYPES.has((t as any).type));
     for (const task of pending) {
       // Check dependencies
       const deps = task.dependencies || [];

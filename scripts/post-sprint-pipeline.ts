@@ -106,6 +106,7 @@ interface TestResult {
   failed: number;
   total: number;
   failures: Array<{ test: string; message: string }>;
+  truncatedNote?: string; // set when >10 failures were capped — kept outside failures[] so CTO sees correct count
   raw: string;
   exitCode: number;
 }
@@ -150,11 +151,12 @@ function parseJestOutput(output: string, exitCode: number): TestResult {
         }
       }
       // Cap at 10 failures to avoid unbounded CTO review prompt size (e.g. 100+ failing tests)
+      // NOTE: truncation note is kept in a separate field so CTO sees correct failure count
       const cappedFailures = failures.slice(0, 10);
-      if (failures.length > 10) {
-        cappedFailures.push({ test: `...${failures.length - 10} more failures omitted`, message: 'See raw output for full list' });
-      }
-      return { passed, failed, total, failures: cappedFailures, raw: output.slice(0, 3000), exitCode };
+      const truncatedNote = failures.length > 10
+        ? `...${failures.length - 10} more failures omitted — see raw output for full list`
+        : undefined;
+      return { passed, failed, total, failures: cappedFailures, truncatedNote, raw: output.slice(0, 3000), exitCode };
     } catch { /* fall through to text parsing */ }
   }
 
@@ -193,7 +195,7 @@ async function ctoReview(result: TestResult, sprintName: string): Promise<CtoDec
 
 ## Failures (if any)
 ${result.failures.map((f, i) => `${i + 1}. ${f.test}\n   ${f.message}`).join('\n\n') || 'None'}
-
+${result.truncatedNote ? `\n⚠️  ${result.truncatedNote}` : ''}
 ## Raw Output (last 2000 chars)
 ${result.raw.slice(-2000)}
 
