@@ -120,21 +120,46 @@
     },
     {
       "id": "SPRINT052-001",
-      "title": "Treasury Manager — treasury-yield.ts OpenClaw skill",
+      "title": "Treasury Manager — on-chain spending cap Solana program",
       "status": "blocked",
       "blocked_by": ["SPRINT051-003", "CEO_SOLANA_SPRINT"],
       "type": "code",
+      "agent": "CTO",
+      "priority": "CRITICAL_SECURITY",
+      "estimate_agent_hours": 5,
+      "description": "FIRST TASK IN SPRINT 052. Deploy a Solana program that enforces the per-cycle spending ceiling in on-chain program logic — not TypeScript. Program cannot release more than the cap regardless of what the yield skill instructs. On-chain state tracks cumulative daily loss; when threshold hit, program automatically freezes delegation for 24h. Auditable by anyone. Requires one program audit before mainnet exposure.",
+      "repo": "arb-bot (new: programs/treasury-cap/)",
+      "files": ["programs/treasury-cap/src/lib.rs", "programs/treasury-cap/tests/"]
+    },
+    {
+      "id": "SPRINT052-002",
+      "title": "Treasury Manager — gas vs yield model + minimum cycle floor",
+      "status": "blocked",
+      "blocked_by": ["SPRINT052-001"],
+      "type": "code",
+      "agent": "CTO",
+      "estimate_agent_hours": 2,
+      "description": "Model gas costs against yield using arb bot simulation. Solana tx ≈ $0.003; triangular arb = 3 txs ≈ $0.009. At 2% edge: minimum profitable cycle ≈ 1.5–2 USDC. Hard-code floor in treasury-yield.ts: skill does not trigger if projected gross yield < $0.015 (1.5× gas). Document the threshold and update README. Produces a signed-off number before Sprint 052 ships.",
+      "repo": "Invoica",
+      "files": ["backend/src/skills/treasury-yield.ts", "docs/treasury-gas-model.md"]
+    },
+    {
+      "id": "SPRINT052-003",
+      "title": "Treasury Manager — treasury-yield.ts OpenClaw skill with Jito bundles",
+      "status": "blocked",
+      "blocked_by": ["SPRINT052-002"],
+      "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 4,
-      "description": "CONDITIONAL: CEO Solana sprint must land first. Register invoica-treasury-yield skill via ClawRouter. Trigger: agent wallet above floor AND idle >10min. Calls arb bot fast-loop on Meteora BTC/SOL pool. Deposits yield to agent wallet. Safety rails hardcoded: max 2% drawdown/cycle, circuit breaker after 3 losses.",
+      "description": "Register invoica-treasury-yield skill via ClawRouter. Trigger: agent wallet above floor AND idle >10min. Calls arb bot fast-loop on Meteora BTC/SOL pool via Jito bundles — simulation and execution are submitted atomically. If slippage exceeds tolerance threshold between sim and execution, bundle fails cleanly (no partial fills, no surprise losses). Deposits confirmed profit to agent wallet. Safety rails: max 2% drawdown/cycle, circuit breaker after 3 consecutive losses, minimum cycle floor from SPRINT052-002.",
       "repo": "Invoica",
       "files": ["backend/src/skills/treasury-yield.ts"]
     },
     {
-      "id": "SPRINT052-002",
+      "id": "SPRINT052-004",
       "title": "Treasury Manager — treasury-attribution.ts",
       "status": "blocked",
-      "blocked_by": ["SPRINT052-001"],
+      "blocked_by": ["SPRINT052-003"],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 3,
@@ -143,26 +168,60 @@
       "files": ["backend/src/services/treasury-attribution.ts"]
     },
     {
-      "id": "SPRINT053-001",
-      "title": "Reputation Oracle — acp-scorer.ts + oracle route",
+      "id": "SPRINT052-GATE",
+      "title": "Treasury Manager — validation gate",
       "status": "blocked",
-      "blocked_by": ["SPRINT052-002"],
+      "blocked_by": ["SPRINT052-004"],
+      "type": "human_validation",
+      "estimate_human_hours": 2,
+      "description": "1. Model minimum cycle size vs current Solana gas — confirm $0.015 floor math is correct. 2. One agent completes idle yield cycle on devnet via Jito bundle path — confirm sim and execution in same block. 3. Force slippage breach mid-cycle — confirm bundle fails cleanly (no partial fill, no yield deposited). 4. Force 3 consecutive losses — confirm circuit breaker pauses skill. 5. Query on-chain program state — confirm daily counter increments and freezes delegation at threshold. 6. Non-PayAI request to /payai/treasury/* returns HTTP 402. DO NOT proceed to Sprint 053 until all 6 checks pass.",
+      "gate_for": ["SPRINT053-001"]
+    },
+    {
+      "id": "SPRINT053-001",
+      "title": "Reputation Oracle — acp-scorer.ts with 5-signal formula",
+      "status": "blocked",
+      "blocked_by": ["SPRINT052-GATE"],
       "type": "code",
       "agent": "coding-agent",
-      "estimate_agent_hours": 5,
-      "description": "Extend agent-reputation-dashboard (github.com/skingem1/agent-reputation-dashboard) to ingest treasury-attribution.ts output. Build acp-scorer.ts: weighted composite score (40% yield, 30% routing success, 20% settlement time, 10% task completion). Score 0-1000. Build oracle.ts route: GET /payai/oracle/score/:agentId, GET /payai/oracle/leaderboard, POST /payai/oracle/record.",
+      "estimate_agent_hours": 6,
+      "description": "Extend agent-reputation-dashboard to ingest treasury-attribution.ts output + PayAI retroactive transaction history. Build acp-scorer.ts: 5-signal weighted composite score — Signal 1: 37% yield (job-size weighted), Signal 2: 28% routing success, Signal 3: 18% settlement time, Signal 4: 7% completion rate, Signal 5 (NEW): 10% verified dispute rate (5x negative multiplier on upheld disputes, 48h dispute window). Score 0-1000. Cold start: agents with <10 PayAI transactions return UNRATED flag instead of score. Job-size weighting: 0.01 USDC task = 0.1 points, 50 USDC job = 10 points.",
       "repo": "Invoica + agent-reputation-dashboard",
-      "files": ["backend/src/routes/oracle.ts", "backend/src/services/acp-scorer.ts"]
+      "files": ["backend/src/services/acp-scorer.ts"]
+    },
+    {
+      "id": "SPRINT053-002",
+      "title": "Reputation Oracle — oracle routes + dispute + endorsement",
+      "status": "blocked",
+      "blocked_by": ["SPRINT053-001"],
+      "type": "code",
+      "agent": "coding-agent",
+      "estimate_agent_hours": 4,
+      "description": "Build oracle.ts route: GET /payai/oracle/score/:agentId (returns score or UNRATED), GET /payai/oracle/leaderboard, POST /payai/oracle/record, POST /payai/oracle/dispute (triggers 48h window, applies 5x multiplier if upheld), POST /payai/oracle/endorse (binary satisfied signal from verified paying client only — no self-endorsement). Apply payai-gate.ts middleware using PAYAI_SERVICE_ID_ORACLE.",
+      "repo": "Invoica",
+      "files": ["backend/src/routes/oracle.ts"]
+    },
+    {
+      "id": "SPRINT053-003",
+      "title": "Reputation Oracle — stake-to-bid enforcement (jobs >20 USDC)",
+      "status": "blocked",
+      "blocked_by": ["SPRINT053-001"],
+      "type": "code",
+      "agent": "coding-agent",
+      "estimate_agent_hours": 4,
+      "description": "Jobs above 20 USDC require the accepting agent to post a 5 USDC stake via x402 before acceptance is confirmed. Stake is slashed if a verified dispute is upheld within 48h. Extends existing x402 payment mechanics — staking is a natural addition to the payment flow. Prevents reputation-farming-then-exploit attack on high-value tasks. Agent with insufficient stake balance cannot accept jobs above threshold.",
+      "repo": "Invoica",
+      "files": ["backend/src/services/stake-to-bid.ts", "backend/src/routes/oracle.ts"]
     },
     {
       "id": "SPRINT054-001",
       "title": "Marketplace — public treasury endpoint + frontend tab",
       "status": "blocked",
-      "blocked_by": ["SPRINT053-001"],
+      "blocked_by": ["SPRINT053-002", "SPRINT053-003"],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 3,
-      "description": "Create backend/src/routes/treasury-public.ts (no auth). Add /treasury dashboard tab to Next.js frontend. Emergency pause button kills yield engine only. Submit all 3 services to PayAI marketplace with cross-branding.",
+      "description": "Create backend/src/routes/treasury-public.ts (no auth). Add /treasury dashboard tab to Next.js frontend showing: yield generated, swarm total, per-agent P&L, circuit breaker status, emergency pause button, UNRATED vs scored agent count. Emergency pause kills yield engine only — payment routing remains live. Submit all 3 services to PayAI marketplace with cross-branding.",
       "repo": "Invoica",
       "files": ["backend/src/routes/treasury-public.ts", "frontend/app/treasury/"]
     }
@@ -172,9 +231,9 @@
     "SPRINT050-001 through SPRINT050-GATE → arb bot stabilisation (separate repo)",
     "SPRINT051 → Payment Router (Invoica repo, needs PRE + Sprint050)",
     "CEO Solana Sprint → already planned, now has urgency as gate for Sprint 052",
-    "SPRINT052 → Treasury Manager (conditional, needs Solana + Sprint051)",
-    "SPRINT053 → Reputation Oracle (replaces Priority 3)",
+    "SPRINT052 → Treasury Manager: on-chain cap program FIRST (CTO), then gas model, then yield skill + Jito bundles",
+    "SPRINT053 → Reputation Oracle: 5-signal scorer + dispute/endorse routes + stake-to-bid (replaces Priority 3)",
     "SPRINT054 → Marketplace demo (pitch asset)"
   ],
-  "ceo_notes": "PayAI integration does NOT displace Gas Backstop (Priority 1). Both tracks run in parallel — Gas Backstop in the Invoica repo, Arb Bot Stabilisation in the separate arb bot repo. PRE sprint is human-only and should start immediately. Flag CTO when CEO Solana sprint ships to confirm wallet interface before Sprint 052."
+  "ceo_notes": "PayAI integration does NOT displace Gas Backstop (Priority 1). Both tracks run in parallel — Gas Backstop in the Invoica repo, Arb Bot Stabilisation in the separate arb bot repo. PRE sprint is human-only and should start immediately. Flag CTO when CEO Solana sprint ships to confirm wallet interface before Sprint 052. IMPORTANT: Sprint 052 starts with the on-chain Solana program (SPRINT052-001) — this is the trust foundation for the entire Treasury Manager. No yield skill ships without it. On-chain cap requires audit before mainnet exposure."
 }
