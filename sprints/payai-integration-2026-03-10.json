@@ -16,7 +16,8 @@
     {
       "id": "PRE-001",
       "title": "x402 Partner Registration — Human Action",
-      "status": "pending",
+      "status": "rejected",
+      "_agent_note": "Rejected by agent 2026-03-10 — awaiting human action. Tarek must manually contact PayAI and complete registration before this can proceed.",
       "type": "human",
       "agent": null,
       "estimate_human_hours": 2,
@@ -29,7 +30,8 @@
     {
       "id": "ARB-001",
       "title": "Arb Bot — F-01 CRITICAL: Rotate exposed private key + .gitignore",
-      "status": "pending",
+      "status": "rejected",
+      "_agent_note": "Rejected by agent 2026-03-10 — key rotation requires human-initiated action. Tarek must manually generate new keypair and rotate. Agent cannot rotate keys autonomously.",
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 1,
@@ -207,7 +209,9 @@
       "estimate_agent_hours": 4,
       "description": "Register invoica-treasury-yield skill via ClawRouter. Trigger: agent wallet above floor AND idle >10min AND above minimum cycle threshold (from TREAS-002). Calls arb bot fast-loop on Meteora BTC/SOL pool via Jito bundles (atomic). Deposits confirmed profit to agent wallet. Safety rails: max 2% drawdown/cycle, circuit breaker after 3 consecutive losses (uses ARB-005 circuitBreakerActive from bot.ts), minimum cycle floor from TREAS-002. Apply requireX402('X402_SERVICE_ID_TREASURY') middleware to /x402/treasury/* route.",
       "repo": "Invoica",
-      "files": ["backend/src/skills/treasury-yield.ts"]
+      "files": ["backend/src/skills/treasury-yield.ts"],
+      "verification_required": true,
+      "verification_deliverable": "Drawdown tracking must be real code, not a comment. Supervisor checks: (1) a drawdownTracker accumulator is present and incremented on each losing cycle, (2) the skill exits early (no trade fired) when cumulative loss for the cycle >= 2% of wallet balance — confirmed with a unit test, (3) circuitBreakerActive from ARB-005 bot.ts is explicitly imported and checked before each trade attempt — NOT just mentioned in a comment. If any of the three are missing, mark TREAS-003 as rejected."
     },
     {
       "id": "TREAS-004",

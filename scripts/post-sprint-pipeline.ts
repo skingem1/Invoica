@@ -149,7 +149,12 @@ function parseJestOutput(output: string, exitCode: number): TestResult {
           }
         }
       }
-      return { passed, failed, total, failures, raw: output.slice(0, 3000), exitCode };
+      // Cap at 10 failures to avoid unbounded CTO review prompt size (e.g. 100+ failing tests)
+      const cappedFailures = failures.slice(0, 10);
+      if (failures.length > 10) {
+        cappedFailures.push({ test: `...${failures.length - 10} more failures omitted`, message: 'See raw output for full list' });
+      }
+      return { passed, failed, total, failures: cappedFailures, raw: output.slice(0, 3000), exitCode };
     } catch { /* fall through to text parsing */ }
   }
 

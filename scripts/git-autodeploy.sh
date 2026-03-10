@@ -67,8 +67,8 @@ echo "$CHANGED" | sed 's/^/  /'
 
 # ── 4. Restart affected services ─────────────────────────────────────
 
-# Backend: any change under backend/
-if echo "$CHANGED" | grep -q "^backend/"; then
+# Backend: only restart on code/config changes — skip docs, markdown, fixtures
+if echo "$CHANGED" | grep "^backend/" | grep -qE "\.(ts|js|json|prisma|sh)$"; then
   echo "[$TIMESTAMP] [AutoDeploy] backend/ changed → restarting backend"
   pm2 reload backend --update-env
   echo "[$TIMESTAMP] [AutoDeploy] backend restarted"
