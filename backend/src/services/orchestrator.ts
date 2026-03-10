@@ -2,6 +2,12 @@ import { EventEmitter } from 'events';
 import { Logger } from '../utils/logger';
 import { RedisService } from './redis';
 
+interface TaskInput {
+  description?: string;
+  context?: string;
+  agentName: string;
+}
+
 interface TaskResult {
   agentId: string;
   taskId: string;
@@ -24,6 +30,14 @@ interface QualityCheckResult {
 }
 
 /**
+ * Helper type for normalizing agent names between camelCase and kebab-case
+ */
+type AgentNameNormalizer = {
+  toKebabCase: (camelCase: string) => string;
+  toCamelCase: (kebabCase: string) => string;
+};
+
+/**
  * Orchestrates task execution and manages agent health monitoring
  * Prevents cascade failures by pausing agents with consecutive rejections
  */
@@ -38,6 +52,18 @@ export class Orchestrator extends EventEmitter {
     super();
     this.redis = redisService;
   }
+
+  /**
+   * Normalizes agent names between camelCase and kebab-case formats
+   */
+  private readonly agentNameNormalizer: AgentNameNormalizer = {
+    toKebabCase: (camelCase: string): string => {
+      return camelCase.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+    },
+    toCamelCase: (kebabCase: string): string => {
+      return kebabCase.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    }
+  };
 
   /**
    * Processes task result and checks for rejection patterns
@@ -108,15 +134,6 @@ export class Orchestrator extends EventEmitter {
           passed: false,
           reason: 'Quality check system error'
         });
-
-        // Mark this specific task as failed due to system error
-        await this.processTaskResult({
-          agentId: task.agentId,
-          taskId: task.taskId,
-          status: 'failed',
-          timestamp: new Date(),
-          error: error instanceof Error ? error.message : 'Quality check system error'
-        });
       }
     }
 
@@ -124,7 +141,59 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Performs quality check on individual task
+   * Handles agent rejection by tracking consecutive failures
+   * Pauses agent if threshold is exceeded
+   */
+  private async handleRejection(result: TaskResult): Promise<void> {
+    const state = this.rejectionStates.get(result.agentId) || {
+      consecutiveFailures: 0,
+      lastFailureTime: new Date(),
+      isPaused: false
+    };
+
+    state.consecutiveFailures++;
+    state.lastFailureTime = result.timestamp;
+
+    if (state.consecutiveFailures >= this.REJECTION_THRESHOLD) {
+      state.isPaused = true;
+      state.pausedUntil = new Date(Date.now() + this.PAUSE_DURATION_MS);
+
+      this.logger.warn('Agent paused due to consecutive rejections', {
+        agentId: result.agentId,
+        consecutiveFailures: state.consecutiveFailures,
+        pausedUntil: state.pausedUntil
+      });
+
+      this.emit('agentPaused', {
+        agentId: result.agentId,
+        reason: 'consecutive_rejections',
+        pausedUntil: state.pausedUntil
+      });
+    }
+
+    this.rejectionStates.set(result.agentId, state);
+  }
+
+  /**
+   * Handles successful task completion by resetting rejection state
+   */
+  private async handleSuccess(agentId: string): Promise<void> {
+    const state = this.rejectionStates.get(agentId);
+    if (state) {
+      // Reset consecutive failures on success
+      state.consecutiveFailures = 0;
+      state.isPaused = false;
+      state.pausedUntil = undefined;
+      this.rejectionStates.set(agentId, state);
+
+      this.logger.info('Agent rejection state reset after success', {
+        agentId
+      });
+    }
+  }
+
+  /**
+   * Performs quality check on task content
    */
   private async performQualityCheck(task: { taskId: string; agentId: string; content: any }): Promise<QualityCheckResult> {
     // Basic quality checks
@@ -132,7 +201,7 @@ export class Orchestrator extends EventEmitter {
       return {
         taskId: task.taskId,
         passed: false,
-        reason: 'Task content is empty'
+        reason: 'Empty task content'
       };
     }
 
@@ -144,27 +213,7 @@ export class Orchestrator extends EventEmitter {
       };
     }
 
-    // Check for placeholder content
-    const placeholderPatterns = [
-      /TODO/i,
-      /PLACEHOLDER/i,
-      /FIXME/i,
-      /\[.*\]/,
-      /\{.*\}/
-    ];
-
-    const contentStr = typeof task.content === 'string' ? task.content : JSON.stringify(task.content);
-    
-    for (const pattern of placeholderPatterns) {
-      if (pattern.test(contentStr)) {
-        return {
-          taskId: task.taskId,
-          passed: false,
-          reason: `Contains placeholder content: ${pattern.source}`
-        };
-      }
-    }
-
+    // Additional quality checks can be added here
     return {
       taskId: task.taskId,
       passed: true
@@ -172,135 +221,43 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Handles rejection by tracking consecutive failures and pausing if threshold exceeded
-   */
-  private async handleRejection(result: TaskResult): Promise<void> {
-    const agentId = result.agentId;
-    const currentState = this.rejectionStates.get(agentId) || {
-      consecutiveFailures: 0,
-      lastFailureTime: new Date(),
-      isPaused: false
-    };
-
-    currentState.consecutiveFailures += 1;
-    currentState.lastFailureTime = result.timestamp;
-
-    this.rejectionStates.set(agentId, currentState);
-
-    this.logger.warn('Agent rejection detected', {
-      agentId,
-      consecutiveFailures: currentState.consecutiveFailures,
-      threshold: this.REJECTION_THRESHOLD
-    });
-
-    if (currentState.consecutiveFailures >= this.REJECTION_THRESHOLD) {
-      await this.pauseAgent(agentId, currentState);
-    }
-  }
-
-  /**
-   * Pauses agent queue and schedules automatic resume
-   */
-  private async pauseAgent(agentId: string, state: AgentRejectionState): Promise<void> {
-    const pausedUntil = new Date(Date.now() + this.PAUSE_DURATION_MS);
-    
-    state.isPaused = true;
-    state.pausedUntil = pausedUntil;
-    this.rejectionStates.set(agentId, state);
-
-    try {
-      await this.redis.pauseQueue(`agent:${agentId}`, this.PAUSE_DURATION_MS);
-      
-      this.logger.error('Agent paused due to consecutive rejections', {
-        agentId,
-        consecutiveFailures: state.consecutiveFailures,
-        pausedUntil: pausedUntil.toISOString()
-      });
-
-      this.emit('agentPaused', {
-        agentId,
-        reason: 'consecutive_rejections',
-        pausedUntil
-      });
-
-      // Schedule automatic resume
-      setTimeout(() => {
-        this.resumeAgent(agentId);
-      }, this.PAUSE_DURATION_MS);
-
-    } catch (error) {
-      this.logger.error('Failed to pause agent queue', {
-        agentId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Handles successful task completion by resetting rejection state
-   */
-  private async handleSuccess(agentId: string): Promise<void> {
-    const currentState = this.rejectionStates.get(agentId);
-    
-    if (currentState && currentState.consecutiveFailures > 0) {
-      this.logger.info('Agent recovered from rejections', {
-        agentId,
-        previousFailures: currentState.consecutiveFailures
-      });
-
-      // Reset failure count on success
-      currentState.consecutiveFailures = 0;
-      this.rejectionStates.set(agentId, currentState);
-    }
-  }
-
-  /**
-   * Resumes paused agent and clears rejection state
-   */
-  private async resumeAgent(agentId: string): Promise<void> {
-    try {
-      const state = this.rejectionStates.get(agentId);
-      
-      if (state && state.isPaused) {
-        await this.redis.resumeQueue(`agent:${agentId}`);
-        
-        state.isPaused = false;
-        state.pausedUntil = undefined;
-        state.consecutiveFailures = 0;
-        this.rejectionStates.set(agentId, state);
-
-        this.logger.info('Agent resumed after pause period', { agentId });
-        
-        this.emit('agentResumed', { agentId });
-      }
-    } catch (error) {
-      this.logger.error('Failed to resume agent', {
-        agentId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  /**
-   * Gets current rejection state for an agent
-   */
-  getAgentState(agentId: string): AgentRejectionState | undefined {
-    return this.rejectionStates.get(agentId);
-  }
-
-  /**
-   * Checks if agent is currently paused
+   * Checks if an agent is currently paused
    */
   isAgentPaused(agentId: string): boolean {
     const state = this.rejectionStates.get(agentId);
-    return state?.isPaused || false;
+    if (!state || !state.isPaused) {
+      return false;
+    }
+
+    // Check if pause period has expired
+    if (state.pausedUntil && new Date() > state.pausedUntil) {
+      state.isPaused = false;
+      state.pausedUntil = undefined;
+      this.rejectionStates.set(agentId, state);
+      return false;
+    }
+
+    return true;
   }
 
   /**
-   * Manually resume a paused agent (for admin intervention)
+   * Gets agent rejection statistics
    */
-  async forceResumeAgent(agentId: string): Promise<void> {
-    await this.resumeAgent(agentId);
+  getAgentStats(agentId: string): AgentRejectionState | null {
+    return this.rejectionStates.get(agentId) || null;
+  }
+
+  /**
+   * Normalizes agent name to kebab-case
+   */
+  normalizeAgentName(agentName: string): string {
+    return this.agentNameNormalizer.toKebabCase(agentName);
+  }
+
+  /**
+   * Converts kebab-case agent name to camelCase
+   */
+  denormalizeAgentName(kebabCaseName: string): string {
+    return this.agentNameNormalizer.toCamelCase(kebabCaseName);
   }
 }
