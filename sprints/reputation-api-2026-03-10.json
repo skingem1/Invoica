@@ -1,0 +1,64 @@
+{
+  "tasks": [
+    {
+      "id": "REP-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Add AgentReputation model to backend/prisma/schema.prisma",
+      "context": "FILE: backend/prisma/schema.prisma\n\nThe file currently has two models: Invoice and WebhookRegistration. Add the AgentReputation model at the END of the file (after WebhookRegistration), exactly as shown:\n\n/// Reputation score for an AI agent — updated on each settlement\nmodel AgentReputation {\n  /// Unique identifier\n  id                   String   @id @default(uuid())\n  /// Agent identifier (matches agentId field on invoices)\n  agentId              String   @unique\n  /// Normalized reputation score 0.0–100.0\n  score                Float    @default(0.0)\n  /// Tier: \"unrated\" | \"bronze\" | \"silver\" | \"gold\" | \"platinum\"\n  tier                 String   @default(\"unrated\")\n  /// Total invoices successfully settled\n  invoicesCompleted    Int      @default(0)\n  /// Total invoices disputed or refunded\n  invoicesDisputed     Int      @default(0)\n  /// Total USDC value settled (sum of amount for SETTLED/COMPLETED invoices)\n  totalValueSettled    Float    @default(0.0)\n  /// Timestamp of last score recalculation\n  lastUpdated          DateTime @default(now())\n  createdAt            DateTime @default(now())\n  updatedAt            DateTime @updatedAt\n\n  @@index([agentId])\n  @@index([tier])\n  @@index([score])\n}\n\nAfter adding the model, run:\n  cd backend && npx prisma generate\n\nDo NOT run prisma migrate — migrations are handled separately. Only generate the Prisma client.\nDo NOT modify any existing model, enum, or datasource block.",
+      "deliverables": {
+        "code": ["backend/prisma/schema.prisma"],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "REP-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["REP-001"],
+      "description": "Create reputation scoring service at backend/src/services/reputation.ts",
+      "context": "FILE: backend/src/services/reputation.ts (CREATE NEW — does not exist yet)\n\nCreate a reputation scoring service. Max 200 lines. Use this exact pattern for Supabase client (identical to routes/ledger.ts):\n\n  import { createClient } from '@supabase/supabase-js';\n  function getSb() {\n    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);\n  }\n\nExport this interface:\n  export interface AgentReputationRecord {\n    agentId: string;\n    score: number;\n    tier: string;\n    invoicesCompleted: number;\n    invoicesDisputed: number;\n    totalValueSettled: number;\n    lastUpdated: string;\n  }\n\nExport this async function:\n  export async function computeAndStoreReputation(agentId: string): Promise<AgentReputationRecord>\n\nImplementation:\n1. Query Supabase `Invoice` table: .select('status, amount').eq('agentId', agentId)\n2. invoicesCompleted = rows where status is 'SETTLED' or 'COMPLETED'\n3. invoicesDisputed  = rows where status is 'REFUNDED'\n4. totalValueSettled = sum of `amount` for completed rows (parse as float)\n5. Compute score (0–100):\n     base        = invoicesCompleted > 0 ? (invoicesCompleted / (invoicesCompleted + invoicesDisputed)) * 70 : 0\n     volumeBonus = Math.min(totalValueSettled / 10000 * 20, 20)  // up to 20 pts at $10k volume\n     countBonus  = Math.min(invoicesCompleted / 50 * 10, 10)      // up to 10 pts at 50 invoices\n     score       = Math.min(Math.round(base + volumeBonus + countBonus), 100)\n6. Assign tier:\n     score >= 90 → 'platinum'\n     score >= 70 → 'gold'\n     score >= 50 → 'silver'\n     score >= 25 → 'bronze'\n     default     → 'unrated'\n7. Upsert to Supabase `AgentReputation` table (PascalCase — matches Prisma model name):\n     .upsert({ agentId, score, tier, invoicesCompleted, invoicesDisputed, totalValueSettled, lastUpdated: new Date().toISOString(), updatedAt: new Date().toISOString() }, { onConflict: 'agentId' })\n8. Return the AgentReputationRecord object.\n\nIf the Supabase query errors, throw the error (let the route handler catch it).",
+      "deliverables": {
+        "code": ["backend/src/services/reputation.ts"],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "REP-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["REP-002"],
+      "description": "Create reputation route at backend/src/routes/reputation.ts",
+      "context": "FILE: backend/src/routes/reputation.ts (CREATE NEW — does not exist yet)\n\nCreate a reputation route. Max 200 lines. Pattern: same as backend/src/routes/ledger.ts (Router from express, createClient from @supabase/supabase-js, async handlers, typed void return).\n\nIMPORT: import { computeAndStoreReputation } from '../services/reputation';\n\nENDPOINT 1: GET /x402/oracle/score/:agentId\n- Public endpoint — NO requireApiKey middleware. Oracle data is intentionally public.\n- Extract agentId from req.params.agentId\n- Call computeAndStoreReputation(agentId)\n- If result.invoicesCompleted === 0 AND result.invoicesDisputed === 0:\n    return res.status(404).json({ success: false, error: { message: 'Agent not found or no invoice history', code: 'NOT_FOUND' } })\n- Otherwise return:\n    res.json({\n      success: true,\n      data: {\n        agentId:            result.agentId,\n        score:              result.score,\n        tier:               result.tier,\n        invoicesCompleted:  result.invoicesCompleted,\n        invoicesDisputed:   result.invoicesDisputed,\n        totalValueSettled:  result.totalValueSettled,\n        lastUpdated:        result.lastUpdated,\n        verifiedAt:         new Date().toISOString(),\n      }\n    })\n- On catch: res.status(500).json({ success: false, error: { message: err.message, code: 'DB_ERROR' } })\n\nENDPOINT 2: GET /x402/oracle/scores\n- Public leaderboard — top 50 agents by score.\n- Use getSb() from createClient (same helper pattern as services/reputation.ts):\n    const { data, error } = await getSb()\n      .from('AgentReputation')\n      .select('agentId, score, tier, invoicesCompleted, totalValueSettled, lastUpdated')\n      .order('score', { ascending: false })\n      .limit(50)\n- On error: res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } })\n- Success: res.json({ success: true, data: data || [] })\n\nexport default router;",
+      "deliverables": {
+        "code": ["backend/src/routes/reputation.ts"],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "REP-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["REP-003"],
+      "description": "Register reputationRoutes in backend/src/app.ts",
+      "context": "FILE: backend/src/app.ts\n\nBEFORE writing: read this file to see exact current content.\n\nThe file currently imports routes from './routes/XXX' and registers them with app.use().\nThe last import is:\n  import gasBackstopRouter from './routes/gas-backstop';\nThe last app.use() call is:\n  app.use(gasBackstopRouter);\n\nMake exactly TWO additions:\n\n1. After the line `import gasBackstopRouter from './routes/gas-backstop';`, add:\n   import reputationRoutes from './routes/reputation';\n\n2. After the line `app.use(gasBackstopRouter);`, add:\n   app.use(reputationRoutes);\n\nDo NOT modify any other line. Do NOT change imports, middleware, error handlers, or any existing route registration.",
+      "deliverables": {
+        "code": ["backend/src/app.ts"],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    }
+  ]
+}
