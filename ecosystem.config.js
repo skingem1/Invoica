@@ -15,6 +15,7 @@ module.exports = {
       max_restarts: 25,        // live beta: tolerate transient crashes (DB cold starts, etc.)
       min_uptime: "30s",       // only counts as stable if it lives 30s (catches fast crash loops)
       restart_delay: 3000,     // 3s between restart attempts
+      kill_timeout: 10000,     // 10s: give backend time to drain connections before SIGKILL (default 1.6s causes port TIME_WAIT zombie loops)
       env: {
         // x402 seller wallet — receives USDC from agent inference payments
         X402_SELLER_WALLET: "0x3e127c918C83714616CF2416f8A620F1340C19f1",
