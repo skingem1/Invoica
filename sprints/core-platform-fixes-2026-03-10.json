@@ -1,0 +1,92 @@
+{
+  "id": "core-platform-fixes-2026-03-10",
+  "title": "Core Platform Fixes — Invoice Numbering + Tax Engine Wiring",
+  "created": "2026-03-10",
+  "status": "pending",
+  "priority": "HIGH",
+  "source": "Manual testing session 2026-03-10",
+  "tasks": [
+    {
+      "id": "BUG-002",
+      "title": "Invoice Numbering — converge all generators to PostgreSQL sequence",
+      "status": "pending",
+      "type": "code",
+      "agent": "CTO",
+      "priority": "HIGH",
+      "estimate_agent_hours": 2,
+      "description": "Three conflicting invoice number generators exist: (1) routes/invoices.ts:172-177 uses MAX(invoiceNumber)+1 via Supabase client — non-atomic, resets to 1 when old rows deleted. (2) routes/ai-inference.ts:57 uses Math.floor(Date.now()/1000)+idx — produces ~1.77B numbers, bypasses sequence entirely. (3) services/invoice.ts:94-102 uses SELECT nextval('invoice_number_seq') — correct approach. Fix: (A) In routes/invoices.ts POST handler, replace the MAX+1 block (lines 172-177) with a call to getNextInvoiceNumber() imported from services/invoice.ts. (B) In routes/ai-inference.ts flushSettlementQueue(), replace line 57 timestamp generation with getNextInvoiceNumber() from services/invoice.ts — call once per record in the batch map. (C) Create Supabase migration: CREATE SEQUENCE IF NOT EXISTS invoice_number_seq; then SELECT setval('invoice_number_seq', COALESCE((SELECT MAX(\"invoiceNumber\") FROM \"Invoice\"), 999)) to sync sequence to current max. (D) Verify: create 3 invoices via API, confirm numbers are sequential and >1000.",
+      "repo": "Invoica",
+      "files": [
+        "backend/src/routes/invoices.ts",
+        "backend/src/routes/ai-inference.ts",
+        "backend/src/services/invoice.ts"
+      ],
+      "verification_required": true,
+      "verification_deliverable": "Supervisor must confirm: (1) zero calls to Math.floor(Date.now()/1000) remain for invoice numbering, (2) zero MAX(invoiceNumber)+1 patterns remain, (3) all invoice creation paths import and use getNextInvoiceNumber() from services/invoice.ts, (4) Supabase migration file exists in backend/supabase/migrations/."
+    },
+    {
+      "id": "TAX-001",
+      "title": "Tax Engine — Prisma schema migration (add tax columns to Invoice)",
+      "status": "pending",
+      "type": "code",
+      "agent": "coding-agent",
+      "priority": "HIGH",
+      "estimate_agent_hours": 1,
+      "description": "The Invoice model in prisma/schema.prisma has no tax fields. Add: taxAmount Decimal? @db.Decimal(19,4), taxRate Decimal? @db.Decimal(5,4), taxJurisdiction String? (e.g. 'US-CA', 'EU-FR', 'GB'), buyerCountryCode String? (ISO 3166-1 alpha-2), buyerStateCode String? (for US nexus), buyerVatNumber String? (for EU B2B reverse charge). Generate Prisma migration and create corresponding Supabase migration SQL. All fields nullable — existing invoices remain valid.",
+      "repo": "Invoica",
+      "files": [
+        "backend/prisma/schema.prisma",
+        "backend/prisma/migrations/"
+      ],
+      "blocked_by": []
+    },
+    {
+      "id": "TAX-002",
+      "title": "Tax Engine — Wire calculateTax() into invoice creation flow",
+      "status": "blocked",
+      "blocked_by": ["TAX-001"],
+      "type": "code",
+      "agent": "coding-agent",
+      "priority": "HIGH",
+      "estimate_agent_hours": 2,
+      "description": "The tax service (services/tax/calculator.ts — 263 LoC, 12 countries, EU VAT + US nexus) is fully implemented and tested but never called. Wire it in: (1) Update createInvoiceSchema in api/invoices-create.ts to accept optional buyer location fields: buyerCountryCode, buyerStateCode, buyerVatNumber. (2) In createPendingInvoice() in services/invoice.ts, call calculateTax() from services/tax/calculator.ts when buyer location is provided. Store taxAmount, taxRate, taxJurisdiction on the Invoice record. (3) Update the invoice creation response to include tax fields. (4) If no buyer location provided, tax fields remain null (backward compatible). Do NOT modify calculator.ts itself — it's already correct.",
+      "repo": "Invoica",
+      "files": [
+        "backend/src/api/invoices-create.ts",
+        "backend/src/services/invoice.ts",
+        "backend/src/services/tax/calculator.ts"
+      ]
+    },
+    {
+      "id": "TAX-003",
+      "title": "Tax Engine — Create /v1/tax route + register in app.ts",
+      "status": "blocked",
+      "blocked_by": ["TAX-001"],
+      "type": "code",
+      "agent": "coding-agent",
+      "priority": "MEDIUM",
+      "estimate_agent_hours": 2,
+      "description": "Create backend/src/routes/tax.ts with: (1) POST /v1/tax/calculate — accepts {amount, currency, buyerCountryCode, buyerStateCode?, buyerVatNumber?}, returns {taxAmount, taxRate, jurisdiction, breakdown}. Calls calculateTax() from services/tax/calculator.ts. (2) POST /v1/tax/validate-vat — accepts {vatNumber, countryCode}, returns validation result from services/tax/vat-validator.ts. (3) GET /v1/tax/rates — returns supported jurisdictions and current rates. Register the route in app.ts alongside other routes. Protect with API key middleware (same as invoice routes).",
+      "repo": "Invoica",
+      "files": [
+        "backend/src/routes/tax.ts",
+        "backend/src/app.ts"
+      ]
+    },
+    {
+      "id": "TAX-GATE",
+      "title": "Tax Engine — Validation gate",
+      "status": "blocked",
+      "blocked_by": ["TAX-002", "TAX-003"],
+      "type": "human_validation",
+      "estimate_human_hours": 1,
+      "description": "Validate: (1) Create invoice with buyerCountryCode='FR' — taxRate should be 20% (France VAT). (2) Create invoice with buyerCountryCode='US', buyerStateCode='CA' — taxRate should be 7.25%. (3) Create invoice with NO buyer location — tax fields should be null. (4) POST /v1/tax/calculate with DE buyer — returns 19% VAT. (5) POST /v1/tax/validate-vat with valid EU VAT number — returns valid. (6) Confirm Product Suite table can be updated from 'Live — 12 countries' claim to actually mean it."
+    }
+  ],
+  "sprint_sequence": [
+    "BUG-002 (invoice numbering) + TAX-001 (schema migration) → parallel, no dependencies",
+    "TAX-002 (wire calculateTax) + TAX-003 (tax routes) → after TAX-001, parallel",
+    "TAX-GATE → after TAX-002 + TAX-003"
+  ],
+  "ceo_notes": "TESTING SESSION (2026-03-10): Two findings from manual testing. BUG-002: Invoice numbering reset from ~1.77B (timestamps) to 17 (sequential) due to three conflicting generators — converge all to PostgreSQL sequence. TAX-001..003: Tax Compliance Engine (916 LoC service + 810 LoC tests) is fully built but completely orphaned — zero imports from any route or invoice creation flow, no tax columns in schema, no tax route in app.ts. Product table claims 'Live — 12 countries' but it's dead code. This sprint wires it in properly."
+}
