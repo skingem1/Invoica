@@ -356,6 +356,8 @@ module.exports = {
       name: "mission-control",
       min_uptime: "30s",
       max_restarts: 20,
+      restart_delay: 5000,    // 5s between restart attempts
+      kill_timeout: 10000,    // 10s: give Next.js time to drain before SIGKILL (same reasoning as backend)
       script: "./scripts/run-mission-control.sh",
       interpreter: "bash",
       cwd: "/home/invoica/apps/Invoica",

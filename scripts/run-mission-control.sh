@@ -34,6 +34,21 @@ set +a
 export PORT="${MC_PORT:-3005}"
 echo "[MissionControl] $(date -u +"%Y-%m-%dT%H:%M:%SZ") Starting on port ${PORT}..."
 
+# Wait for port to be free (same pattern as backend-wrapper.sh)
+PORT_FREE=false
+for i in $(seq 1 15); do
+  if ! fuser "${PORT}/tcp" >/dev/null 2>&1; then
+    PORT_FREE=true
+    break
+  fi
+  sleep 1
+done
+if [ "$PORT_FREE" = "false" ]; then
+  echo "[MissionControl] Port ${PORT} still busy after 15s — force-killing holder"
+  fuser -k "${PORT}/tcp" 2>/dev/null || true
+  sleep 2
+fi
+
 cd "$MC_DIR"
 
 # Use standalone server.js if available (output: standalone build)
