@@ -7,24 +7,30 @@
       "priority": "high",
       "dependencies": [],
       "description": "Extend ChainConfig type to support string IDs (required for Solana)",
-      "context": "FILE: backend/src/types/index.ts\n\nThe ChainConfig interface currently has `id: number` (line 11). Solana does not use a numeric chain ID — it uses a string key ('solana'). Update the field to support both.\n\nFind this line:\n  id: number;\n\nReplace with:\n  id: number | string;\n\nThat is the ONLY change. Do not modify any other field in ChainConfig or any other interface in this file. Confirm the file compiles with no type errors after the change (id is used in SettlementMatch.chain — it accepts number already, string union is backward-compatible).",
+      "context": "FILE: backend/src/types/index.ts\n\nThe ChainConfig interface currently has `id: number` (line 11). Solana does not use a numeric chain ID \u2014 it uses a string key ('solana'). Update the field to support both.\n\nFind this line:\n  id: number;\n\nReplace with:\n  id: number | string;\n\nThat is the ONLY change. Do not modify any other field in ChainConfig or any other interface in this file. Confirm the file compiles with no type errors after the change (id is used in SettlementMatch.chain \u2014 it accepts number already, string union is backward-compatible).",
       "deliverables": {
-        "code": ["backend/src/types/index.ts"],
+        "code": [
+          "backend/src/types/index.ts"
+        ],
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "SOL-002",
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "dependencies": ["SOL-001"],
+      "dependencies": [
+        "SOL-001"
+      ],
       "description": "Add Solana chain entry to backend/src/config/chains.ts",
       "context": "FILE: backend/src/config/chains.ts\n\nThe SUPPORTED_CHAINS Map currently has 'base' (chainId 8453) and 'polygon' (chainId 137). Add a 'solana' entry.\n\nBEFORE writing: read backend/src/config/chains.ts to see the exact Map structure and ChainConfig fields used.\n\nAdd this entry to the SUPPORTED_CHAINS Map (after the Polygon entry):\n\n  [\n    'solana',\n    {\n      id: 'solana',\n      name: 'Solana',\n      rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',\n      usdcAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',\n      explorerUrl: 'https://solscan.io',\n      isTestnet: false,\n    },\n  ],\n\nIf ChainConfig has other required fields (like `nativeCurrency`, `blockTime`, etc.), read the interface definition first and fill them appropriately for Solana (native currency: SOL, blockTime: 400ms). Do NOT remove or modify any existing chain entries.",
       "deliverables": {
-        "code": ["backend/src/config/chains.ts"],
+        "code": [
+          "backend/src/config/chains.ts"
+        ],
         "tests": [],
         "docs": []
       },
@@ -35,11 +41,15 @@
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "dependencies": ["SOL-002"],
+      "dependencies": [
+        "SOL-002"
+      ],
       "description": "Wire SolanaSettlementDetector into settlement-router.ts",
-      "context": "FILE: backend/src/services/settlement/settlement-router.ts\n\nBEFORE writing: read this file fully to understand the current routing logic (it routes EVM chain IDs to EvmSettlementDetector).\n\nSolanaSettlementDetector already exists at backend/src/services/settlement/solana-detector.ts and exports `class SolanaSettlementDetector` with constructor `(chain: Pick<ChainConfig, 'rpcUrl' | 'id'>)` and method `verifyTransfer(txSig, expectedRecipient, expectedAmountUsdc): Promise<boolean>`.\n\nAdd a Solana routing branch:\n- Import SolanaSettlementDetector from './solana-detector'\n- In the routing logic, check if chainId === 'solana' (or if the chain config has id === 'solana')\n- When chain is Solana, instantiate SolanaSettlementDetector with the Solana chain config\n- Call detector.verifyTransfer(txHash, recipientAddress, amount) for verification\n- Call detector.getRecentUsdcTransfers(walletAddress, limit) for polling\n\nThe interface should mirror the existing EVM detector interface. Keep the existing EVM logic intact — only ADD the Solana branch.",
+      "context": "FILE: backend/src/services/settlement/settlement-router.ts\n\nBEFORE writing: read this file fully to understand the current routing logic (it routes EVM chain IDs to EvmSettlementDetector).\n\nSolanaSettlementDetector already exists at backend/src/services/settlement/solana-detector.ts and exports `class SolanaSettlementDetector` with constructor `(chain: Pick<ChainConfig, 'rpcUrl' | 'id'>)` and method `verifyTransfer(txSig, expectedRecipient, expectedAmountUsdc): Promise<boolean>`.\n\nAdd a Solana routing branch:\n- Import SolanaSettlementDetector from './solana-detector'\n- In the routing logic, check if chainId === 'solana' (or if the chain config has id === 'solana')\n- When chain is Solana, instantiate SolanaSettlementDetector with the Solana chain config\n- Call detector.verifyTransfer(txHash, recipientAddress, amount) for verification\n- Call detector.getRecentUsdcTransfers(walletAddress, limit) for polling\n\nThe interface should mirror the existing EVM detector interface. Keep the existing EVM logic intact \u2014 only ADD the Solana branch.",
       "deliverables": {
-        "code": ["backend/src/services/settlement/settlement-router.ts"],
+        "code": [
+          "backend/src/services/settlement/settlement-router.ts"
+        ],
         "tests": [],
         "docs": []
       },

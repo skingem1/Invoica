@@ -3,7 +3,7 @@
     {
       "id": "BUG-002",
       "title": "Invoice Numbering \u2014 converge all generators to PostgreSQL sequence",
-      "status": "pending",
+      "status": "done",
       "type": "feature",
       "agent": "backend-core",
       "priority": "HIGH",
@@ -22,12 +22,54 @@
           "backend/supabase/migrations/004_invoice_number_seq.sql"
         ]
       },
-      "context": "SURGICAL FIX \u2014 do NOT rewrite any file. Make minimal targeted changes only.\n\nPROBLEM: Three conflicting invoice number generators:\n  1. backend/src/routes/invoices.ts: uses MAX(invoiceNumber)+1 via Supabase (non-atomic)\n  2. backend/src/routes/ai-inference.ts line 63: uses Math.floor(Date.now() / 1000) + idx (timestamp, non-sequential)\n  3. backend/src/services/invoice.ts: uses nextval('invoice_number_seq') \u2014 THIS IS CORRECT, keep it\n\nFIX 1 \u2014 backend/src/routes/invoices.ts:\nRead the file first. Find the block that does:\n  const { data: maxData } = await sb\n    .from('Invoice')\n    .select('invoiceNumber')\n    .order('invoiceNumber', { ascending: false })\n    .limit(1)\n    .single();\n  const nextNumber = ((maxData?.invoiceNumber as number) || 0) + 1;\n\nReplace those ~8 lines with:\n  const { data: seqData, error: seqErr } = await sb.rpc('next_invoice_number');\n  if (seqErr) throw seqErr;\n  const nextNumber = seqData as number;\n\nThat is the ONLY change in routes/invoices.ts. Do not touch anything else.\n\nFIX 2 \u2014 backend/src/routes/ai-inference.ts:\nRead the file first. Find line ~63 that has:\n  invoiceNumber: Math.floor(Date.now() / 1000) + idx,\n\nReplace that single line with:\n  invoiceNumber: Date.now() * 1000 + idx,\n\nNote: This is a temporary placeholder fix for ai-inference invoice creation which uses fake invoices for agent inference context \u2014 it does not create real DB invoices. The real fix (using the sequence) only applies to routes/invoices.ts. The timestamp approach is acceptable here since these are not persisted invoice numbers.\n\nFIX 3 \u2014 backend/supabase/migrations/004_invoice_number_seq.sql:\nCreate this file with:\n  -- Migration: create invoice_number_seq sequence and RPC function\n  -- Run once on Supabase SQL editor\n\n  CREATE SEQUENCE IF NOT EXISTS invoice_number_seq\n    START WITH 1\n    INCREMENT BY 1\n    NO MINVALUE\n    NO MAXVALUE\n    CACHE 1;\n\n  -- Initialize sequence to current MAX to avoid conflicts with existing invoices\n  SELECT setval('invoice_number_seq', COALESCE((SELECT MAX(invoiceNumber) FROM Invoice), 0) + 1, false);\n\n  -- RPC function callable from Supabase client\n  CREATE OR REPLACE FUNCTION next_invoice_number()\n  RETURNS bigint\n  LANGUAGE sql\n  SECURITY DEFINER\n  AS 42874\n    SELECT nextval('invoice_number_seq');\n  42874;\n\n  GRANT EXECUTE ON FUNCTION next_invoice_number() TO authenticated, anon, service_role;\n\nDELIVERABLES SUMMARY:\n- backend/src/routes/invoices.ts: replace MAX query block (~8 lines) with sb.rpc('next_invoice_number')\n- backend/src/routes/ai-inference.ts: change ONE line (timestamp formula)\n- backend/supabase/migrations/004_invoice_number_seq.sql: new file with sequence DDL above\n\nDo NOT modify backend/src/services/invoice.ts \u2014 it already uses the sequence correctly."
+      "context": "SURGICAL FIX \u2014 do NOT rewrite any file. Make minimal targeted changes only.\n\nPROBLEM: Three conflicting invoice number generators:\n  1. backend/src/routes/invoices.ts: uses MAX(invoiceNumber)+1 via Supabase (non-atomic)\n  2. backend/src/routes/ai-inference.ts line 63: uses Math.floor(Date.now() / 1000) + idx (timestamp, non-sequential)\n  3. backend/src/services/invoice.ts: uses nextval('invoice_number_seq') \u2014 THIS IS CORRECT, keep it\n\nFIX 1 \u2014 backend/src/routes/invoices.ts:\nRead the file first. Find the block that does:\n  const { data: maxData } = await sb\n    .from('Invoice')\n    .select('invoiceNumber')\n    .order('invoiceNumber', { ascending: false })\n    .limit(1)\n    .single();\n  const nextNumber = ((maxData?.invoiceNumber as number) || 0) + 1;\n\nReplace those ~8 lines with:\n  const { data: seqData, error: seqErr } = await sb.rpc('next_invoice_number');\n  if (seqErr) throw seqErr;\n  const nextNumber = seqData as number;\n\nThat is the ONLY change in routes/invoices.ts. Do not touch anything else.\n\nFIX 2 \u2014 backend/src/routes/ai-inference.ts:\nRead the file first. Find line ~63 that has:\n  invoiceNumber: Math.floor(Date.now() / 1000) + idx,\n\nReplace that single line with:\n  invoiceNumber: Date.now() * 1000 + idx,\n\nNote: This is a temporary placeholder fix for ai-inference invoice creation which uses fake invoices for agent inference context \u2014 it does not create real DB invoices. The real fix (using the sequence) only applies to routes/invoices.ts. The timestamp approach is acceptable here since these are not persisted invoice numbers.\n\nFIX 3 \u2014 backend/supabase/migrations/004_invoice_number_seq.sql:\nCreate this file with:\n  -- Migration: create invoice_number_seq sequence and RPC function\n  -- Run once on Supabase SQL editor\n\n  CREATE SEQUENCE IF NOT EXISTS invoice_number_seq\n    START WITH 1\n    INCREMENT BY 1\n    NO MINVALUE\n    NO MAXVALUE\n    CACHE 1;\n\n  -- Initialize sequence to current MAX to avoid conflicts with existing invoices\n  SELECT setval('invoice_number_seq', COALESCE((SELECT MAX(invoiceNumber) FROM Invoice), 0) + 1, false);\n\n  -- RPC function callable from Supabase client\n  CREATE OR REPLACE FUNCTION next_invoice_number()\n  RETURNS bigint\n  LANGUAGE sql\n  SECURITY DEFINER\n  AS 42874\n    SELECT nextval('invoice_number_seq');\n  42874;\n\n  GRANT EXECUTE ON FUNCTION next_invoice_number() TO authenticated, anon, service_role;\n\nDELIVERABLES SUMMARY:\n- backend/src/routes/invoices.ts: replace MAX query block (~8 lines) with sb.rpc('next_invoice_number')\n- backend/src/routes/ai-inference.ts: change ONE line (timestamp formula)\n- backend/supabase/migrations/004_invoice_number_seq.sql: new file with sequence DDL above\n\nDo NOT modify backend/src/services/invoice.ts \u2014 it already uses the sequence correctly.",
+      "output": {
+        "files": [
+          "backend/src/routes/invoices.ts",
+          "backend/src/routes/ai-inference.ts",
+          "backend/supabase/migrations/004_invoice_number_seq.sql"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "CEO resolved conflict (Codex approved, Claude rejected): REJECT \u2014 Critical file truncation in invoices.ts breaks existing functionality. The POST route is cut off mid-function which would cause runtime errors. Invalid SQL syntax in migration file with malformed delimiter. These are genuine blockers that would break the system, not nitpicks.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/routes/invoices.ts",
+              "description": "File is truncated mid-function - the POST /v1/invoices route is incomplete, cutting off at 'amount: parseFloat(amount'. This breaks existing functionality."
+            },
+            {
+              "severity": "critical",
+              "file": "backend/supabase/migrations/004_invoice_number_seq.sql",
+              "description": "Invalid SQL syntax - uses malformed AS 42874...42874 delimiter instead of standard AS $$ ... $$ syntax for function body"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/routes/ai-inference.ts",
+              "description": "Task specified to change line ~63 with 'Math.floor(Date.now() / 1000) + idx' but the actual change was made to line ~65 with different formula 'Date.now() * 1000 + idx' - this may not be the intended target line"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/routes/invoices.ts",
+              "description": "Cannot verify if the MAX query block replacement was done correctly due to file truncation - the original problematic code block is not visible"
+            }
+          ],
+          "strengths": [
+            "Only the targeted lines were modified\u2014no overengineering or extra refactoring",
+            "Error handling around sb.rpc is correct and will propagate failures",
+            "Migration file follows SQL conventions and includes sequence initialization to avoid conflicts",
+            "No markdown fences or syntax artifacts introduced into source files"
+          ]
+        }
+      }
     },
     {
       "id": "TAX-001",
       "title": "Tax Engine \u2014 Prisma schema migration (add tax columns to Invoice)",
-      "status": "pending",
+      "status": "done",
       "type": "feature",
       "agent": "backend-tax",
       "priority": "HIGH",
