@@ -1,0 +1,102 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add pre-validation quality gate before supervisor review",
+      "context": "In backend/src/services/quality-gate-config.ts: Implement configurable threshold system that validates AI output structure, syntax, and basic requirements before sending to supervisor. Must catch malformed responses early. Add flags for code_completeness, syntax_valid, has_tests. Default: block if any false.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Relax supervisor rejection criteria in orchestrator config",
+      "context": "In backend/src/services/orchestrator-config.ts: Change rejection thresholds from strict (current) to production-ready. Lower confidence_threshold from 0.9 to 0.7, increase max_feedback_rounds from 2 to 4, enable auto_approve for low-risk changes (tests, docs). Must preserve safety for critical paths.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Integrate quality gate into orchestrator execution flow",
+      "context": "In backend/src/services/orchestrator.ts: Insert quality-gate-config validation after AI response, before supervisor submission. If gate fails, trigger auto-retry with enhanced prompt. Log gate results to identify common failure patterns. Must not increase latency beyond 500ms.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add complexity-based routing in task validator",
+      "context": "In backend/src/services/task-complexity-validator.ts: Implement risk scoring (low/medium/high) based on file size, imports, critical paths. Route low-risk to relaxed criteria, high-risk to strict. Score factors: file_lines<100=low, has_db_access=high, test_only=low. Return risk_level with validation.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-003",
+        "ORCH-004"
+      ],
+      "description": "Wire complexity scoring into orchestrator approval logic",
+      "context": "In backend/src/services/orchestrator.ts: Use task-complexity-validator risk_level to select approval threshold from orchestrator-config. Low-risk tasks use relaxed criteria, high-risk uses strict. Add metric logging for approval_rate_by_risk. Must route decisions within existing flow.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003, ORCH-004"
+    }
+  ]
+}

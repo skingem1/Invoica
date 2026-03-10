@@ -1,0 +1,147 @@
+{
+  "tasks": [
+    {
+      "id": "PIPE-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add task type validation guard in orchestrator",
+      "context": "In backend/src/services/orchestrator.ts, add validateTaskType() function before task assignment. Reject tasks with type='docs' or description containing 'ADR|architecture|documentation|write spec'. Return error to caller instead of routing to MiniMax.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "CEO resolved conflict (Codex approved, Claude rejected): REJECT — Claude's critical issues are valid. The file is incomplete (cuts off mid-line) and appears to be a complete rewrite rather than the requested minimal addition of validateTaskType(). Task spec asked for adding one function, not rewriting the entire orchestrator. Incomplete code cannot be dep",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is incomplete - cuts off at line 'await' with no completion"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Task spec requested adding validateTaskType() function to existing file, but this appears to be a complete rewrite of orchestrator.ts without showing what existing functionality was preserved or removed"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Added complex agent rejection/pausing logic that was not requested in the task spec - this is overengineering beyond the scope"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test file provided for the validateTaskType function or the complex orchestration logic"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Custom TaskValidationError class added without clear justification - may be unnecessary abstraction"
+            }
+          ],
+          "strengths": [
+            "Covers all forbidden task types and patterns",
+            "Uses a custom TaskValidationError to signal validation failures",
+            "Clean, readable implementation without any `any` usage"
+          ]
+        }
+      }
+    },
+    {
+      "id": "PIPE-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "PIPE-001"
+      ],
+      "description": "Add file path existence validator",
+      "context": "In backend/src/services/task-complexity-validator.ts, add validateFilePaths() method. Check each deliverable.code path exists in known file tree (use hardcoded list from context). Reject task if any path is invalid or fabricated.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: PIPE-001"
+    },
+    {
+      "id": "PIPE-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "PIPE-002"
+      ],
+      "description": "Add context length limit enforcement",
+      "context": "In backend/src/services/orchestrator-config.ts, add MAX_CONTEXT_LENGTH=600 constant. In orchestrator.ts validateTask(), reject tasks where context.length > MAX_CONTEXT_LENGTH with error message explaining 600 char limit for MiniMax compatibility.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: PIPE-002"
+    },
+    {
+      "id": "PIPE-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "PIPE-001",
+        "PIPE-002",
+        "PIPE-003"
+      ],
+      "description": "Implement pre-flight validation pipeline",
+      "context": "In backend/src/services/orchestrator.ts, create validateBeforeAssignment() that runs all guards (type, file paths, context length, single-file rule) before routing to agent. Log validation failures to logger with task ID and rejection reason.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: PIPE-001, PIPE-002, PIPE-003"
+    },
+    {
+      "id": "PIPE-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "PIPE-004"
+      ],
+      "description": "Add quality gate auto-approval bypass for validated tasks",
+      "context": "In backend/src/services/quality-gate-config.ts, add VALIDATED_TASK_AUTO_APPROVE flag. If task passed all pre-flight validations and agent=backend-core|backend-ledger|backend-tax, skip manual review and auto-approve. Log decision.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: PIPE-004"
+    }
+  ]
+}

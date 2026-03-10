@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-101",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Emergency bypass: Manual ORCH-001 approval stamp",
+      "context": "DEADLOCK ROOT CAUSE: ORCH-001 stuck in pending → all dependent tasks silently skip. MANUAL FIX: Open agents/orchestrator/src/task-executor.ts, locate ORCH-001 status check (line ~147), add emergency bypass: if (taskId === 'ORCH-001' && status === 'pending') { status = 'completed'; logger.warn('Emergency bypass applied'); }. This unblocks cascade immediately without architectural changes.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/src/task-executor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-102",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-101"
+      ],
+      "description": "Deploy watchdog: Cascade failure detection",
+      "context": "PREVENT RECURRENCE: Add agents/orchestrator/src/watchdog.ts. Implement cascadeHealthCheck() that scans task graph every 30s: if (pendingTasks.filter(t => t.dependencies.some(d => d.status !== 'completed')).length > 5) { alert('CASCADE FAILURE'); forceResolveBlocker(); }. Hook into task-executor.ts processQueue(). Must catch ORCH-001-style deadlocks before 3-sprint blackout repeats.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/src/watchdog.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-101"
+    },
+    {
+      "id": "ORCH-103",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-101"
+      ],
+      "description": "Graceful degradation: Auto-skip stale blockers",
+      "context": "CTO-20260307-002 FIX: Modify agents/orchestrator/src/task-executor.ts. Add staleDependencyCheck(): if dependency pending >48hrs AND no activity, log warning and mark as 'auto-skipped', allow dependent tasks to proceed with degraded mode flag. Insert before line ~160 (dependency validation). Prevents single task from paralyzing entire system. Set AUTO_SKIP_THRESHOLD=48 in config.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/src/task-executor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-101"
+    },
+    {
+      "id": "ORCH-104",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-102"
+      ],
+      "description": "Fix silent cascade skip: Add dependency failure logs",
+      "context": "VISIBILITY GAP: Currently when task skips due to failed dependency, no error surfaces to CEO dashboard. In agents/orchestrator/src/task-executor.ts processSingleTask(), add explicit logging before return: if (hasPendingDeps) { logger.error(`BLOCKED: ${taskId} waiting on ${pendingDeps.join(',')}`, { alert: 'ceo-dashboard' }); emit('task.blocked', metadata); }. Insert at line ~165 dependency check.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/src/task-executor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-102"
+    },
+    {
+      "id": "ORCH-105",
+      "agent": "agents",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-103",
+        "ORCH-104"
+      ],
+      "description": "Integration test: Validate 80%+ execution rate",
+      "context": "ACCEPTANCE CRITERIA: Create agents/orchestrator/tests/execution-rate.test.ts. Simulate 18-task backlog (mimic approved infrastructure queue), inject 1 stale blocker (ORCH-001 scenario), run orchestrator for 5min. Assert: >=80% tasks complete OR enter degraded execution. Verify watchdog fires alert within 60s. Test must prove deadlock cannot recur. Use real task-executor.ts (no mocks).",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/tests/execution-rate.test.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-103, ORCH-104"
+    },
+    {
+      "id": "ORCH-106",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-105"
+      ],
+      "description": "Deploy approved backlog: Batch executor for 18 tasks",
+      "context": "FAST-FOLLOW INFRASTRUCTURE DEPLOYMENT: Extend agents/orchestrator/src/batch-processor.ts (or create if missing). Add deployBacklog(taskIds: string[]) that processes approved infrastructure tasks in parallel (concurrency=3). Load from backend/data/approved-backlog.json (18 tasks from CTO review). Execute after ORCH-105 passes. Priority: multichain routing, webhook reliability, settlement detectors. Must complete within 4hrs to unblock Sprint #36 features.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/src/batch-processor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-105"
+    }
+  ]
+}

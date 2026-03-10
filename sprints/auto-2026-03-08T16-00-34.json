@@ -1,0 +1,81 @@
+{
+  "tasks": [
+    {
+      "id": "TRUNC-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add token budget constants to orchestrator config",
+      "context": "Create MINIMAX_TOKEN_BUDGET constant set to 3600 (4500 * 0.8) and BUFFER_PERCENTAGE=0.2 in backend/src/services/orchestrator-config.ts. Export these for use in orchestrator service. Document why 20% buffer prevents truncation.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "TRUNC-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "TRUNC-001"
+      ],
+      "description": "Apply 20% token reduction to MiniMax coding requests",
+      "context": "In backend/src/services/orchestrator.ts, import MINIMAX_TOKEN_BUDGET from config. Locate MiniMax API call for backend-core agent. Change max_tokens from current value to 3600. Add comment explaining truncation prevention. Ensure frontend agents keep existing limits.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: TRUNC-001"
+    },
+    {
+      "id": "TRUNC-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "TRUNC-002"
+      ],
+      "description": "Add truncation detection to quality gate validator",
+      "context": "In backend/src/services/quality-gate-config.ts, add check for output length vs max_tokens ratio. If output is >95% of token limit, flag as potential truncation risk. Return validation warning with token usage stats. This prevents future silent failures.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: TRUNC-002"
+    },
+    {
+      "id": "TRUNC-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "TRUNC-002"
+      ],
+      "description": "Add token usage logging to orchestrator",
+      "context": "In backend/src/services/orchestrator.ts, after MiniMax response, log actual tokens used vs budget to logger. Include agent type and task complexity. Use backend/src/lib/logger.ts. Format: 'MiniMax tokens: {used}/{budget} ({percentage}%) - agent: {type}'. Enables monitoring of buffer effectiveness.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: TRUNC-002"
+    }
+  ]
+}

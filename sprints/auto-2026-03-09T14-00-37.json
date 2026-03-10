@@ -1,0 +1,162 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix orchestrator cascade bug causing 100% task rejection",
+      "context": "In backend/src/services/orchestrator.ts, implement CTO-20260309-001: Remove the cascade failure logic that rejects all subsequent tasks when one fails. Change validateTaskDependencies to only block tasks directly dependent on failed tasks, not all downstream tasks. This is causing 100% rejection rate.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "Dual-rejected: Claude (15/100) + Codex (30/100). File is incomplete and truncated mid-function. The generated code cuts off in the middle of performQualityCheck method, making it non-functional. Additionally, the implementation doesn't address the core requirement of fixing validateTaskDependencies method. | The submission does not implement the requested change to `validateTaskDependencies` and instead introduces unrelated methods (`validateTaskQuality`, `processTaskResult`, etc.). The cascade‐failure logic targeted by ORCH-001 is not addressed. Existing functionality appears to be removed rather than modified.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is incomplete - cuts off mid-function in performQualityCheck method, making the code non-compilable"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing the validateTaskDependencies method that was specifically mentioned in the task spec as needing modification"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Implementation focuses on agent rejection patterns rather than task dependency validation logic as required"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing error types - uses generic Error instead of custom error classes"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test file provided despite this being a critical service component"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "The `validateTaskDependencies` function (which should be modified to remove cascade failure logic) is completely missing. The task specification is not met."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Unrelated logic (`validateTaskQuality`, `performQualityCheck`, `processTaskResult`) was added without any mention in the spec. This overhauls the file instead of applying the targeted patch."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No Zod or input validation on new public methods; missing type‐safe validation against external inputs."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Lacks unit tests for both existing and new code paths."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement task complexity validator to prevent oversized tasks",
+      "context": "In backend/src/services/task-complexity-validator.ts, implement CTO-20260309-002: Add validation that rejects tasks with >600 char context or multiple file targets. This prevents MiniMax truncation failures. Integrate into orchestrator task submission flow before execution.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Update orchestrator config with emergency recovery settings",
+      "context": "In backend/src/services/orchestrator-config.ts, add emergency mode flag that disables cascade failures and enables aggressive retry logic. Set maxRetries=5, enableCascadeFailures=false, validateTaskComplexity=true. This allows immediate recovery from current backlog.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Fix quality gate to pass single-file focused tasks",
+      "context": "In backend/src/services/quality-gate-config.ts, update validation rules to align with MiniMax constraints: reject if context >600 chars, reject if multiple files in code deliverables array, accept tasks with empty test/docs arrays. Current gates are too strict and blocking valid tasks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-003",
+        "ORCH-004"
+      ],
+      "description": "Add orchestrator health check endpoint for monitoring",
+      "context": "In backend/src/routes/health.ts, add /health/orchestrator endpoint that returns task queue depth, success rate last 24h, and cascade failure status. This enables CEO bot to monitor pipeline health and alert on degradation before total failure.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003, ORCH-004"
+    }
+  ]
+}

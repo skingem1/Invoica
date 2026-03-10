@@ -1,0 +1,78 @@
+{
+  "tasks": [
+    {
+      "id": "ORC-001",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add orchestrator health endpoint",
+      "context": "Create /health/orchestrator GET endpoint in backend/src/routes/health.ts. Return JSON with {status, lastTaskId, runningTime, queueDepth}. Use existing logger patterns. 50 lines max.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORC-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add task timeout mechanism",
+      "context": "In backend/src/services/orchestrator.ts, wrap task execution with 5min timeout. Log timeout, mark task failed, continue next. Use Promise.race pattern. Prevent infinite hangs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORC-003",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORC-002"
+      ],
+      "description": "Add task context size validator",
+      "context": "In backend/src/services/task-complexity-validator.ts, add validateContextSize() that fails tasks with context >500 chars. Return {valid:boolean, reason:string}. Prevent truncation cascades.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORC-002"
+    },
+    {
+      "id": "ORC-004",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORC-001"
+      ],
+      "description": "Add graceful shutdown handler",
+      "context": "In backend/src/utils/graceful-shutdown.ts, add registerOrchestrator() that saves queue state to Redis on SIGTERM. Restore on restart. Use existing Redis client. Enable recovery.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/graceful-shutdown.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORC-001"
+    }
+  ]
+}

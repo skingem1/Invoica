@@ -1,0 +1,9 @@
+name: quality-gate
+role: "Scans generated code for quality gates (file size, error handling, types) before supervisor review"
+llm: anthropic/claude-sonnet-4-20250514
+reports_to: ceo
+trigger: on_demand
+created_by: cto_proposal
+created_at: "2026-03-09T18:47:30.425Z"
+context_files:
+  - docs/learnings.md

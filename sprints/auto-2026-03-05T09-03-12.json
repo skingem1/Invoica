@@ -1,0 +1,121 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Emergency orchestrator health diagnostic",
+      "context": "Add comprehensive health check endpoint to backend/src/routes/health.ts that reports PM2 process status, Redis connectivity, database connection pool, and active task queue depth. Return 503 if any component fails. Include timestamp and version info.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Restore task complexity validator limits",
+      "context": "In backend/src/utils/task-complexity-validator.ts, revert to safe complexity thresholds: maxFileChanges=3, maxContextChars=500, maxTestFiles=2. Add validation that rejects tasks exceeding these limits with clear error messages before queue submission.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Implement task dependency tracking system",
+      "context": "Add dependency validation to backend/src/services/ledger/recorder.ts. Before marking task complete, verify all dependency IDs exist and are completed. Log warnings for missing deps. Store dependency graph in Redis with task_id:dependencies hash. Prevent execution if deps incomplete.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/ledger/recorder.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add cascade failure detection to recorder",
+      "context": "Extend backend/src/services/ledger/recorder.ts to detect when a task fails and auto-mark dependent tasks as blocked. Emit webhook event for cascade failures. Store blocked_reason field. Prevent silent skips by requiring explicit unblock action.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/ledger/recorder.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add orchestrator restart circuit breaker",
+      "context": "In backend/src/server.ts, add graceful degradation logic. If 3 consecutive task failures occur within 5 minutes, pause new task acceptance and send alert via backend/src/lib/logger.ts. Require manual resume via /admin/resume endpoint. Prevents cascade overwhelm.",
+      "deliverables": {
+        "code": [
+          "backend/src/server.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-004"
+      ],
+      "description": "Expose dependency graph query endpoint",
+      "context": "Add GET /api/v1/tasks/:id/dependencies route to backend/src/routes/ledger.ts. Return full dependency tree with status for each node. Include blocked tasks and failure reasons. Use backend/src/services/ledger/query.ts for data retrieval. Enable debugging cascade failures.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/ledger.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-004"
+    }
+  ]
+}

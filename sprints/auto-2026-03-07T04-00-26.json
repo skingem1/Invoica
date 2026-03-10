@@ -1,0 +1,139 @@
+{
+  "tasks": [
+    {
+      "id": "MANUAL-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001/QUALITY-001 task type generation from orchestrator config",
+      "context": "Edit backend/src/services/orchestrator-config.ts to exclude meta-task types (ORCH-*, QUALITY-*) from taskTypePatterns array. Add blocklist: ['ORCH-', 'QUALITY-'] to prevent self-referential generation loop.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "MANUAL-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove quality gate meta-validation from config",
+      "context": "Edit backend/src/services/quality-gate-config.ts to disable recursive quality checks. Set enableMetaValidation: false and comment out self-assessment rules that trigger cascade failures.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "MANUAL-003",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "MANUAL-001",
+        "MANUAL-002"
+      ],
+      "description": "Add execution watchdog timeout to orchestrator service",
+      "context": "Edit backend/src/services/orchestrator.ts to add 90-second timeout per task execution. On timeout, mark task failed and continue to next. Prevents single stuck task from blocking entire sprint pipeline.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-001"
+    },
+    {
+      "id": "MANUAL-004",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-003"
+      ],
+      "description": "Implement cascade failure circuit breaker in orchestrator",
+      "context": "Edit backend/src/services/orchestrator.ts to add circuit breaker: if 3 consecutive tasks fail with same error pattern, pause sprint and alert CEO bot. Prevents 25-task rejection cascades.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-003"
+    },
+    {
+      "id": "MANUAL-005",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-001"
+      ],
+      "description": "Validate task complexity thresholds to prevent oversized contexts",
+      "context": "Edit backend/src/utils/task-complexity-validator.ts to enforce max 600 char context limit at generation time. Add validation that rejects tasks with multi-file scope before they enter execution queue.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-001"
+    },
+    {
+      "id": "MANUAL-006",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "MANUAL-004"
+      ],
+      "description": "Add sprint health metrics to CEO Telegram bot alerts",
+      "context": "Edit backend/src/telegram/ceoBot.ts to add real-time alerts: sprint approval rate, avg task completion time, circuit breaker triggers. Sends proactive warning before deadlock occurs.",
+      "deliverables": {
+        "code": [
+          "backend/src/telegram/ceoBot.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-004"
+    },
+    {
+      "id": "MANUAL-007",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "MANUAL-005"
+      ],
+      "description": "Restore 7-9 task sprint capacity in orchestrator config",
+      "context": "Edit backend/src/services/orchestrator-config.ts to increase maxTasksPerSprint from current throttled value back to 7-9 range. Only apply after blocklist/watchdog fixes prevent cascade risk.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-005"
+    }
+  ]
+}

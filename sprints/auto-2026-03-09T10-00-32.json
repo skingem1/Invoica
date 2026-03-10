@@ -1,0 +1,172 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add routing guard to orchestrator.ts to prevent cascade failures",
+      "context": "Implement CTO-20260309-001 in backend/src/services/orchestrator.ts. Add pre-execution validation that checks agent availability and task complexity before routing. Fail fast if agent offline or task exceeds complexity threshold. Prevent cascading timeouts.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 20,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (20/100). Code is incomplete and truncated mid-function. Missing critical implementation details, tests, and proper error handling patterns. | The orchestrator service implementation is incomplete and will not compile. Key methods are cut off, there are no tests, and the cascading timeout prevention logic is missing.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is truncated - updateAgentStatus method signature is incomplete and implementation is missing"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing test files entirely - no Jest unit tests provided"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation for startHeartbeatMonitoring, resumeAgent, and isAgentOnline methods that are referenced"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No input validation using Zod schemas - task and status objects should be validated"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Error handling is basic - should use custom error types instead of generic Error class"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing JSDoc documentation for private methods and interfaces"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No proper async/await error handling in routeTask - could lead to unhandled promise rejections"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File ends abruptly in the middle of method signature (`async updateAgentStatus(status: AgentStatus): Promi...`). This is a syntax error preventing compilation."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of `updateAgentStatus` and any downstream logic. The file is incomplete."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No unit tests provided for validateTaskExecution or routeTask to ensure pre-execution validation works as expected."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Task specification calls for preventing cascading timeouts, but there is no explicit timeout or cancellation logic in routing or execution."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement task validation layer per CTO-20260309-002",
+      "context": "Add validation layer in backend/src/services/task-complexity-validator.ts. Check file path exists in real tree, validate context length <600 chars, ensure single-file scope. Reject invalid tasks before agent dispatch. Return structured error with fix hints.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Wire task validator into orchestrator routing logic",
+      "context": "Modify backend/src/services/orchestrator.ts to call task-complexity-validator before agent dispatch. If validation fails, return error immediately without attempting execution. Log validation failures separately from execution failures for debugging.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add circuit breaker to prevent agent overload",
+      "context": "Extend backend/src/services/orchestrator.ts with circuit breaker pattern. Track failure rate per agent. If >50% failures in 5min window, pause routing to that agent for 10min cooldown. Prevents retry storms. Log breaker state changes.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003",
+        "ORCH-004"
+      ],
+      "description": "Add orchestrator health endpoint for monitoring",
+      "context": "Create new health check in backend/src/routes/health.ts that exposes orchestrator state: active agents, circuit breaker status, queue depth, last successful execution timestamp. Enable external monitoring of pipeline health.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003, ORCH-004"
+    }
+  ]
+}

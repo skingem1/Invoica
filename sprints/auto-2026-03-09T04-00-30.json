@@ -1,0 +1,121 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add task type filter to orchestrator pre-assignment validation",
+      "context": "In backend/src/services/orchestrator.ts, add taskTypeFilter function before assignTaskToAgent. Filter out 'docs' and 'adr' types. Return validation error for non-executable task types. Prevents MiniMax receiving documentation tasks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement complexity scoring in task validator",
+      "context": "In backend/src/services/task-complexity-validator.ts, add calculateComplexityScore function. Score based on: context length (>500 chars = high), multi-file changes (>1 file = high), vague requirements. Return score 1-10. Reject tasks scoring >7.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add early validation gate in orchestrator task ingestion",
+      "context": "In backend/src/services/orchestrator.ts, add validateTaskBeforeQueue function at sprint ingestion. Call task-complexity-validator before queueing. Reject and log invalid tasks immediately. Prevents invalid tasks entering execution pipeline.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add quality gate config for task validation thresholds",
+      "context": "In backend/src/services/quality-gate-config.ts, add taskValidation section. Define: maxContextLength=500, maxFileCount=1, minSpecificity=0.7, blockedTypes=['docs','adr']. Export as TASK_QUALITY_GATES constant for orchestrator consumption.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-004"
+      ],
+      "description": "Integrate quality gates into orchestrator validation flow",
+      "context": "In backend/src/services/orchestrator.ts, import TASK_QUALITY_GATES from quality-gate-config. Update validateTaskBeforeQueue to use gate thresholds. Apply maxContextLength, maxFileCount checks. Log rejection reasons with gate violations.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-004"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-005"
+      ],
+      "description": "Add error handling for validation rejections in orchestrator",
+      "context": "In backend/src/services/orchestrator.ts, wrap validation calls in try-catch. On validation failure, emit 'task.rejected' event with reason. Update task status to 'rejected' in database. Prevents silent failures causing cascade skips.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-005"
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Implement routing guard (CTO-20260309-001)",
+      "context": "Add pre-execution filter in backend/src/services/orchestrator.ts to reject non-coding tasks (docs/ADR/planning) before MiniMax invocation. Check task.type !== 'feature'|'bugfix'|'test' and return error immediately. Prevents 402P errors from wrong model usage.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add task complexity validator integration",
+      "context": "In backend/src/services/orchestrator.ts import and call existing task-complexity-validator before routing. Use validateTaskComplexity() to check file count, change scope, context length. Reject tasks exceeding thresholds with actionable error message.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Implement CTO-20260309-002 validation rules",
+      "context": "In backend/src/services/task-complexity-validator.ts add rules: max 1 file per task, context <600 chars, no multi-file deliverables. Return specific rejection reasons (e.g. 'Task targets 3 files, max 1 allowed'). Must align with prompt constraints.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add quality gate for task type enforcement",
+      "context": "In backend/src/services/quality-gate-config.ts add gate 'task_type_valid' that checks task.type in ['feature','bugfix','test'] and agent='backend-core'|'frontend'|'agents'. Gate runs before orchestrator dispatch. Return gateId and clear error on failure.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Fix orchestrator error handling for validation failures",
+      "context": "In backend/src/services/orchestrator.ts catch validation errors from task-complexity-validator and routing guard. Map to 400 status with structured JSON response {error, reason, suggestion}. Log to orchestrator event stream for CEO visibility.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    }
+  ]
+}

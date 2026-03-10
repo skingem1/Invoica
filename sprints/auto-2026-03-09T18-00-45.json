@@ -1,0 +1,171 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Implement auto-decomposition after 5 rejections in orchestrator",
+      "context": "In backend/src/services/orchestrator.ts: Add rejection counter to task state. After 5 consecutive quality gate rejections, automatically break task into 2-3 smaller subtasks with reduced scope. Preserve original task ID as parent reference. Reset counter on acceptance.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (25/100). File is incomplete and truncated mid-implementation. Missing critical functionality including task breakdown logic, error handling completion, and proper Redis key formatting. | The implementation is incomplete and does not fulfill the task spec. It introduces a markdown code fence (invalid syntax), uses the wrong threshold, lacks any logic to break tasks into subtasks, and does not reset rejection counters on success.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is truncated and incomplete - cuts off mid-line in Redis key template literal"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing the core task breakdown functionality - no implementation of breaking tasks into 2-3 subtasks after 5 rejections"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Incomplete handleTaskRejection method - missing the actual task breakdown logic when TASK_REJECTION_THRESHOLD (5) is reached"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing handleTaskSuccess method implementation - referenced but not defined"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test file provided - violates requirement for Jest unit tests"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Subtask interface defined but never used in the incomplete implementation"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Source file begins with a markdown code fence. Code fences are invalid syntax in TypeScript source files."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "REJECTION_THRESHOLD is set to 2 instead of the specified 5 consecutive quality gate rejections."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No logic implemented to automatically break a task into 2–3 smaller subtasks when the rejection counter reaches the threshold. Task splitting requirements are entirely missing."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "There is no reset of the taskState.rejectionCount on a 'completed' status result, as required by the spec."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "The handleTaskRejection method is truncated and incomplete—missing the rest of the Redis key and any subtask creation logic."
+            },
+            {
+              "severity": "low",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No unit tests were provided or updated to cover the new rejection and subtask behavior."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add cascade-blocking detection to quality gate",
+      "context": "In backend/src/services/quality-gate-config.ts: Add check for rejection reason patterns indicating cascade blocks (e.g., 'depends on', 'waiting for', 'blocked by'). Flag these for auto-decomposition trigger instead of standard retry. Return specific error code for orchestrator to handle.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001",
+        "ORCH-002"
+      ],
+      "description": "Wire cascade detection to auto-decomposition flow",
+      "context": "In backend/src/services/orchestrator.ts: Connect quality gate cascade-block error codes to decomposition trigger. When detected, bypass normal retry logic and immediately decompose task. Log cascade detection events with parent task ID for monitoring.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Add task complexity validation bypass for decomposed subtasks",
+      "context": "In backend/src/services/task-complexity-validator.ts: Add flag to skip complexity validation for tasks marked as auto-decomposed subtasks. These are by definition smaller than parent and should not trigger additional decomposition. Preserve validation for manually created tasks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add orchestrator metrics for rejection tracking",
+      "context": "In backend/src/services/orchestrator.ts: Add counters for total rejections, cascade blocks detected, auto-decompositions triggered. Expose via existing logger at INFO level. Include task ID and rejection reason in each log entry for post-mortem analysis.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    }
+  ]
+}

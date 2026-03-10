@@ -1,0 +1,101 @@
+{
+  "tasks": [
+    {
+      "id": "AGENT-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Disable ORCH-001 task type in orchestrator config",
+      "context": "Edit backend/src/services/orchestrator-config.ts to comment out or remove ORCH-001 from validTaskTypes array. This breaks the cascade-blocking pattern causing 4-day deadlock. Keep AGENT, BACKEND, FRONTEND, INFRA types active.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "AGENT-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "AGENT-001"
+      ],
+      "description": "Disable QUALITY-001 task type in quality gate config",
+      "context": "Edit backend/src/services/quality-gate-config.ts to disable QUALITY-001 validation type. Remove from required checks array or set enabled: false. This eliminates the second cascade trigger point.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-001"
+    },
+    {
+      "id": "AGENT-003",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "AGENT-002"
+      ],
+      "description": "Clear rejection state in orchestrator service",
+      "context": "Edit backend/src/services/orchestrator.ts to add manual state reset logic. Clear any cached rejection states or skip flags that persist across runs. Add clearRejectionState() method if needed.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-002"
+    },
+    {
+      "id": "AGENT-004",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "AGENT-003"
+      ],
+      "description": "Create minimal test sprint validation endpoint",
+      "context": "Add POST /api/test-sprint endpoint in backend/src/routes/health.ts that triggers a single-task test sprint. Returns execution status. Use to verify orchestrator accepts tasks post-config changes.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-003"
+    },
+    {
+      "id": "AGENT-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "AGENT-004"
+      ],
+      "description": "Add pipeline health check to orchestrator",
+      "context": "Edit backend/src/services/orchestrator.ts to add isPipelineHealthy() check before sprint execution. Returns false if rejection rate >50% over 24h window. Prevents future deadlocks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-004"
+    }
+  ]
+}

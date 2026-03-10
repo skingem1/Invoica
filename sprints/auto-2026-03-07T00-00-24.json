@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "id": "MANUAL-001",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001 from orchestrator task generation",
+      "context": "Edit backend/src/services/orchestrator-config.ts to permanently blacklist ORCH-001 from task generation queue. Add validation to reject any self-referential orchestrator improvement tasks at config level.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "MANUAL-002",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove QUALITY-001 from quality gate config",
+      "context": "Edit backend/src/services/quality-gate-config.ts to blacklist QUALITY-001 and prevent quality system from generating self-improvement tasks. Add flag to disable meta-task validation.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "MANUAL-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "MANUAL-001",
+        "MANUAL-002"
+      ],
+      "description": "Add execution watchdog with cascade failure detection",
+      "context": "Add to backend/src/services/orchestrator.ts a watchdog that monitors task rejection rate. If >5 consecutive failures occur, pause queue for 60s and alert. Prevents cascade loops from exhausting capacity.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-001"
+    },
+    {
+      "id": "MANUAL-004",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-003"
+      ],
+      "description": "Implement task complexity validator bypass for critical fixes",
+      "context": "Update backend/src/services/task-complexity-validator.ts to allow priority:critical tasks to skip complexity checks during cascade recovery mode. Prevents validator from blocking emergency repairs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-003"
+    },
+    {
+      "id": "MANUAL-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-003"
+      ],
+      "description": "Add sprint capacity restoration monitor",
+      "context": "Add function to backend/src/services/orchestrator.ts that tracks completed vs attempted tasks per sprint. Auto-log warning if capacity drops below 5 tasks/sprint for 2 consecutive sprints.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-003"
+    },
+    {
+      "id": "MANUAL-006",
+      "agent": "infra",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [
+        "MANUAL-003",
+        "MANUAL-004"
+      ],
+      "description": "Add cascade failure unit test",
+      "context": "Create test in backend/src/services/settlement/types.test.ts that simulates 5 consecutive task rejections and verifies watchdog triggers pause. Ensures future cascades auto-halt.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/types.test.ts"
+        ],
+        "tests": [
+          "backend/src/services/settlement/types.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-003, MANUAL-004"
+    }
+  ]
+}

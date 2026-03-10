@@ -1,0 +1,9 @@
+name: sprint-recovery-agent
+role: "Diagnoses failed sprints, identifies corruption patterns, proposes recovery actions"
+llm: minimax/MiniMax-M2.5
+reports_to: ceo
+trigger: on_demand
+created_by: cto_proposal
+created_at: "2026-03-09T17:41:49.085Z"
+context_files:
+  - docs/learnings.md

@@ -1,0 +1,136 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Deploy CTO-20260309-001: Fix orchestrator cascade bug in orchestrator.ts",
+      "context": "Apply approved fix from CTO-20260309-001. In backend/src/services/orchestrator.ts, modify executeTask to handle agent execution failures gracefully without cascade. Wrap agent calls in try-catch, log errors, mark task as failed, continue processing remaining tasks. Prevents one failure from blocking entire sprint.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 20,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (20/100). File is incomplete - cuts off mid-comment in executeTasks method. Missing critical functionality including executeAgentWithTimeout, processTaskResult, and isAgentPaused methods. Cannot assess full implementation. | The submitted source file is invalid due to markdown code fences and appears truncated/incomplete, breaking existing functionality.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is truncated - cuts off at line with incomplete comment '// This shou' in executeTasks method"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of executeAgentWithTimeout method that is called in executeTask"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of processTaskResult method that is called multiple times"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of isAgentPaused method that is called in executeTask"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test file provided - violates requirement for Jest unit tests"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Logger.getInstance() pattern suggests singleton - should use dependency injection"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Source file begins with markdown code fencing (```typescript), which is invalid syntax in code files."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File appears truncated: executeTasks method is incomplete and missing closing braces, indicating loss of existing functionality."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Deploy CTO-20260309-002: Fix task status tracking in orchestrator.ts",
+      "context": "Apply approved fix from CTO-20260309-002. In backend/src/services/orchestrator.ts, ensure task status updates persist to database after each state change. Add await on status update calls. Verify status transitions: pending->in_progress->completed/failed are atomic and logged.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add orchestrator health check endpoint in router.ts",
+      "context": "In backend/src/api/router.ts, add GET /orchestrator/health endpoint. Return: active sprint count, pending task count, last execution timestamp, error rate (failed/total tasks last 24h). Use existing prisma client to query sprint and task tables. Enable real-time monitoring of orchestrator health.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/router.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Create test sprint with 3 trivial tasks in orchestrator.ts",
+      "context": "In backend/src/services/orchestrator.ts, add createTestSprint() function. Generate sprint with 3 simple tasks: (1) log message to console, (2) read health endpoint, (3) query database for sprint count. Each task targets different agent. Execute sprint and verify >66% approval rate. Log results to validate fixes.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    }
+  ]
+}

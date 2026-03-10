@@ -1,0 +1,141 @@
+{
+  "tasks": [
+    {
+      "id": "AGENT-034-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Manual bypass for CTO-20260307-001 cascade recovery",
+      "context": "Implement emergency manual trigger in orchestrator to execute CTO-20260307-001 (cascade failure recovery fix) bypassing deadlock. Add direct execution path that skips task queue and runs immediately with logging.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/manual-bypass.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "AGENT-034-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "AGENT-034-001"
+      ],
+      "description": "Manual bypass for CTO-20260307-002 execution watchdog",
+      "context": "Extend manual bypass system to execute CTO-20260307-002 (execution watchdog). Must implement timeout detection and force-restart capability for stuck tasks. Log all forced completions.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/watchdog-bypass.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-001"
+    },
+    {
+      "id": "AGENT-034-003",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "AGENT-034-002"
+      ],
+      "description": "Fix task status persistence preventing completion",
+      "context": "Repair status update mechanism that prevents tasks from transitioning to 'completed'. Ensure database writes succeed and state mutations propagate. Add retry logic for failed updates.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/task-status.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-002"
+    },
+    {
+      "id": "AGENT-034-004",
+      "agent": "agents",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "AGENT-034-003"
+      ],
+      "description": "Validate 80%+ execution rate with synthetic tasks",
+      "context": "Create test harness that submits 10 synthetic tasks to orchestrator and verifies 8+ complete successfully within 10min. Measure actual completion rate and log failures. Must prove system recovered.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/execution-test.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-003"
+    },
+    {
+      "id": "AGENT-034-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "AGENT-034-004"
+      ],
+      "description": "Implement backlog replay mechanism",
+      "context": "Build system to safely replay 18 approved fixes from backlog after execution validation passes. Add rate limiting (1 task/5min) and automatic rollback if failure rate exceeds 20%.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/backlog-replay.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-004"
+    },
+    {
+      "id": "AGENT-034-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "AGENT-034-004"
+      ],
+      "description": "Add execution health dashboard endpoint",
+      "context": "Expose real-time metrics endpoint showing task completion rate, queue depth, stuck task count, and last successful execution timestamp. Required for monitoring system health post-recovery.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/health-dashboard.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-004"
+    },
+    {
+      "id": "AGENT-034-007",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": [
+        "AGENT-034-003"
+      ],
+      "description": "Fix deadlock detection false positives",
+      "context": "Adjust deadlock detection thresholds to prevent false positives that freeze orchestrator unnecessarily. Increase timeout from 5min to 15min for complex tasks and add exemption list for known slow operations.",
+      "deliverables": {
+        "code": [
+          "agents/orchestrator/deadlock-detector.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: AGENT-034-003"
+    }
+  ]
+}

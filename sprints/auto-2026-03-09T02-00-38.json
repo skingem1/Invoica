@@ -1,0 +1,101 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add task-type routing logic to orchestrator",
+      "context": "In backend/src/services/orchestrator.ts, add taskTypeRouter function that routes documentation/ADR/planning tasks to Claude agent and code/test/bugfix tasks to MiniMax. Use task.type field to determine routing. Return agent name string.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Create test-runner agent configuration",
+      "context": "In backend/src/services/orchestrator-config.ts, add TEST_RUNNER agent config with role to validate code changes before supervisor review. Include pre-validation capabilities: syntax check, import verification, basic type consistency. Set priority between execution and supervisor.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement dependency decomposition in orchestrator",
+      "context": "In backend/src/services/orchestrator.ts, add dependencyDecomposer function that detects multi-file or cascading dependencies. When task has dependencies array length > 1, split into atomic single-dependency subtasks. Prevents cascade failures by isolating failure domains.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Integrate test-runner validation flow",
+      "context": "In backend/src/services/orchestrator.ts, add preValidationStep that routes completed tasks through TEST_RUNNER agent before supervisor. Only tasks with clean validation proceed to supervisor. Failed validation returns to execution agent with error context. Reduces supervisor rejection rate.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add cascade failure prevention metrics",
+      "context": "In backend/src/services/orchestrator.ts, add trackCascadeMetrics function that logs dependency chain length, failure propagation depth, and skip reasons. Emit metrics when tasks skip due to dependency failure. Enables monitoring of decomposition effectiveness.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    }
+  ]
+}

@@ -16,7 +16,7 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "rejected"
     },
     {
       "id": "GAS-001",
@@ -33,14 +33,16 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "rejected"
     },
     {
       "id": "GAS-002",
       "agent": "backend-core",
       "type": "feature",
       "priority": "high",
-      "dependencies": ["GAS-001"],
+      "dependencies": [
+        "GAS-001"
+      ],
       "description": "Gas Backstop API route — GET /v1/gas/status",
       "context": "Wire the GasManager singleton from GAS-001 into a REST endpoint.\n\nCREATE: backend/src/routes/gas-backstop.ts\n\nSingle route: GET /v1/gas/status\nQuery params: wallet (required), chain (optional, default 'base')\nNo auth required on this endpoint — it only reads public on-chain data.\n\nFull implementation:\n\nimport { Router, Request, Response } from 'express';\nimport { gasManager } from '../services/gas-backstop/gas-manager';\n\nconst router = Router();\n\nrouter.get('/v1/gas/status', async (req: Request, res: Response) => {\n  const { wallet, chain = 'base' } = req.query;\n  if (!wallet || typeof wallet !== 'string') {\n    res.status(400).json({ error: 'wallet query param is required' });\n    return;\n  }\n  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) {\n    res.status(400).json({ error: 'wallet must be a valid 0x EVM address (42 hex chars)' });\n    return;\n  }\n  try {\n    const status = await gasManager.checkBalance(wallet, String(chain));\n    res.json(status);\n  } catch (err) {\n    const message = err instanceof Error ? err.message : String(err);\n    const statusCode = message.includes('Unsupported') || message.includes('non-EVM') ? 400 : 503;\n    res.status(statusCode).json({ error: message });\n  }\n});\n\nexport default router;\n\nThen ALSO edit backend/src/app.ts:\n- Open the file, find where other routers are imported (look for lines like: import invoicesRouter or import healthRouter)\n- Add: import gasBackstopRouter from './routes/gas-backstop';\n- Find where those routers are used with app.use() and add: app.use(gasBackstopRouter);\n- Do NOT change anything else in app.ts — minimal edit only.\n\nMax 40 lines for gas-backstop.ts. Minimal edit to app.ts.",
       "deliverables": {
@@ -51,7 +53,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "skipped",
+      "skippedReason": "Blocked by: GAS-001"
     },
     {
       "id": "ONBOARD-001",
@@ -69,7 +72,7 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "rejected"
     },
     {
       "id": "NPM-001",
@@ -107,7 +110,7 @@
           "reports/cmo/x-thread-mcp-launch.md"
         ]
       },
-      "status": "pending"
+      "status": "rejected"
     }
   ]
 }

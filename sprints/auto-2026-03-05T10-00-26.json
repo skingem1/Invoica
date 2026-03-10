@@ -1,0 +1,142 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add cascade failure detection to orchestrator",
+      "context": "Implement failure detection in orchestrator that catches when task execution silently fails. Add logging at each execution stage (task received, agent assigned, execution started, completion confirmed). File: apps/agents/src/orchestrator/index.ts. Add checkpoints that log task state transitions and detect 30s+ execution stalls.",
+      "deliverables": {
+        "code": [
+          "apps/agents/src/orchestrator/index.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement retry logic for failed task executions",
+      "context": "Add exponential backoff retry (3 attempts max, 5s/10s/20s delays) when task execution fails. If all retries exhausted, mark task as failed and log full context. File: apps/agents/src/orchestrator/task-executor.ts. Include retry counter in task metadata.",
+      "deliverables": {
+        "code": [
+          "apps/agents/src/orchestrator/task-executor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add task execution health monitoring",
+      "context": "Create health check endpoint that reports orchestrator metrics: tasks pending, in-progress, completed, failed, avg execution time. File: apps/agents/src/health/orchestrator-health.ts. Expose metrics that CEO bot can query to verify execution rate.",
+      "deliverables": {
+        "code": [
+          "apps/agents/src/health/orchestrator-health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Fix silent task skip in agent router",
+      "context": "Audit agent routing logic to find why tasks are skipped without error logging. File: apps/agents/src/orchestrator/agent-router.ts. Ensure all code paths either execute task or throw explicit error. Add validation that agent exists before assignment.",
+      "deliverables": {
+        "code": [
+          "apps/agents/src/orchestrator/agent-router.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add CEO bot integration for execution rate alerts",
+      "context": "Integrate orchestrator health metrics with CEO bot to send Telegram alerts when execution rate drops below 80%. File: backend/src/telegram/ceoBot.ts. Poll health endpoint every 5min and alert on sustained low execution rate.",
+      "deliverables": {
+        "code": [
+          "backend/src/telegram/ceoBot.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-002",
+        "ORCH-004"
+      ],
+      "description": "Implement task execution timeout safeguards",
+      "context": "Add 2-minute timeout per task with automatic failure and cleanup. File: apps/agents/src/orchestrator/task-executor.ts. Use Promise.race with timeout to prevent infinite hangs. Log timeout events distinctly from failures.",
+      "deliverables": {
+        "code": [
+          "apps/agents/src/orchestrator/task-executor.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002, ORCH-004"
+    },
+    {
+      "id": "ORCH-007",
+      "agent": "agents",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-006"
+      ],
+      "description": "Add orchestrator resilience test suite",
+      "context": "Create tests for cascade failure recovery: simulate agent crashes, network timeouts, malformed tasks. File: apps/agents/tests/orchestrator/resilience.test.ts. Verify retry logic, timeout handling, and error propagation work correctly.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "apps/agents/tests/orchestrator/resilience.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-006"
+    }
+  ]
+}

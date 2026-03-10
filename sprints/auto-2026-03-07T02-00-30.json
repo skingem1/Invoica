@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "id": "MANUAL-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001/QUALITY-001 task type generation",
+      "context": "Edit backend/src/services/orchestrator-config.ts to blacklist ORCH-001 and QUALITY-001 task type patterns from taskTypePatterns array. Add validation to reject any task IDs matching these prefixes in generation pipeline.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "MANUAL-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "MANUAL-001"
+      ],
+      "description": "Add execution watchdog circuit breaker",
+      "context": "In backend/src/services/orchestrator.ts add cascadeFailureDetector function that monitors consecutive task rejections. If >3 same-type tasks fail in 10min window, halt sprint generation and alert. Prevents infinite loops.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-001"
+    },
+    {
+      "id": "MANUAL-003",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "MANUAL-002"
+      ],
+      "description": "Implement task approval timeout mechanism",
+      "context": "Edit backend/src/services/quality-gate-config.ts to add 2-hour approval timeout. Tasks stuck in pending state auto-transition to 'expired' status. Prevents queue blocking and restores flow capacity.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-002"
+    },
+    {
+      "id": "MANUAL-004",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-001"
+      ],
+      "description": "Add task complexity pre-validation gate",
+      "context": "Update backend/src/services/task-complexity-validator.ts to reject tasks with context >600 chars or multi-file deliverables before queue insertion. Prevents LLM truncation failures downstream.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-001"
+    },
+    {
+      "id": "MANUAL-005",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "MANUAL-003"
+      ],
+      "description": "Enable emergency sprint abort command",
+      "context": "In backend/src/telegram/ceoBot.ts add /abort_sprint command handler. Immediately marks all pending tasks as 'cancelled', clears orchestrator queue, allows fresh sprint generation. CEO override capability.",
+      "deliverables": {
+        "code": [
+          "backend/src/telegram/ceoBot.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-003"
+    },
+    {
+      "id": "MANUAL-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "MANUAL-002",
+        "MANUAL-004"
+      ],
+      "description": "Restore 7-9 task sprint capacity limits",
+      "context": "Edit backend/src/services/orchestrator-config.ts to enforce maxTasksPerSprint=9 and minTasksPerSprint=7 validation. Reject sprint plans outside this range before execution to prevent overload/underutilization.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: MANUAL-002, MANUAL-004"
+    }
+  ]
+}

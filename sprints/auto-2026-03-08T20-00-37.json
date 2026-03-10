@@ -1,0 +1,102 @@
+{
+  "tasks": [
+    {
+      "id": "CTO-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Create pre-validation gate service with syntax/import/type checks",
+      "context": "Create backend/src/services/pre-validation-gate.ts implementing validateCode(filePath, content) that runs: ESLint syntax check, import resolution via ts-morph, TypeScript compiler API type check, Prettier format validation. Returns {valid: boolean, errors: Array<{type, message, line}>}. Must complete in <2s per file.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/pre-validation-gate.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "CTO-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "CTO-001"
+      ],
+      "description": "Add validation types and error context formatting",
+      "context": "Extend backend/src/services/task-complexity-validator.ts to include ValidationResult type with structured error context. Add formatValidationErrors() that converts technical errors into actionable feedback for coding agents (e.g., 'Import @/lib/redis not found - add to dependencies or fix path').",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: CTO-001"
+    },
+    {
+      "id": "CTO-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "CTO-001",
+        "CTO-002"
+      ],
+      "description": "Integrate pre-validation into orchestrator workflow",
+      "context": "Modify backend/src/services/orchestrator.ts executeTask() to call pre-validation gate after coding agent completes. If validation fails, return task to coding agent with error context instead of sending to supervisor. Track preValidationAttempts (max 2). Only send to supervisor after passing validation.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: CTO-001, CTO-002"
+    },
+    {
+      "id": "CTO-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "CTO-003"
+      ],
+      "description": "Add validation metrics to orchestrator config",
+      "context": "Update backend/src/services/orchestrator-config.ts to add preValidation section with enabled flag, maxAttempts (default 2), timeoutMs (default 2000), and metrics tracking (validationPassed, validationFailed, autoApprovalRate). Initialize metrics in config singleton.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: CTO-003"
+    },
+    {
+      "id": "CTO-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "CTO-004"
+      ],
+      "description": "Add validation failure logging to audit middleware",
+      "context": "Extend backend/src/middleware/audit-logger.ts to log pre-validation events: validation_attempt, validation_passed, validation_failed with taskId, agent, errorTypes, attemptNumber. Include validation metrics in daily rollup for measuring >50% auto-approval target.",
+      "deliverables": {
+        "code": [
+          "backend/src/middleware/audit-logger.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: CTO-004"
+    }
+  ]
+}

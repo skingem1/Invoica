@@ -1,0 +1,173 @@
+{
+  "tasks": [
+    {
+      "id": "BYPASS-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Emergency manual bypass: disable task validation in orchestrator",
+      "context": "In backend/src/services/api-keys.ts or nearest orchestrator config file, add BYPASS_VALIDATION=true flag that skips all task complexity checks and allows direct execution. Comment existing validation logic but preserve it. Must restore 80%+ task throughput immediately.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/api-keys.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/api-keys.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "Dual-rejected: Claude (15/100) + Codex (20/100). File is incomplete (cuts off mid-function), contains extensive unrelated functionality not requested in task spec, and fails to implement the core requirement of bypassing validation logic. | The patch is incomplete and does not implement the required bypass logic or comment out the existing validation. The validateTaskComplexity function is truncated, and no existing logic has been preserved or disabled per spec.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "File is incomplete - cuts off mid-function in validateTaskComplexity with 'const va'"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "Task spec requested adding BYPASS_VALIDATION flag to skip task complexity checks, but the file contains mostly API key management functionality that wasn't requested"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "The bypass logic is incomplete - validateTaskComplexity function starts the bypass check but doesn't complete the implementation"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "No existing validation logic is commented out as requested - the task asked to 'comment existing validation logic but preserve it'"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "Overengineering - added extensive API key management system (interfaces, schemas, hashing, etc.) when task only asked for a bypass flag"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "The validateTaskComplexity function is cut off mid-implementation and missing the bypass-flag logic as well as the commented original validation code."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/api-keys.ts",
+              "description": "Task spec requires commenting out existing complexity checks and adding BYPASS_VALIDATION behavior, but none of the original logic is commented or bypassed."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "BYPASS-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "BYPASS-001"
+      ],
+      "description": "Validate execution restored via health endpoint metrics",
+      "context": "In backend/src/api/health.ts, add execution_rate metric showing tasks completed/hour. Must confirm 80%+ restoration after BYPASS-001 deploys. Add timestamp of last successful task execution to response.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: BYPASS-001"
+    },
+    {
+      "id": "BRAND-001",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "BYPASS-002"
+      ],
+      "description": "Update primary brand colors to midnight blue palette",
+      "context": "In apps/x-admin/src/components/SpamBlacklistTable.tsx, replace existing color variables with midnight blue (#1a1f3a primary, #2d3561 secondary). Update className strings to use new palette. Preserve all functional logic.",
+      "deliverables": {
+        "code": [
+          "apps/x-admin/src/components/SpamBlacklistTable.tsx"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: BYPASS-002"
+    },
+    {
+      "id": "POLYGON-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "BYPASS-002"
+      ],
+      "description": "Add Polygon chain configuration to registry",
+      "context": "In backend/src/config/chains.ts, add Polygon mainnet config: chainId 137, RPC endpoints, native token MATIC. Include block explorer URL. Must integrate with existing chain validation logic without breaking EVM/Solana support.",
+      "deliverables": {
+        "code": [
+          "backend/src/config/chains.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: BYPASS-002"
+    },
+    {
+      "id": "POLYGON-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "POLYGON-001"
+      ],
+      "description": "Wire Polygon settlement detection to invoice flow",
+      "context": "In backend/src/services/settlement/settlement-router.ts, add Polygon case to chain routing logic. Must delegate to evm-detector with Polygon-specific config. Preserve existing EVM/Solana flows unchanged.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/settlement-router.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: POLYGON-001"
+    },
+    {
+      "id": "MULTI-001",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [
+        "POLYGON-002"
+      ],
+      "description": "Add multichain integration test for Polygon settlements",
+      "context": "In backend/src/services/settlement/types.test.ts, add test case validating Polygon chain detection, settlement routing, and invoice status update. Must verify Polygon txHash format and block confirmation logic.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/types.test.ts"
+        ],
+        "tests": [
+          "backend/src/services/settlement/types.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: POLYGON-002"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix cascade rejection in orchestrator quality gate",
+      "context": "In backend/src/services/orchestrator.ts, modify validateTaskQuality to prevent cascade rejections. When a task fails quality checks, mark ONLY that task as rejected, not all subsequent tasks. Change rejection logic to be task-specific, not iteration-breaking.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement task complexity validation",
+      "context": "In backend/src/services/task-complexity-validator.ts, add validation rules: reject tasks >3 files, >800 chars context, vague deliverables, or missing file paths. Return specific rejection reasons. Integrate into orchestrator before MiniMax dispatch.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add quality gate retry logic",
+      "context": "In backend/src/services/quality-gate-config.ts, implement retry mechanism for quality gate failures. Allow 2 retries with exponential backoff. Log each attempt. Prevents transient failures from blocking pipeline.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Improve orchestrator error logging",
+      "context": "In backend/src/services/orchestrator.ts, add detailed logging for quality gate decisions. Log: task ID, rejection reason, validation scores, retry attempts. Use structured logging format. Critical for debugging future issues.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-004"
+      ],
+      "description": "Add orchestrator integration tests",
+      "context": "Create backend/src/services/orchestrator.test.ts with tests for: cascade rejection prevention, complexity validation, retry logic, quality gate scoring. Use real task payloads from failed sprints as test cases.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.test.ts"
+        ],
+        "tests": [
+          "backend/src/services/orchestrator.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-004"
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Implement auto-decomposition trigger in orchestrator after 5 rejections",
+      "context": "In backend/src/services/orchestrator.ts, add rejection counter to task state. After 5 consecutive rejections, automatically call decomposition logic with flag autoDecomposed=true. Store rejection reasons in task metadata for decomposition context. Reset counter on acceptance.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 20,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (20/100). Code is incomplete - file cuts off mid-function without closing braces, making it syntactically invalid. Cannot evaluate full implementation. | The generated orchestrator changes introduce the new TaskState structure and rejection counting, but the core auto-decomposition logic after five rejections is missing, and the counter is never reset on acceptance. There are also no tests covering this new behavior.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is incomplete - cuts off in the middle of handleTaskRejection method without proper closing braces or method completion"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of auto-decomposition logic when TASK_REJECTION_THRESHOLD (5) is reached"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of decomposition service integration and decomposition logic calling"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test files provided despite this being core business logic that requires comprehensive testing"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "TaskState interface missing persistence - only stored in memory Map, will be lost on service restart"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No check against TASK_REJECTION_THRESHOLD (5) and no invocation of the decomposition logic with autoDecomposed=true. The spec-required automatic decomposition path is entirely absent."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "handleTaskSuccess does not reset the taskState.rejectionCount or clear rejectionReasons, contrary to the requirement to reset on acceptance."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No unit tests (Jest) were provided to validate the new rejection-counter and auto-decomposition behaviors, violating the >80% coverage requirement."
+            },
+            {
+              "severity": "low",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "TaskResultSchema expects timestamp as a Date; if the service layer emits ISO strings, Zod parsing will fail. Consider z.preprocess to coerce strings to Date."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add cascade-blocking detection in task complexity validator",
+      "context": "In backend/src/services/task-complexity-validator.ts, implement dependency graph traversal. Detect cycles and long dependency chains (>4 levels). Mark tasks with cascadeRisk=true if they block 3+ other tasks. Return validation error with specific blocking task IDs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Persist rejection metadata and auto-decomposition flags in orchestrator config",
+      "context": "In backend/src/services/orchestrator-config.ts, add fields: rejectionCount, rejectionReasons[], autoDecomposed, cascadeRisk. Add methods saveRejectionState() and getRejectionHistory(). Persist to Redis with 7-day TTL for audit trail.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Wire cascade detection into quality gate enforcement",
+      "context": "In backend/src/services/quality-gate-config.ts, add cascade-blocking check to validation rules. Tasks with cascadeRisk=true get priority boost (+10). Tasks blocking >5 others trigger immediate CEO alert via logger. Add bypass flag for emergency overrides.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001",
+        "ORCH-003"
+      ],
+      "description": "Add CEO alert logging for auto-decomposition triggers",
+      "context": "In backend/src/utils/logger.ts, add logAutoDecomposition() method. Include task ID, rejection count, reasons, and new subtask IDs. Format for Telegram/email alerts. Log to separate auto-decomposition.log file with JSON structure for analysis.",
+      "deliverables": {
+        "code": [
+          "backend/src/utils/logger.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001, ORCH-003"
+    }
+  ]
+}

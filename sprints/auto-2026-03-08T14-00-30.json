@@ -1,0 +1,102 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add token budget calculation utility for MiniMax buffer",
+      "context": "Create calculateTokenBudget() function that reduces max_tokens by 20% for MiniMax model. Input: model name, base limit. Output: adjusted limit. Place in backend/src/services/orchestrator.ts near existing model config. This enables surgical fix without touching main orchestration logic.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Apply 20% token buffer to MiniMax backend-core requests",
+      "context": "In backend/src/services/orchestrator.ts, modify the agent dispatch logic to apply calculateTokenBudget() when routing to MiniMax for backend-core agent. Reduce from ~4500 to ~3600 tokens. Only apply to coding tasks (type: feature|bugfix). Leave frontend and test tasks unchanged.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Add truncation detection to orchestrator response handler",
+      "context": "In backend/src/services/orchestrator.ts response processing, detect MiniMax truncation markers (incomplete code blocks, mid-line cuts). Log warning with task ID and token usage. Return structured error to caller instead of silently failing. This prevents future auto-approval issues.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Expose token budget metrics in orchestrator config",
+      "context": "In backend/src/services/orchestrator-config.ts, add tokenBudgetMultiplier field (default 0.8 for 20% buffer). Export getEffectiveTokenLimit(agent, model) helper. This centralizes buffer logic and allows future tuning without code changes.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-002",
+        "ORCH-003"
+      ],
+      "description": "Add integration test for MiniMax token buffer enforcement",
+      "context": "Create test in backend/src/services/orchestrator.ts (inline test block) that verifies: 1) MiniMax requests use reduced token limit, 2) Truncation detection triggers on incomplete output, 3) Buffer does not apply to frontend tasks. Mock MiniMax API response. Validates Week-9 fix.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002, ORCH-003"
+    }
+  ]
+}

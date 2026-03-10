@@ -1,0 +1,121 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Implement research-writer agent registration in orchestrator",
+      "context": "Add research-writer to agent registry in backend/src/services/orchestrator.ts. Register with capabilities for research tasks, markdown generation, and content synthesis. Map to existing task complexity tiers.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "CEO resolved conflict (Codex approved, Claude rejected): REJECT — Claude's critical issue is valid. A file that cuts off mid-method (`isAgen`) is objectively incomplete and cannot be deployed. This isn't a nitpick about documentation or tests - it's a fundamental completeness failure that would break the orchestrator service. The task cannot be considered",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is incomplete - cuts off at line with 'public isAgen' method declaration"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation for isAgentPaused method that is referenced in findCapableAgents"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No test file provided for new orchestrator functionality"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing JSDoc documentation for some public methods"
+            }
+          ],
+          "strengths": [
+            "Consistent registration pattern matching existing agents",
+            "Correct capabilities for research, markdown generation, and content synthesis",
+            "No markdown fences or invalid syntax in source files",
+            "Maintains existing complexity tiers and registry logic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add smart skip logic to orchestrator task validation",
+      "context": "Modify task selection in backend/src/services/orchestrator.ts to skip tasks when agent unavailable or capability mismatch. Log skip reason, don't cascade. Return next viable task from queue.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Implement early rejection detection in task validator",
+      "context": "Add pre-execution validation to backend/src/services/task-complexity-validator.ts. Check file existence, complexity bounds, and agent capabilities. Reject invalid tasks before orchestrator assignment.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add orchestrator execution metrics logging",
+      "context": "Instrument backend/src/services/orchestrator.ts with structured logging for task assignments, skips, rejections, and approval rates. Enable sprint success measurement at 70%+ target.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    }
+  ]
+}

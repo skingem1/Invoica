@@ -1,0 +1,124 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Implement routing guard to filter non-coding tasks",
+      "context": "Add task classifier in backend/src/services/orchestrator.ts before MiniMax dispatch. Check task.type and task.context for keywords (ADR, documentation, analysis, research). Route coding tasks to MiniMax, others to placeholder or reject. Return classification decision with reason.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add task complexity validator integration",
+      "context": "Wire backend/src/services/task-complexity-validator.ts into orchestrator routing decision. Call validator before MiniMax dispatch. If complexity > threshold or non-code detected, block assignment. Log rejection reason for sprint analytics.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Enforce file path validation before dispatch",
+      "context": "In backend/src/services/orchestrator.ts, validate task.deliverables.code paths exist in project tree before sending to MiniMax. Check against known file list. Reject tasks with non-existent paths or empty code deliverables array. Prevent hallucinated file references.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002",
+        "ORCH-003"
+      ],
+      "description": "Add quality gate check to orchestrator config",
+      "context": "Update backend/src/services/orchestrator-config.ts to enable strict validation mode. Set maxTasksPerAgent, requireFileValidation, blockNonCodingTasks flags. Integrate with backend/src/services/quality-gate-config.ts thresholds. Enforce >80% auto-approval target.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002, ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001",
+        "ORCH-002",
+        "ORCH-003"
+      ],
+      "description": "Fix orchestrator to reject multi-file tasks",
+      "context": "In backend/src/services/orchestrator.ts dispatch logic, count deliverables.code array length. If >1 file, reject task before MiniMax assignment. Each task must target exactly one file per system prompt rules. Log rejection with task ID and file count.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001, ORCH-002, ORCH-003"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-004"
+      ],
+      "description": "Add orchestrator pre-flight validation logging",
+      "context": "In backend/src/services/orchestrator.ts, add structured logging before each MiniMax dispatch. Log task.type, file count, complexity score, routing decision, validation results. Use backend/src/lib/logger.ts. Enable sprint post-mortem analysis of approval rates.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-004"
+    }
+  ]
+}

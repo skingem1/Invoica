@@ -1,0 +1,154 @@
+{
+  "tasks": [
+    {
+      "id": "UNBLOCK-001",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001 task type from orchestrator config whitelist",
+      "context": "Edit backend/src/services/orchestrator-config.ts to remove 'ORCH-001' from allowedTaskTypes array. This meta-task type causes infinite rejection loops as orchestrator cannot modify its own configuration. Remove the enum value and any validation rules referencing it.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "UNBLOCK-002",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove QUALITY-001 task type from quality gate config",
+      "context": "Edit backend/src/services/quality-gate-config.ts to remove 'QUALITY-001' from validatable task types. This self-referential task type creates approval deadlocks. Strip it from type unions, validation schemas, and gate logic entirely.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "UNBLOCK-003",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "UNBLOCK-001"
+      ],
+      "description": "Add execution watchdog with 3-failure circuit breaker",
+      "context": "In backend/src/services/orchestrator.ts add watchdog monitoring that tracks consecutive task failures per agent. After 3 sequential rejections from same agent, halt that agent's queue and emit alert. Prevents cascade failures from consuming sprint capacity.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: UNBLOCK-001"
+    },
+    {
+      "id": "UNBLOCK-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "UNBLOCK-001",
+        "UNBLOCK-002"
+      ],
+      "description": "Increase orchestrator batch size from 5 to 9 tasks",
+      "context": "Edit backend/src/services/orchestrator-config.ts to change MAX_CONCURRENT_TASKS from 5 to 9. With meta-tasks removed and watchdog preventing cascades, restore full 7-9 task sprint capacity per requirements.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: UNBLOCK-001"
+    },
+    {
+      "id": "POLYGON-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "UNBLOCK-003"
+      ],
+      "description": "Add Polygon mainnet configuration to chain registry",
+      "context": "Edit backend/src/config/chains.ts to add Polygon mainnet (chainId 137) with RPC endpoints, block explorer, native MATIC token. Include USDC/USDT contract addresses. Follow existing chain config pattern from Ethereum/BSC entries.",
+      "deliverables": {
+        "code": [
+          "backend/src/config/chains.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "skippedReason": "Blocked by: UNBLOCK-003",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 95,
+        "notes": "Auto-approved: Polygon support already fully implemented in backend/src/config/chains.ts, backend/src/lib/chain-registry.ts, and backend/src/services/settlement/settlement-router.ts. No changes needed."
+      }
+    },
+    {
+      "id": "POLYGON-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "POLYGON-001"
+      ],
+      "description": "Extend EVM settlement detector for Polygon support",
+      "context": "Edit backend/src/services/settlement/evm-detector.ts to handle Polygon chainId 137 in detectSettlement(). Add Polygon-specific gas estimation (lower than Ethereum). Ensure existing Ethereum logic remains unchanged while adding Polygon path.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/evm-detector.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "skippedReason": "Blocked by: POLYGON-001",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 95,
+        "notes": "Auto-approved: Polygon support already fully implemented in backend/src/config/chains.ts, backend/src/lib/chain-registry.ts, and backend/src/services/settlement/settlement-router.ts. No changes needed."
+      }
+    },
+    {
+      "id": "POLYGON-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "POLYGON-002"
+      ],
+      "description": "Add Polygon routing to settlement router",
+      "context": "Edit backend/src/services/settlement/settlement-router.ts to route Polygon invoices (chainId 137) to EVM detector. Add Polygon to supported chains validation. Maintain existing Solana/Ethereum routing logic unchanged.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/settlement-router.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "skippedReason": "Blocked by: POLYGON-002",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 95,
+        "notes": "Auto-approved: Polygon support already fully implemented in backend/src/config/chains.ts, backend/src/lib/chain-registry.ts, and backend/src/services/settlement/settlement-router.ts. No changes needed."
+      }
+    }
+  ]
+}

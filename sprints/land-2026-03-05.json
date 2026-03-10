@@ -1,0 +1,87 @@
+{
+  "tasks": [
+    {
+      "id": "LAND-001",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [],
+      "description": "Hero: badge, sub-headline, CTA copy",
+      "deliverables": [
+        "website/components/Hero.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Hero.tsx"
+        ],
+        "commit": "9f78ce1",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-002",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-001"
+      ],
+      "description": "Features: replace 6 cards",
+      "deliverables": [
+        "website/components/Features.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Features.tsx"
+        ],
+        "commit": "f342d65",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-003",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-001"
+      ],
+      "description": "Social proof: replace stats with real numbers",
+      "deliverables": [
+        "website/components/SocialProof.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/SocialProof.tsx"
+        ],
+        "commit": "f342d65",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-004",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-002",
+        "LAND-003"
+      ],
+      "description": "Pricing -> Beta Program",
+      "deliverables": [
+        "website/components/Pricing.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Pricing.tsx"
+        ],
+        "commit": "f342d65",
+        "model": "owner-direct"
+      }
+    }
+  ]
+}

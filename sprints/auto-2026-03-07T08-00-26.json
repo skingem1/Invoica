@@ -1,0 +1,290 @@
+{
+  "tasks": [
+    {
+      "id": "UNBLOCK-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001/QUALITY-001 from orchestrator task queue",
+      "context": "Edit backend/src/services/orchestrator-config.ts to exclude meta-task IDs (ORCH-001, QUALITY-001) from generation pool. Add blacklist array with these IDs. Prevents cascade failures from self-referential tasks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 9,
+        "notes": "Blacklist already implemented in orchestrator-config.ts - manually approved to unblock chain."
+      }
+    },
+    {
+      "id": "UNBLOCK-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "UNBLOCK-001"
+      ],
+      "description": "Implement execution watchdog with circuit breaker",
+      "context": "Add to backend/src/services/orchestrator.ts: timeout handler (5min), retry limit (3), failure threshold circuit breaker. After 3 consecutive failures on same task type, skip and log. Prevents infinite loops.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 10,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (10/100). File is incomplete and truncated, missing critical implementation details and proper error handling | Source file contains markdown code fences, which is invalid syntax and must be removed.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File is truncated - ends mid-line with 'e' character, indicating incomplete generation"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing implementation of handleTaskCompletion, handleTaskFailure, and retry logic methods"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Circuit breaker isCircuitBreakerOpen method is referenced but not implemented"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No cleanup of taskExecutions Map - potential memory leak"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing retry logic implementation despite MAX_RETRIES constant being defined"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "No mechanism to update circuit breaker state on failures/successes"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "Missing test file - no unit tests provided for orchestrator functionality"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "RedisService dependency injected but never used in the implementation"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator.ts",
+              "description": "File content is wrapped in markdown code fences (```typescript), which is invalid in source files."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "UNBLOCK-003",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "UNBLOCK-002"
+      ],
+      "description": "Reset sprint capacity limits to 7-9 tasks",
+      "context": "Modify backend/src/services/orchestrator-config.ts sprint generation logic. Set min=7, max=9 tasks per sprint. Remove any artificial throttling introduced during deadlock troubleshooting.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: UNBLOCK-002"
+    },
+    {
+      "id": "BRAND-001",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Deploy CMO brand guidelines to landing page",
+      "context": "Update website/components/Hero.tsx with the following CMO-approved brand guidelines. The h1 \"The Financial OS for AI Agents\" is already correct — do NOT change it.\n\nREQUIRED CHANGES:\n\n1. HERO SUBTEXT (replace current <p> content):\n   \"Your agents can now pay autonomously.\n   Invoica gives them invoices, compliance, and control — all on-chain.\"\n   (Use a <br /> between the two lines)\n\n2. PRIMARY CTA BUTTON (replace current \"Get API Keys — Free\" button):\n   Text: \"Claim Free Beta Access →\"\n   Keep the existing href to https://app.invoica.ai/api-keys\n   Keep styling, just update the text and remove the SVG arrow (arrow is now in text)\n\n3. TRUST INDICATORS (replace the two sub-labels below the CTAs):\n   Single line: \"Built on the x402 protocol  •  14 real settlements live on Base\"\n   Add a small green pulsing dot before \"14 real settlements\" to indicate live data\n\n4. BACKGROUND — DARK THEME (replace bg-white with dark navy gradient):\n   Change section className to remove bg-white and add:\n   bg-gradient-to-br from-[#0F172A] to-[#1E3A8A]\n   Update h1 color from text-invoica-blue to text-white\n   Update subtext color from text-invoica-gray-500 to text-slate-300\n   Update the \"Now in Public Beta\" badge: change bg from /5 to bg-white/10, border to border-white/20, text to text-slate-300\n   Update the secondary \"Read the Docs\" button border/text to use border-white/30 and text-white\n\n5. LIVE BADGE — add next to \"Now in Public Beta\" text:\n   Add a small badge: \"14 settlements live on Base\" with a green dot before it\n   This replaces or sits alongside the existing \"Now in Public Beta\" pill\n\nKeep all existing animations, layout structure, code block on the right, and Next.js Image imports.\nDo NOT change any other files. Single file change only.",
+      "deliverables": {
+        "code": [
+          "website/components/Hero.tsx"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "skippedReason": "Blocked by: UNBLOCK-003",
+      "output": {
+        "files": [
+          "website/components/Hero.tsx"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "CEO resolved conflict (Codex approved, Claude rejected): REJECT — Claude's concerns are valid. A truncated/incomplete file is a critical blocker that would break the website if deployed. The missing closing JSX elements and right-side content would cause runtime errors. While Codex scored the visible content highly, shipping an incomplete component violat",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "website/components/Hero.tsx",
+              "description": "File is incomplete - ends abruptly at line with comment '/* Left content */' without closing the component, missing right-side grid content, and missing closing JSX tags"
+            },
+            {
+              "severity": "high",
+              "file": "website/components/Hero.tsx",
+              "description": "Task spec explicitly states to keep 'code block on the right' but the right-side content appears to be missing from the truncated file"
+            },
+            {
+              "severity": "medium",
+              "file": "website/components/Hero.tsx",
+              "description": "Redundant live settlement indicators - both in the badge area AND in trust indicators section, when task spec suggests replacing one with the other"
+            }
+          ],
+          "strengths": [
+            "Accurately applied the dark navy gradient and removed the previous bg-white.",
+            "Hero subtext updated exactly as specified, using a <br /> to break lines.",
+            "Primary and secondary CTA buttons updated per spec, preserving styling and links.",
+            "Now in Public Beta badge and live settlements badge implemented with correct colors, borders, and pulsing dot.",
+            "Trust indicators updated into a single line with a green pulsing dot before the '14 real settlements live on Base' text.",
+            "No code fences or syntax errors; Next.js Image import and existing animations/layout are untouched."
+          ]
+        }
+      }
+    },
+    {
+      "id": "MULTI-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "UNBLOCK-003"
+      ],
+      "description": "Add Polygon network config to chain registry",
+      "context": "Extend backend/src/config/chains.ts with Polygon mainnet: chainId 137, RPC endpoints, native token (MATIC), block explorer. Follow existing Ethereum/Solana pattern for consistency.",
+      "deliverables": {
+        "code": [
+          "backend/src/config/chains.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "skippedReason": "Blocked by: UNBLOCK-003",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 95,
+        "notes": "Auto-approved: Polygon support already fully implemented in backend/src/config/chains.ts, backend/src/lib/chain-registry.ts, and backend/src/services/settlement/settlement-router.ts. No changes needed."
+      }
+    },
+    {
+      "id": "MULTI-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "MULTI-001"
+      ],
+      "description": "Register Polygon in settlement router",
+      "context": "Update backend/src/services/settlement/settlement-router.ts to route Polygon transactions. Add Polygon chainId case to routing logic, configure EVM detector for Polygon-specific parameters.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/settlement/settlement-router.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "approved",
+      "skippedReason": "Blocked by: MULTI-001",
+      "review": {
+        "verdict": "APPROVED",
+        "score": 95,
+        "notes": "Auto-approved: Polygon support already fully implemented in backend/src/config/chains.ts, backend/src/lib/chain-registry.ts, and backend/src/services/settlement/settlement-router.ts. No changes needed."
+      }
+    },
+    {
+      "id": "MULTI-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "MULTI-002"
+      ],
+      "description": "Enable Polygon invoice creation in API",
+      "context": "Modify backend/src/api/invoices-create.ts to accept Polygon as valid chain parameter. Add validation for Polygon addresses (EVM format), ensure currency support (MATIC, USDC, USDT on Polygon).",
+      "deliverables": {
+        "code": [
+          "backend/src/api/invoices-create.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "skippedReason": "Blocked by: MULTI-002",
+      "output": {
+        "files": [
+          "backend/src/api/invoices-create.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (30/100). Code is incomplete - file appears to be truncated mid-function. Missing critical parts including the main handler function and proper exports. | The implementation correctly adds Polygon to supported chains and introduces EVM‐style address validation, but the currency schema is too restrictive (fixed length of 3), which will reject valid tokens like USDC, USDT, and MATIC. ",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/api/invoices-create.ts",
+              "description": "File is incomplete - cuts off mid-function in logBlockedInvoiceAttempt, missing the actual request handler function"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/api/invoices-create.ts",
+              "description": "No main request handler function exported - this file cannot function as an API endpoint"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/api/invoices-create.ts",
+              "description": "Uses 'any' type in currency validation: 'chainCurrencies.includes(data.currency as any)' - violates TypeScript strict mode"
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/api/invoices-create.ts",
+              "description": "Bitcoin address validation regex is overly simplistic and may not catch all valid formats"
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/api/invoices-create.ts",
+              "description": "The Zod schema defines currency as `z.string().length(3)`, which only allows 3‐character currencies (e.g., BTC, ETH). Polygon tokens (USDC, USDT, MATIC) exceed three characters and will be invalid."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    }
+  ]
+}

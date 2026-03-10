@@ -1,0 +1,123 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add spec validation gate to orchestrator",
+      "context": "Modify backend/src/services/orchestrator.ts to validate task specs before MiniMax execution. Check: valid file paths against file tree, single-file constraint, context <600 chars, required fields present. Reject invalid tasks immediately with detailed error. Prevents cascade failures from malformed specs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Implement task-isolation mode in orchestrator",
+      "context": "Modify backend/src/services/orchestrator.ts to add isolation mode config. When enabled, each task executes independently — failures do not cascade to subsequent tasks. Track failure count per sprint. Store isolation mode state in orchestrator config. Defaults to enabled.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-002"
+      ],
+      "description": "Create circuit breaker for >50% failure rate",
+      "context": "Modify backend/src/services/orchestrator.ts to add circuit breaker. Track sprint task success/failure ratio. If failures exceed 50%, halt sprint execution immediately. Set status flag and prepare alert payload with sprint ID, failure count, failed task IDs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-003"
+      ],
+      "description": "Add CEO Telegram alert for circuit breaker",
+      "context": "Modify backend/src/telegram/ceoBot.ts to add handler for orchestrator circuit breaker events. Send immediate alert when >50% failure threshold triggered. Include: sprint goal, failure count, task IDs, timestamp. Format for actionable CEO response.",
+      "deliverables": {
+        "code": [
+          "backend/src/telegram/ceoBot.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add file path validator against real tree",
+      "context": "Create backend/src/services/task-file-validator.ts. Export function that accepts file path and validates against known file tree (embed or load from config). Returns boolean + error detail. Used by ORCH-001 spec validation gate. Prevents non-existent file references.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-file-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001",
+        "ORCH-002",
+        "ORCH-003"
+      ],
+      "description": "Update orchestrator config with fault tolerance flags",
+      "context": "Modify backend/src/services/orchestrator-config.ts to add: specValidationEnabled (default true), taskIsolationEnabled (default true), circuitBreakerThreshold (default 0.5), ceoAlertEnabled (default true). Expose via config interface for runtime control.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001, ORCH-002, ORCH-003"
+    }
+  ]
+}

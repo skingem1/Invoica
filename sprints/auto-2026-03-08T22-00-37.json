@@ -1,0 +1,120 @@
+{
+  "tasks": [
+    {
+      "id": "ORCH-001",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add quality gate pre-validation layer",
+      "context": "Modify backend/src/services/quality-gate-config.ts to add pre-validation checks before MiniMax execution. Add syntax validation, file path verification against project tree, and task complexity scoring. Return early rejection with specific feedback for invalid tasks. Keep existing post-generation checks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-002",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "critical",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Relax supervisor rejection criteria to accept partial completions",
+      "context": "Modify backend/src/services/orchestrator.ts supervisor code review logic. Change rejection threshold from 100% completion to 70% completion with explicit acceptance of: partial implementations with TODOs, missing error handling if core logic present, incomplete tests if implementation correct. Add graduated scoring system.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-003",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-001"
+      ],
+      "description": "Add task complexity validator with rejection feedback",
+      "context": "Implement task complexity scoring in backend/src/services/task-complexity-validator.ts. Score based on: file size, dependencies count, required changes scope. Reject tasks scoring >8/10 with specific simplification suggestions. Return actionable feedback for sprint replanning.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-001"
+    },
+    {
+      "id": "ORCH-004",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "ORCH-002",
+        "ORCH-003"
+      ],
+      "description": "Integrate pre-validation with orchestrator task dispatch",
+      "context": "Update backend/src/services/orchestrator-config.ts to wire quality gate pre-validation and complexity validator into task dispatch flow. Tasks must pass both gates before MiniMax execution. Failed tasks skip execution and return feedback immediately. Maintain existing retry logic for passed tasks.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002, ORCH-003"
+    },
+    {
+      "id": "ORCH-005",
+      "agent": "agents",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Fix file path validation against actual project tree",
+      "context": "Update backend/src/services/orchestrator.ts file path validation to use hardcoded list of actual project files from prompt context. Reject any task targeting non-existent files before execution. Add specific error message listing valid similar paths when rejection occurs.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "ORCH-006",
+      "agent": "agents",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [
+        "ORCH-002",
+        "ORCH-004"
+      ],
+      "description": "Add graduated approval scoring with partial credit",
+      "context": "Enhance backend/src/services/orchestrator.ts supervisor review to score tasks 0-100 based on: syntax correctness (30pts), core logic present (40pts), error handling (15pts), tests (15pts). Tasks scoring ≥70 auto-approve. Tasks 50-69 request human review. Tasks <50 reject with specific improvement needed.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: ORCH-002, ORCH-004"
+    }
+  ]
+}

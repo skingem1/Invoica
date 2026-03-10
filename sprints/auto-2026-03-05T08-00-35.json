@@ -1,0 +1,210 @@
+{
+  "tasks": [
+    {
+      "id": "LAND-001",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [],
+      "description": "Hero: badge, sub-headline, CTA copy",
+      "context": "Edit website/components/Hero.tsx \u2014 4 targeted copy changes only, no layout changes:\n1. Line 27 badge span text: change 'Built on the x402 Protocol' \u2192 'Now in Public Beta'\n2. Line 39 <p> text: change 'Automated invoicing, tax compliance, budget enforcement, and settlement detection.' \u2192 'Automated invoicing, settlement detection, and pay-per-use AI inference \u2014 all on Base.'\n3. Line 48 primary CTA text: change 'Start Building' \u2192 'Get API Keys \u2014 Free'\n4. Line 63 sub-label text: change 'Free tier \u2014 first invoice in &lt;10 min' \u2192 'Free during beta \u2014 no credit card required'\nFull plan: docs/plans/2026-03-05-landing-page-overhaul.md Task 1.",
+      "deliverables": [
+        "website/components/Hero.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Hero.tsx"
+        ],
+        "commit": "9f78ce1",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-002",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-001"
+      ],
+      "description": "Features: replace 6 cards \u2014 add x402 Inference, biz verification, ledger export",
+      "context": "Edit website/components/Features.tsx \u2014 replace the entire features array (lines 11-102) with 6 new items in this order: (1) x402 Inference [gradient from-[#635BFF] to-[#818CF8]] \u2014 'Pay-per-use LLM calls at 0.003 USDC each. No API key rotation, no monthly bills \u2014 agents pay exactly what they use via on-chain EIP-712 proofs.' (2) Automated Invoicing [from-[#10B981] to-[#34D399]] (3) Settlement Detection [from-[#8B5CF6] to-[#A78BFA]] (4) Business Verification [from-[#F59E0B] to-[#FBBF24]] \u2014 'Validate business identity across 6 jurisdictions: EU VIES, UK Companies House, France SIRENE, Canada, Japan NTA, and Israel.' (5) Ledger Export [from-[#3B82F6] to-[#60A5FA]] (6) Developer Dashboard [from-[#EC4899] to-[#F472B6]]. Remove Tax Compliance, Budget Enforcement, TypeScript SDK. Keep all render code below line 103 unchanged. Full SVG icons + exact copy in docs/plans/2026-03-05-landing-page-overhaul.md Task 2.",
+      "deliverables": [
+        "website/components/Features.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Features.tsx"
+        ],
+        "commit": "9f78ce1",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-003",
+      "agent": "frontend",
+      "type": "bugfix",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-001"
+      ],
+      "description": "Social proof: replace stats with real verified numbers",
+      "context": "Edit website/components/SocialProof.tsx \u2014 replace the stats array (lines 3-8) only:\nconst stats = [\n  { value: '22', label: 'Invoices Created', description: 'Real invoices generated and stored on-chain since launch' },\n  { value: '14', label: 'Settlements on Base', description: 'Confirmed on-chain payments with verified txHash' },\n  { value: '6', label: 'Countries Verified', description: 'EU VIES, UK, France, Canada, Japan, Israel' },\n  { value: '0.003', label: 'USDC per AI Call', description: 'Pay exactly what you use \u2014 no monthly subscription' },\n];\nDo not touch any render code. Remove '100+ SDK Modules' stat.",
+      "deliverables": [
+        "website/components/SocialProof.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/SocialProof.tsx"
+        ],
+        "commit": "9f78ce1",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "LAND-004",
+      "agent": "frontend",
+      "type": "feature",
+      "priority": "critical",
+      "status": "done",
+      "dependencies": [
+        "LAND-002",
+        "LAND-003"
+      ],
+      "description": "Pricing \u2192 Beta Program: replace pricing tiers with free beta section",
+      "context": "Rewrite website/components/Pricing.tsx entirely. Replace 3-tier pricing (Developer/Growth/Enterprise) with a Beta Program section. Section label: 'Beta Program'. Headline: 'Free During Beta'. Sub: 'No credit card. No commitment. Everything is free while we're in beta \u2014 except AI inference, which is pay-per-use on-chain.' Three benefit columns (no highlighted/scale-105): (1) 'Invoicing & Settlements' price='Free' priceDetail='unlimited during beta' features=[create+retrieve invoices via REST, real-time settlement detection, verified txHash, CSV ledger export, developer dashboard] gradient=from-[#635BFF]/to-[#818CF8] (2) 'Business Verification' price='Free' priceDetail='6 jurisdictions' features=[EU VIES, UK Companies House, France SIRENE, Canada CRA, Japan NTA, Israel] gradient=from-[#10B981]/to-[#34D399] (3) 'AI Inference' price='0.003' priceDetail='USDC per call' features=[x402 EIP-712 payment proof, no API key rotation, no monthly subscription, pay exactly what you use, on-chain payment record] gradient=from-[#F59E0B]/to-[#FBBF24]. Single CTA button below grid: 'Get API Keys \u2014 Free Beta' \u2192 https://app.invoica.ai/api-keys. Footer note: 'Sign up with email or Google / GitHub OAuth.' Full code in docs/plans/2026-03-05-landing-page-overhaul.md Task 4.",
+      "deliverables": [
+        "website/components/Pricing.tsx"
+      ],
+      "output": {
+        "files": [
+          "website/components/Pricing.tsx"
+        ],
+        "commit": "9f78ce1",
+        "model": "owner-direct"
+      }
+    },
+    {
+      "id": "INFRA-001",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Manual SSH deployment of orchestrator CTO-20260305-ORCH fix",
+      "context": "SSH to production server, pull latest orchestrator code with queue processing fix (continue after rejection instead of stopping), restart orchestrator service, verify logs show task queue processing resuming. File: backend/src/services/orchestrator.ts already has fix committed but not deployed due to git-autodeploy failure.",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "deployment-verification.md"
+        ]
+      },
+      "status": "rejected"
+    },
+    {
+      "id": "INFRA-002",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "INFRA-001"
+      ],
+      "description": "Deploy complexity validator CTO-20260305-001 to production",
+      "context": "Deploy backend/src/utils/task-complexity-validator.ts (approved 5 days ago, never deployed). SSH to server, ensure file is present, restart backend service, verify validator is active in logs. This prevents oversized tasks from blocking execution.",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "validator-deployment-log.md"
+        ]
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: INFRA-001"
+    },
+    {
+      "id": "INFRA-003",
+      "agent": "agents",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "INFRA-001",
+        "INFRA-002"
+      ],
+      "description": "Verify orchestrator processes tasks after rejection",
+      "context": "Create synthetic sprint with 3 tasks: 1 invalid (will be rejected), 2 valid. Submit to orchestrator, verify it processes all 3 (not stopping after rejection). Log results confirming queue continues. Target file for test script: backend/tests/orchestrator-resilience.test.ts (create new).",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/tests/orchestrator-resilience.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: INFRA-001, INFRA-002"
+    },
+    {
+      "id": "INFRA-004",
+      "agent": "agents",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [
+        "INFRA-002"
+      ],
+      "description": "Test complexity validator rejects oversized tasks",
+      "context": "Submit task with >600 char context to backend/src/utils/task-complexity-validator.ts, verify rejection with clear error message. Submit task with <600 chars, verify approval. Create test file backend/tests/complexity-validator.test.ts to ensure validator is functioning.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/tests/complexity-validator.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: INFRA-002"
+    },
+    {
+      "id": "INFRA-005",
+      "agent": "infra",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [
+        "INFRA-003",
+        "INFRA-004"
+      ],
+      "description": "Add orchestrator health check endpoint",
+      "context": "Add /health/orchestrator endpoint to backend/src/api/health.ts that reports: queue length, last task processed timestamp, rejection count last hour, validator status. Returns 200 if healthy, 503 if stalled >5min. Enables monitoring of execution pipeline.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/health.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: INFRA-003, INFRA-004"
+    },
+    {
+      "id": "INFRA-006",
+      "agent": "infra",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": [
+        "INFRA-001"
+      ],
+      "description": "Fix git-autodeploy webhook verification",
+      "context": "Investigate why git-autodeploy failed to deploy CTO-20260305-ORCH and CTO-20260305-001. Check webhook signature verification in backend/src/middleware/webhook-verify.ts, ensure GitHub webhook secret is configured correctly. Fix any auth issues preventing auto-deployment.",
+      "deliverables": {
+        "code": [
+          "backend/src/middleware/webhook-verify.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: INFRA-001"
+    }
+  ]
+}

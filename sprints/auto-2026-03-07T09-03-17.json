@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "id": "EMERGENCY-001",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Remove ORCH-001 task type from orchestrator config",
+      "context": "Edit backend/src/services/orchestrator-config.ts to remove any task type definitions or handlers for ORCH-001. Delete references in task type enums, validation arrays, and routing logic. Preserve all other task types intact.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "rejected",
+      "output": {
+        "files": [
+          "backend/src/services/orchestrator-config.ts"
+        ],
+        "commit": "",
+        "model": "claude-sonnet-4-20250514",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Dual-rejected: Claude (25/100) + Codex (45/100). Task spec violation: ORCH-001 references not removed, QUALITY-001 incorrectly added to blacklist instead | The patch did not remove references to ORCH-001 as requested and instead removed QUALITY-001, which is unrelated to this task. The change does not satisfy the EMERGENCY-001 specification.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator-config.ts",
+              "description": "Task spec required removing ORCH-001 references, but no ORCH-001 found in code. Instead, QUALITY-001 was added to blacklist, which wasn't requested."
+            },
+            {
+              "severity": "high",
+              "file": "backend/src/services/orchestrator-config.ts",
+              "description": "Agent appears to have misunderstood the task - added QUALITY-001 to META_TASK_BLACKLIST when task was about removing ORCH-001 references."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator-config.ts",
+              "description": "Comment mentions 'QUALITY-001 removed' but QUALITY-001 was actually added to the blacklist, creating confusion."
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/services/orchestrator-config.ts",
+              "description": "The task ID ORCH-001 was not removed from task type definitions or handlers. Instead, QUALITY-001 was removed, which is not part of this task's scope."
+            },
+            {
+              "severity": "medium",
+              "file": "backend/src/services/orchestrator-config.ts",
+              "description": "No references or handlers for ORCH-001 exist in the updated file, indicating the change missed the target and did not implement the required deletion."
+            }
+          ],
+          "strengths": []
+        }
+      }
+    },
+    {
+      "id": "EMERGENCY-002",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "EMERGENCY-001"
+      ],
+      "description": "Remove QUALITY-001 task type from quality gate config",
+      "context": "Edit backend/src/services/quality-gate-config.ts to remove QUALITY-001 task type definitions, validation rules, and gate checks. Keep all other quality gates functional. Ensure no references remain that could trigger meta-task generation.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/quality-gate-config.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: EMERGENCY-001"
+    },
+    {
+      "id": "EMERGENCY-003",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [
+        "EMERGENCY-001"
+      ],
+      "description": "Remove meta-task generation logic from orchestrator",
+      "context": "Edit backend/src/services/orchestrator.ts to delete any code that generates ORCH-001 or QUALITY-001 tasks. Remove self-modification loops and meta-task creation functions. Preserve normal task routing and execution flow.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/orchestrator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: EMERGENCY-001"
+    },
+    {
+      "id": "EMERGENCY-004",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [
+        "EMERGENCY-002",
+        "EMERGENCY-003"
+      ],
+      "description": "Add validation to block meta-task types in task complexity validator",
+      "context": "Edit backend/src/services/task-complexity-validator.ts to add explicit rejection of ORCH-* and QUALITY-* task type patterns. Return validation error if these prefixes detected. Prevents future meta-task cascade failures.",
+      "deliverables": {
+        "code": [
+          "backend/src/services/task-complexity-validator.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "skipped",
+      "skippedReason": "Blocked by: EMERGENCY-002, EMERGENCY-003"
+    }
+  ]
+}
