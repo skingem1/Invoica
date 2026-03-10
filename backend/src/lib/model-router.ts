@@ -19,13 +19,13 @@ interface ModelRoute {
 }
 
 const EXPERTISE_MODELS: Record<TaskType, ModelRoute> = {
-  code:    { primary: 'deepseek/deepseek-coder-v2',    fallback: 'anthropic/claude-haiku' },
-  reason:  { primary: 'deepseek/deepseek-r1',          fallback: 'anthropic/claude-sonnet-4' },
-  lang:    { primary: 'mistralai/mistral-large',        fallback: 'anthropic/claude-haiku' },
-  util:    { primary: 'google/gemini-3.1-flash-lite',   fallback: 'anthropic/claude-haiku' },
-  audit:   { primary: 'anthropic/claude-sonnet-4',      fallback: 'deepseek/deepseek-v3' },
-  content: { primary: 'anthropic/claude-haiku',         fallback: 'google/gemini-flash' },
-  data:    { primary: 'deepseek/deepseek-v3',           fallback: 'anthropic/claude-haiku' },
+  code:    { primary: 'deepseek/deepseek-chat',         fallback: 'anthropic/claude-haiku-4.5' },
+  reason:  { primary: 'deepseek/deepseek-reasoner',     fallback: 'anthropic/claude-sonnet-4.6' },
+  lang:    { primary: 'anthropic/claude-haiku-4.5',     fallback: 'google/gemini-2.5-flash' },
+  util:    { primary: 'google/gemini-2.5-flash-lite',   fallback: 'anthropic/claude-haiku-4.5' },
+  audit:   { primary: 'anthropic/claude-sonnet-4.6',    fallback: 'deepseek/deepseek-chat' },
+  content: { primary: 'anthropic/claude-haiku-4.5',     fallback: 'google/gemini-2.5-flash' },
+  data:    { primary: 'deepseek/deepseek-chat',         fallback: 'anthropic/claude-haiku-4.5' },
 };
 
 // ── Legacy Model Aliases ────────────────────────────────────────────────────
@@ -33,13 +33,15 @@ const EXPERTISE_MODELS: Record<TaskType, ModelRoute> = {
 const MODEL_ALIASES: Record<string, string> = {
   'MiniMax-M2.5':              'minimax/minimax-m2.5',
   'minimax-m2.5':              'minimax/minimax-m2.5',
-  'minimax-m2.5-lightning':    'minimax/minimax-m2.5-lightning',
+  'minimax-m2.5-lightning':    'minimax/minimax-m2.5',
   'minimax':                   'minimax/minimax-m2.5',
-  'coding':                    'deepseek/deepseek-coder-v2',
-  'claude-haiku-4-5':          'anthropic/claude-haiku',
-  'claude-sonnet-4':           'anthropic/claude-sonnet-4',
-  'claude-3-haiku-20240307':   'anthropic/claude-haiku',
-  'claude-3-5-sonnet-20241022':'anthropic/claude-sonnet-4',
+  'coding':                    'deepseek/deepseek-chat',
+  'claude-haiku-4-5':          'anthropic/claude-haiku-4.5',
+  'claude-haiku-4.5':          'anthropic/claude-haiku-4.5',
+  'claude-sonnet-4':           'anthropic/claude-sonnet-4.6',
+  'claude-sonnet-4.6':         'anthropic/claude-sonnet-4.6',
+  'claude-3-haiku-20240307':   'anthropic/claude-haiku-4.5',
+  'claude-3-5-sonnet-20241022':'anthropic/claude-sonnet-4.6',
 };
 
 // ── Task Classification ─────────────────────────────────────────────────────
