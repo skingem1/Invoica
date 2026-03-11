@@ -89,9 +89,19 @@ echo "$CHANGED" | sed 's/^/  /'
 # ── 4. Restart affected services ─────────────────────────────────────
 
 # Backend: only restart on code/config changes — skip docs, markdown, fixtures
+# Also trigger on backend-wrapper.sh (root-level startup script)
+BACKEND_CHANGED=false
 if echo "$CHANGED" | grep "^backend/" | grep -qE "\.(ts|js|json|prisma|sh)$"; then
-  echo "[$TIMESTAMP] [AutoDeploy] backend/ changed → restarting backend"
-  pm2 reload backend --update-env
+  BACKEND_CHANGED=true
+fi
+if echo "$CHANGED" | grep -q "^backend-wrapper\.sh$"; then
+  BACKEND_CHANGED=true
+fi
+if [ "$BACKEND_CHANGED" = "true" ]; then
+  echo "[$TIMESTAMP] [AutoDeploy] backend changed → restarting backend"
+  # Use 'restart' (not 'reload') — reload starts new process while old holds port 3001,
+  # causing EADDRINUSE cascade. Restart kills old first, then starts new cleanly.
+  pm2 restart backend --update-env
   echo "[$TIMESTAMP] [AutoDeploy] backend restarted"
 fi
 
@@ -138,7 +148,7 @@ fi
 # updates (new API keys, config tweaks) actually take effect at runtime.
 if echo "$CHANGED" | grep -qE "^\.env$"; then
   echo "[$TIMESTAMP] [AutoDeploy] .env changed → reloading backend + ceo-ai-bot with updated env"
-  pm2 reload backend --update-env
+  pm2 restart backend --update-env
   pm2 restart ceo-ai-bot --update-env
   echo "[$TIMESTAMP] [AutoDeploy] env-only reload complete"
 fi
