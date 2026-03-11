@@ -61,13 +61,16 @@ Our positioning: "Stripe for AI Agents."
 
 | Agent | Status | Notes |
 |-------|--------|-------|
-| CEO (Claude Opus) | Active | Strategic decisions, Conway governance |
-| CTO (Claude Sonnet) | Active | Sprint verification, ecosystem monitoring |
-| CMO (Grok/Manus) | Active | Brand, content, social media |
-| Supervisor 1 (Claude Sonnet) | Active | Code review — quality gate |
-| Supervisor 2 (Codex o4-mini) | Active | Code review — independent verification |
-| Telegram Support Bot (MiniMax) | Active | Customer support, FAQ, onboarding help |
-| 12x MiniMax M2.5 | Active | Coding agents — one-file-per-call pattern |
+| CEO (claude-sonnet-4-5 / haiku-3-5) | Active | Strategic decisions, Conway governance, Telegram bot |
+| CTO-EmailSupport (MiniMax M2.5) | Active | Responds to support emails every 5min |
+| CTO-TechScan (MiniMax M2.5) | Active | Daily ecosystem monitoring at 09:00 UTC |
+| CMO-Daily (Manus manus-1.6) | Active | Daily brand/social monitoring at 08:00 UTC |
+| CMO-Weekly (Manus manus-1.6) | Active | Weekly content plan Sundays at 06:00 UTC |
+| X-Admin: content (Grok grok-3-latest) | Active | Generates X posts; CEO (Claude) + CTO (MiniMax) review |
+| CEO-Review (claude-sonnet-4-5) | Active | Reviews CMO/CTO reports every 2h, triggers sprints |
+| CFO (claude-sonnet-4-5) | Active | Weekly financial reports Mondays |
+| BizDev (Manus) | Active | Weekly opportunity scan Sundays |
+| Sprint coding agents (MiniMax M2.5) | Active → V17 | One-file-per-call; migrating to local Ollama+ClawRouter |
 
 ## Strategic Hypotheses
 
