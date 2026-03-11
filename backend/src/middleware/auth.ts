@@ -139,7 +139,7 @@ export const authenticate = async (
     
     // Check if API key is active
     if (!apiKeyRecord.isActive) {
-      console.warn(`Inactive API key used from IP: ${req.ip}, Key ID: ${apiKeyRecord.id}`);
+      console.warn(`Inactive API key attempt from IP: ${req.ip}`);
       res.status(AUTH_ERRORS.INACTIVE_API_KEY.statusCode).json({
         success: false,
         error: AUTH_ERRORS.INACTIVE_API_KEY,
@@ -149,7 +149,7 @@ export const authenticate = async (
     
     // Check if API key has expired
     if (apiKeyRecord.expiresAt && new Date(apiKeyRecord.expiresAt) < new Date()) {
-      console.warn(`Expired API key used from IP: ${req.ip}, Key ID: ${apiKeyRecord.id}`);
+      console.warn(`Expired API key attempt from IP: ${req.ip}`);
       res.status(AUTH_ERRORS.INVALID_API_KEY.statusCode).json({
         success: false,
         error: AUTH_ERRORS.INVALID_API_KEY,
@@ -167,8 +167,8 @@ export const authenticate = async (
     
     req.apiKey = apiKeyRecord;
     
-    // Log successful authentication
-    console.debug(`API key authenticated for customer: ${apiKeyRecord.customerId}`);
+    // Log successful authentication (no key/customer IDs in logs)
+    console.debug(`API key authenticated successfully`);
     
     next();
   } catch (error) {

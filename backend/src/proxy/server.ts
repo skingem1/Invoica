@@ -24,7 +24,7 @@ export function createApp(config: Omit<ProxyServerConfig, "port">): Express {
 
   // CORS configuration
   const corsOptions: cors.CorsOptions = {
-    origin: config.corsOrigins || "*",
+    origin: config.corsOrigins ?? ['https://app.invoica.ai', 'https://invoica.ai'],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",

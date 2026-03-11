@@ -905,7 +905,7 @@ Deno.serve(async (req: Request) => {
       });
     } catch (error) {
       return new Response(
-        JSON.stringify({ error: "Failed to set webhook", details: String(error) }),
+        JSON.stringify({ error: "Failed to set webhook" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -923,7 +923,7 @@ Deno.serve(async (req: Request) => {
       });
     } catch (error) {
       return new Response(
-        JSON.stringify({ error: "Failed to get webhook info", details: String(error) }),
+        JSON.stringify({ error: "Failed to get webhook info" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

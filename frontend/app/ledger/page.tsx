@@ -68,7 +68,7 @@ export default function LedgerPage() {
   const [loadingData, setLoadingData] = useState(false);
 
   useEffect(() => {
-    const storedKey = localStorage.getItem(KEY_STORAGE);
+    const storedKey = sessionStorage.getItem(KEY_STORAGE);
     const verified  = sessionStorage.getItem(VERIFIED_STORAGE);
     if (storedKey && verified === 'true') {
       fetchLedger(storedKey);
@@ -86,7 +86,7 @@ export default function LedgerPage() {
         fetch(`${BACKEND_URL}/v1/ledger/summary`,           { headers: { Authorization: `Bearer ${key}` } }),
       ]);
       if (ledgerRes.status === 401) {
-        localStorage.removeItem(KEY_STORAGE);
+        sessionStorage.removeItem(KEY_STORAGE);
         sessionStorage.removeItem(VERIFIED_STORAGE);
         setStep('enter-key');
         setError('API key is no longer valid. Please enter a new key.');
@@ -144,7 +144,7 @@ export default function LedgerPage() {
       });
       const data = await res.json();
       if (data.success) {
-        localStorage.setItem(KEY_STORAGE, apiKey.trim());
+        sessionStorage.setItem(KEY_STORAGE, apiKey.trim());
         sessionStorage.setItem(VERIFIED_STORAGE, 'true');
         fetchLedger(apiKey.trim());
       } else {
@@ -170,7 +170,7 @@ export default function LedgerPage() {
         setError(data.error?.message || 'Invalid code. Please try again.');
         return;
       }
-      localStorage.setItem(KEY_STORAGE, apiKey.trim());
+      sessionStorage.setItem(KEY_STORAGE, apiKey.trim());
       sessionStorage.setItem(VERIFIED_STORAGE, 'true');
       fetchLedger(apiKey.trim());
     } catch {

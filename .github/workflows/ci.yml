@@ -10,6 +10,8 @@ jobs:
   typecheck:
     name: TypeScript Compile Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +38,8 @@ jobs:
   ecosystem-verify:
     name: Ecosystem Script Existence Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 

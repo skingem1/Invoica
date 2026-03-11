@@ -22,7 +22,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import 'dotenv/config';
 
 const ROOT          = process.cwd();
@@ -426,7 +426,8 @@ function gitCommitAndPush(message: string): boolean {
     const status = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8' }).trim();
     if (!status) { log('No doc changes — skipping commit'); return false; }
 
-    execSync(`git commit -m "${message}"`, { cwd: ROOT, timeout: 15_000 });
+    // execFileSync prevents shell injection — message passed as literal arg, not interpolated
+    execFileSync('git', ['commit', '-m', message], { cwd: ROOT, timeout: 15_000 });
     execSync('git push origin main', { cwd: ROOT, timeout: 30_000 });
     log('Docs committed and pushed → Vercel will redeploy');
     return true;
