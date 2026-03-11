@@ -12,7 +12,17 @@ import gasBackstopRouter from './routes/gas-backstop';
 
 const app = express();
 
-app.use(cors());
+// BUG-006 fix: explicit CORS origins — no wildcard on main API
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['https://app.invoica.ai', 'https://invoica.ai', 'https://www.invoica.ai'];
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  credentials: true,
+  maxAge: 86400,
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
