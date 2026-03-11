@@ -164,8 +164,8 @@ async function main(): Promise<void> {
   let exitCode: number | null = null;
   try {
     const result = spawnSync(
-      'npx',
-      ['ts-node', '--transpile-only', 'scripts/orchestrate-agents-v2.ts', sprint.file],
+      'bash',
+      ['scripts/run-swarm.sh', sprint.file],
       {
         cwd: ROOT,
         stdio: 'inherit',

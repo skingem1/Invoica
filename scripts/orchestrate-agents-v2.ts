@@ -24,6 +24,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { randomUUID } from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
 import * as dotenv from 'dotenv'; dotenv.config({ override: true });
@@ -88,6 +89,30 @@ interface LLMResponse {
   usage?: { total_tokens: number };
   base_resp?: { status_code: number; status_msg: string };
 }
+
+// ===== TaskRun tracking =====
+
+interface TaskRun {
+  task_id: string;
+  title: string;
+  type: string;
+  task_target: string;
+  status: string;
+  attempts: number;
+  model_used: string;
+  provider: string;
+  routing_reason: string;
+  tokens_used: number;
+  duration_seconds: number;
+  files_written: string[];
+  review: { reviewer: string; verdict: string; score: number; summary: string } | null;
+  error: string | null;
+  rejection_reason: string | null;
+}
+
+// Module-level token accumulator — shared across CodingAgent + Supervisor instances
+// Reset at process start; each sprint run is a fresh process so no cross-run bleed.
+const runStats = { totalTokens: 0 };
 
 // ===== Colors =====
 
@@ -248,6 +273,7 @@ class SupervisorAgent {
     try {
       const response = await callAnthropicCached('claude-sonnet-4-20250514', this.systemPrompt, userPrompt, 120000);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      runStats.totalTokens += response.usage?.total_tokens || 0;
       log(c.gray, `  -> Review received in ${elapsed}s (${response.usage?.total_tokens || '?'} tokens)`);
       const content = response.choices?.[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -295,6 +321,7 @@ class Supervisor2Agent {
     try {
       const response = await callLLM('openai', 'o4-mini', this.systemPrompt, userPrompt, 120000);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      runStats.totalTokens += response.usage?.total_tokens || 0;
       log(c.gray, `  -> Codex review received in ${elapsed}s (${response.usage?.total_tokens || '?'} tokens)`);
       const content = response.choices?.[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1201,7 +1228,7 @@ class CodingAgent {
   private systemPrompt: string;
   constructor(name: string, systemPrompt: string) { this.name = name; this.systemPrompt = systemPrompt; }
 
-  async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string }> {
+  async execute(task: AgentTask, previousReview?: ReviewResult): Promise<{ files: string[]; model: string; tokens: number; provider: string; routingReason: string }> {
     log(c.cyan, `\n[${this.name}] Executing: ${task.id} (${task.priority})`);
     const deliverables = [...(task.deliverables.code || []), ...(task.deliverables.tests || []), ...(task.deliverables.docs || [])];
     // Complexity-aware model routing:
@@ -1209,6 +1236,7 @@ class CodingAgent {
     // MiniMax M2.5  → simple tasks (small edits, config, stubs) + truncation retry as safety net
     const { provider, model, routingReason } = assessTaskComplexity(task, deliverables);
     log(c.gray, `  -> Using ${model} [${routingReason}]`);
+    let taskTokens = 0; // per-task token counter (returned to orchestrator for TaskRun)
 
     // Pre-flight: validate all deliverable files exist for non-feature tasks
     // If a file doesn't exist and we're asked to modify it, skip rather than hallucinate
@@ -1299,6 +1327,8 @@ Write ONLY the content for "${filepath}". Rules:
         // Strip MiniMax <think>...</think> tags that leak into responses
         content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         const tokens = response.usage?.total_tokens || 0;
+        runStats.totalTokens += tokens; // accumulate across all file calls in this task
+        taskTokens += tokens;
 
         // Check for MiniMax errors
         if (response.base_resp?.status_code && response.base_resp.status_code !== 0) {
@@ -1411,7 +1441,7 @@ Continue from where it left off and output ONLY the remaining code (no duplicate
 
     // Commit changes
     this.commitChanges(task, writtenFiles);
-    return { files: writtenFiles, model };
+    return { files: writtenFiles, model, tokens: taskTokens, provider, routingReason };
   }
 
   // CTO-005: Enhanced code fence stripping — handles all MiniMax output variants
@@ -1584,6 +1614,9 @@ class Orchestrator {
   private agents: Map<string, CodingAgent> = new Map();
   private tasks: AgentTask[] = [];
   private stats = { tasksExecuted: 0, approved: 0, rejected: 0, totalTokens: 0, conflicts: 0, escalations: 0 };
+  private taskRuns: TaskRun[] = [];
+  private sprintStartTime: string = '';
+  private gitHeadBefore: string = '';
 
   constructor() {
     log(c.bold, '\n╔══════════════════════════════════════════════════════════╗');
@@ -1907,6 +1940,24 @@ ONLY output the JSON array. No markdown, no explanation.`;
     const TRUNCATION_THRESHOLD = 3;
     let truncationCount = 0;
     let lastReview: ReviewResult | undefined;
+    const taskStartMs = Date.now();
+    const taskRun: TaskRun = {
+      task_id: task.id,
+      title: (task as any).title || task.id,
+      type: task.type,
+      task_target: (task as any).task_target || 'cloud-code',
+      status: 'pending',
+      attempts: 0,
+      model_used: '',
+      provider: '',
+      routing_reason: '',
+      tokens_used: 0,
+      duration_seconds: 0,
+      files_written: [],
+      review: null,
+      error: null,
+      rejection_reason: null,
+    };
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       log(c.blue, `\n${'='.repeat(60)}`);
       log(c.blue, `Task: ${task.id} | Agent: ${task.agent} | Attempt: ${attempt}/${MAX_RETRIES}`);
@@ -1920,11 +1971,13 @@ ONLY output the JSON array. No markdown, no explanation.`;
         try { return execSync('git rev-parse HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); }
         catch { return ''; }
       })();
-      let result: { files: string[]; model: string };
+      let result: { files: string[]; model: string; tokens: number; provider: string; routingReason: string };
       try {
         result = await agent.execute(task, lastReview);
       } catch (execErr: any) {
         log(c.red, `  ✗ agent.execute failed: ${execErr.message?.substring(0, 200)}`);
+        taskRun.attempts = attempt;
+        taskRun.error = execErr.message?.substring(0, 500) || 'unknown error';
         this.stats.rejected++;
         task.status = 'rejected';
         lastReview = {
@@ -1948,9 +2001,19 @@ ONLY output the JSON array. No markdown, no explanation.`;
         continue;
       }
 
+      taskRun.attempts = attempt;
+      taskRun.model_used = result.model;
+      taskRun.provider = result.provider;
+      taskRun.routing_reason = result.routingReason;
+      taskRun.tokens_used += result.tokens;
+
       if (result.files.length === 0) {
         log(c.red, `  No files produced for ${task.id}`);
         task.status = 'rejected';
+        taskRun.status = 'rejected';
+        taskRun.rejection_reason = 'No files produced by agent';
+        taskRun.duration_seconds = Math.round((Date.now() - taskStartMs) / 1000);
+        this.taskRuns.push(taskRun);
         return;
       }
 
@@ -2006,11 +2069,18 @@ ONLY output the JSON array. No markdown, no explanation.`;
         task.status = 'done';
         this.stats.approved++;
         log(c.green, `\n✓ Task ${task.id} APPROVED on attempt ${attempt} (${review.score}/100)`);
+        taskRun.status = 'done';
+        taskRun.files_written = result.files;
+        taskRun.review = { reviewer: 'dual-supervisor', verdict: 'APPROVED', score: review.score, summary: review.summary || '' };
+        taskRun.duration_seconds = Math.round((Date.now() - taskStartMs) / 1000);
+        this.taskRuns.push(taskRun);
         return;
       }
 
       // Rejected — check for truncation pattern
       this.stats.rejected++;
+      taskRun.rejection_reason = review.summary?.substring(0, 300) || 'Rejected by supervisor';
+      taskRun.review = { reviewer: 'dual-supervisor', verdict: review.verdict, score: review.score, summary: review.summary || '' };
       if (this.isTruncationRejection(review)) {
         truncationCount++;
         log(c.yellow, `\n↻ Task ${task.id} REJECTED on attempt ${attempt} (${review.score}/100) [TRUNCATION ${truncationCount}/${TRUNCATION_THRESHOLD}]`);
@@ -2061,10 +2131,14 @@ ONLY output the JSON array. No markdown, no explanation.`;
           if (allPassed) {
             task.status = 'done';
             log(c.green, `\n✓ Task ${task.id} COMPLETED via CTO decomposition (${subtasks.length} sub-tasks)`);
+            taskRun.status = 'done';
           } else {
             task.status = 'rejected';
             log(c.red, `\n✗ Task ${task.id} FAILED even after CTO decomposition`);
+            taskRun.status = 'rejected';
           }
+          taskRun.duration_seconds = Math.round((Date.now() - taskStartMs) / 1000);
+          this.taskRuns.push(taskRun);
           return;
         }
         // If decomposition returned <=1 task, continue with normal retry loop
@@ -2079,6 +2153,9 @@ ONLY output the JSON array. No markdown, no explanation.`;
 
     task.status = 'rejected';
     log(c.red, `\n✗ Task ${task.id} FAILED after ${MAX_RETRIES} attempts`);
+    taskRun.status = 'rejected';
+    taskRun.duration_seconds = Math.round((Date.now() - taskStartMs) / 1000);
+    this.taskRuns.push(taskRun);
   }
   async run(): Promise<void> {
     const startTime = Date.now();
@@ -2106,6 +2183,9 @@ ONLY output the JSON array. No markdown, no explanation.`;
     process.on('SIGINT', () => { releaseLock(); process.exit(0); });
     process.on('SIGTERM', () => { releaseLock(); process.exit(0); });
     // ─────────────────────────────────────────────────────────────────
+
+    this.sprintStartTime = new Date().toISOString();
+    try { this.gitHeadBefore = execSync('git rev-parse --short HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); } catch { this.gitHeadBefore = 'unknown'; }
 
     log(c.bold, '\n🚀 Starting orchestration run...\n');
 
@@ -2332,6 +2412,59 @@ ONLY output the JSON array. No markdown, no explanation.`;
     writeFileSync(sprintFile, JSON.stringify({ tasks: this.tasks }, null, 2));
     log(c.green, `\nSprint state saved to ${sprintFile}`);
 
+    // 8b. Write swarm run report
+    try {
+      this.stats.totalTokens = runStats.totalTokens; // ensure synced before report
+      let gitBranch = 'unknown', gitHeadAfter = 'unknown';
+      try { gitBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); } catch {}
+      try { gitHeadAfter = execSync('git rev-parse --short HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); } catch {}
+
+      const runReport = {
+        run_id: randomUUID(),
+        project: 'invoica',
+        sprint_file: sprintFile,
+        started_at: this.sprintStartTime,
+        finished_at: new Date().toISOString(),
+        duration_seconds: Math.round((Date.now() - startTime) / 1000),
+        git_branch: gitBranch,
+        git_head_before: this.gitHeadBefore,
+        git_head_after: gitHeadAfter,
+        summary: {
+          total_tasks: this.tasks.length,
+          done: this.tasks.filter(t => t.status === 'done' || t.status === 'approved').length,
+          rejected: this.tasks.filter(t => t.status === 'rejected').length,
+          skipped: this.tasks.filter(t => t.status === 'skipped').length,
+          human_pending: this.tasks.filter(t => ['human', 'human_validation', 'human_gate'].includes(t.type)).length,
+          approval_rate: this.stats.approved / Math.max(this.stats.tasksExecuted, 1),
+          total_tokens: this.stats.totalTokens,
+        },
+        tasks: this.taskRuns,
+      };
+
+      mkdirSync('reports/swarm-runs', { recursive: true });
+
+      // 1. Timestamped individual run (never overwritten)
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const reportPath = `reports/swarm-runs/${ts}.json`;
+      writeFileSync(reportPath, JSON.stringify(runReport, null, 2));
+
+      // 2. Latest pointer (quick access)
+      writeFileSync('reports/swarm-runs/latest-run.json', JSON.stringify(runReport, null, 2));
+
+      // 3. Daily aggregate (accumulates all runs for today)
+      const today = new Date().toISOString().slice(0, 10);
+      const dailyPath = `reports/swarm-runs/daily-${today}.json`;
+      let dailyRuns: any[] = [];
+      try { dailyRuns = JSON.parse(readFileSync(dailyPath, 'utf-8')); } catch {}
+      dailyRuns.push(runReport);
+      writeFileSync(dailyPath, JSON.stringify(dailyRuns, null, 2));
+
+      log(c.green, `\n📊 Swarm run report saved: ${reportPath}`);
+      log(c.green, `   Daily aggregate updated: ${dailyPath} (${dailyRuns.length} run(s) today)`);
+    } catch (reportErr: any) {
+      log(c.yellow, `  ! Swarm run report failed (non-critical): ${reportErr.message}`);
+    }
+
     // 9. Post-sprint: PM2 reload backend + smoke test
     await postSprintSmokeTest();
 
@@ -2351,10 +2484,11 @@ ONLY output the JSON array. No markdown, no explanation.`;
     log(c.gray,  `  Pipeline: CEO → MiniMax code → Dual review (Claude+Codex) → CEO resolves conflicts → CTO → CMO/Grok → Post-sprint analysis → Daily report`);
 
     // Mission Control — report final stats and disconnect
+    this.stats.totalTokens = runStats.totalTokens; // sync module-level accumulator into stats
     if (mcConnected) {
       try {
         if (this.stats.totalTokens > 0) {
-          await mc.trackTokens(this.stats.totalTokens, 'MiniMax-M2.5');
+          await mc.reportTokens(this.stats.totalTokens, 'MiniMax-M2.5');
         }
         await mc.disconnect();
         log(c.gray, `  [MC] Sprint reported: ${this.stats.approved} approved / ${this.stats.rejected} rejected / ${this.stats.totalTokens} tokens`);
