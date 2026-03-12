@@ -29,6 +29,10 @@ import * as https from 'https';
 import * as http from 'http';
 import * as dotenv from 'dotenv'; dotenv.config({ override: true });
 import { createMCClient } from './mc-client';
+import { callOllama, ollamaIsAvailable } from './lib/ollama-client';
+import { shouldRunLocally, selectLocalModel, WalletState } from './lib/local-model-router';
+import { selectModel, classifyTask } from '../backend/src/lib/model-router';
+import { callClawRouter } from '../backend/src/lib/clawrouter-client';
 
 // ===== Types =====
 
@@ -51,6 +55,9 @@ interface AgentTask {
     model: string;
     review?: ReviewResult;
   };
+  description?: string;
+  task_type?: 'code' | 'reason' | 'lang' | 'util' | 'audit' | 'content' | 'data';
+  task_target?: 'local' | 'cloud-router' | 'cloud-exec' | 'cloud-post';
 }
 
 interface ReviewResult {
@@ -113,6 +120,14 @@ interface TaskRun {
 // Module-level token accumulator — shared across CodingAgent + Supervisor instances
 // Reset at process start; each sprint run is a fresh process so no cross-run bleed.
 const runStats = { totalTokens: 0 };
+
+// Module-level wallet state — tracks API spend for local/cloud routing decisions
+const walletState: WalletState = {
+  monthlyBudget:  Number(process.env.CEO_WALLET_BUDGET_USDC || 0),
+  spentThisMonth: 0,
+  callCount:      0,
+  lastReset:      new Date().toISOString(),
+};
 
 // ===== Colors =====
 
@@ -451,8 +466,9 @@ class CEOAgent {
 
 Sprint progress update:\n- Done: ${done}/${total}\n- Pending: ${pending.map(t => t.id).join(', ') || 'none'}\n- Rejected: ${rejected.map(t => t.id).join(', ') || 'none'}\n\nTask details:\n${JSON.stringify(tasks.map(t => ({ id: t.id, status: t.status, agent: t.agent, priority: t.priority })), null, 2)}\n\nAs CEO, briefly assess:\n1. Are we on track?\n2. Any tasks to re-prioritize?\n3. Cost efficiency — are we using the right models?\n4. Any strategic adjustments needed?\n\nKeep response under 200 words.`;
     try {
-      // Sprint progress is formulaic — MiniMax is sufficient, saves Claude budget
-      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 60000);
+      // Sprint progress is formulaic — route via ClawRouter (deepseek-chat)
+      const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.systemPrompt, maxTokens: 4096 });
+      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
       const content = response.choices?.[0]?.message?.content || 'No response';
       log(c.magenta, `  CEO assessment: ${content.substring(0, 500)}`);
       return content;
@@ -618,8 +634,9 @@ Generate a concise daily report in markdown format following the template in you
 Keep it under 300 words. Be honest about failures.`;
 
     try {
-      // Daily report is template fill-in — MiniMax is sufficient, saves Claude budget
-      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 60000);
+      // Daily report is template fill-in — route via ClawRouter (deepseek-chat)
+      const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.systemPrompt, maxTokens: 4096 });
+      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
       const report = response.choices?.[0]?.message?.content || 'Report generation failed';
 
       // Save to reports/daily/
@@ -788,10 +805,11 @@ Rules:
 
     try {
       const startTime = Date.now();
-      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
+      const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.systemPrompt, maxTokens: 4096 });
+      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       let content = response.choices?.[0]?.message?.content || '';
-      // Strip MiniMax <think>...</think> tags
+      // Strip <think>...</think> tags (deepseek via ClawRouter may emit these)
       content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       log(c.cyan, `  CTO analysis completed in ${elapsed}s`);
       log(c.gray, `  Raw output preview: ${content.substring(0, 300)}`);
@@ -899,7 +917,8 @@ Respond with a structured markdown report containing:
 Rules: Be specific — reference task IDs, rejection counts, concrete patterns. No vague recommendations.`;
 
     try {
-      const response = await callLLM('minimax', 'MiniMax-M2.5', this.systemPrompt, userPrompt, 120000);
+      const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.systemPrompt, maxTokens: 4096 });
+      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
       let content = response.choices?.[0]?.message?.content || '';
       content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -1179,46 +1198,45 @@ function persistCEODecisions(ctoDecisions: string, ctoReport: CTOReport): void {
 function assessTaskComplexity(
   task: AgentTask,
   deliverables: string[],
-): { provider: 'minimax' | 'anthropic'; model: string; routingReason: string } {
-  const ctx = (task.context || '').toLowerCase();
+): { provider: 'minimax' | 'anthropic' | 'ollama' | 'clawrouter'; model: string; routingReason: string } {
+  const taskType = task.task_type || classifyTask(task.context || task.description || '');
 
-  // Signal 1: many deliverables → always Claude (coordinating multiple files needs coherence)
-  if (deliverables.length > 2) {
-    return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `${deliverables.length} deliverables → complex` };
-  }
-
-  // Signal 2: complex architectural keywords → Claude
-  const complexPatterns = [
-    /refactor/, /architect/, /redesign/, /from.scratch/, /new.*service/, /new.*system/,
-    /middleware/, /authentication/, /authorization/, /orchestrat/, /pipeline/, /framework/,
-    /implement.*class/, /implement.*module/, /implement.*engine/, /end.to.end/, /full.*implementation/,
-  ];
-  const hasComplexKeyword = complexPatterns.some(p => p.test(ctx));
-
-  // Signal 3: simple/formulaic keywords → MiniMax
-  const simplePatterns = [
-    /add field/, /rename/, /update config/, /fix typo/, /stub/, /placeholder/,
-    /add.*route/, /add.*endpoint/, /add.*column/, /update.*message/, /change.*label/,
-    /update.*text/, /add.*import/, /add.*export/, /add.*comment/, /add.*log/,
-  ];
-  const hasSimpleKeyword = simplePatterns.some(p => p.test(ctx));
-
-  if (hasComplexKeyword && !hasSimpleKeyword) {
-    return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: 'complex task keywords' };
-  }
-
-  // Signal 4: large existing file → Claude (MiniMax truncates, degrading large-file edits)
-  for (const f of deliverables) {
-    if (existsSync(f)) {
-      const lines = readFileSync(f, 'utf-8').split('\n').length;
-      if (lines > 100) {
-        return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `large file (${lines} lines)` };
+  // task_target explicit override
+  if (task.task_target) {
+    switch (task.task_target) {
+      case 'local': {
+        const { model } = selectLocalModel(taskType);
+        return { provider: 'ollama', model, routingReason: `task_target=local → ${model}` };
       }
+      case 'cloud-router': {
+        const { model } = selectModel(task.context || '', taskType);
+        return { provider: 'clawrouter', model, routingReason: `task_target=cloud-router → ${model}` };
+      }
+      case 'cloud-exec':
+        return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: 'task_target=cloud-exec' };
+      case 'cloud-post':
+        return { provider: 'clawrouter', model: 'anthropic/claude-haiku-4.5', routingReason: 'task_target=cloud-post' };
     }
   }
 
-  // Default: MiniMax for everything else (truncation retry handles any overflow)
-  return { provider: 'minimax', model: 'MiniMax-M2.5', routingReason: hasSimpleKeyword ? 'simple task' : 'small/unclassified task' };
+  // Local routing check
+  if (shouldRunLocally(taskType, task.task_target, walletState, deliverables.length)) {
+    const { model } = selectLocalModel(taskType);
+    return { provider: 'ollama', model, routingReason: `local route → ${model}` };
+  }
+
+  // Cloud routing via ClawRouter
+  const useClawRouter = process.env.USE_CLAWROUTER === 'true';
+  if (useClawRouter) {
+    const { model } = selectModel(task.context || '', taskType);
+    return { provider: 'clawrouter', model, routingReason: `clawrouter → ${model}` };
+  }
+
+  // Legacy: complex → Claude, simple → MiniMax
+  if (deliverables.length > 2) {
+    return { provider: 'anthropic', model: 'claude-sonnet-4-20250514', routingReason: `${deliverables.length} deliverables → complex` };
+  }
+  return { provider: 'minimax', model: 'MiniMax-M2.5', routingReason: 'fallback-legacy' };
 }
 
 // ===== MiniMax Coding Agent (ONE FILE PER API CALL) =====
@@ -1321,16 +1339,27 @@ Write ONLY the content for "${filepath}". Rules:
 - No explanatory text outside the code block`;
       try {
         const startTime = Date.now();
-        const response = await callLLM(provider, model, this.systemPrompt, userPrompt, 180000);
+        let response: any;
+        if (provider === 'ollama') {
+          const ollamaResult = await callOllama({ model, prompt: userPrompt, systemPrompt: this.systemPrompt });
+          response = { choices: [{ message: { content: ollamaResult.content } }], usage: { total_tokens: ollamaResult.evalCount } };
+        } else if (provider === 'clawrouter') {
+          const crResult = await callClawRouter({ model, prompt: userPrompt, systemPrompt: this.systemPrompt });
+          walletState.spentThisMonth += crResult.costUsdc;
+          walletState.callCount++;
+          response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
+        } else {
+          response = await callLLM(provider, model, this.systemPrompt, userPrompt, 180000);
+        }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         let content = response.choices?.[0]?.message?.content || '';
-        // Strip MiniMax <think>...</think> tags that leak into responses
+        // Strip think tags (deepseek-r1 via Ollama or ClawRouter may emit these)
         content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         const tokens = response.usage?.total_tokens || 0;
         runStats.totalTokens += tokens; // accumulate across all file calls in this task
         taskTokens += tokens;
 
-        // Check for MiniMax errors
+        // Check for MiniMax errors (legacy path only)
         if (response.base_resp?.status_code && response.base_resp.status_code !== 0) {
           throw new Error(`MiniMax API error: ${response.base_resp.status_msg}`);
         }
@@ -1738,7 +1767,8 @@ Return a JSON array of sub-task specs:
 ONLY output the JSON array. No markdown, no explanation.`;
 
     try {
-      const response = await callLLM('minimax', 'MiniMax-M2.5', this.cto['systemPrompt'] || '', userPrompt, 120000);
+      const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.cto['systemPrompt'] || '', maxTokens: 4096 });
+      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
       let content = response.choices?.[0]?.message?.content || '';
       content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
@@ -2488,7 +2518,7 @@ ONLY output the JSON array. No markdown, no explanation.`;
     if (mcConnected) {
       try {
         if (this.stats.totalTokens > 0) {
-          await mc.reportTokens(this.stats.totalTokens, 'MiniMax-M2.5');
+          await mc.reportTokens('MiniMax-M2.5', this.stats.totalTokens, 0);
         }
         await mc.disconnect();
         log(c.gray, `  [MC] Sprint reported: ${this.stats.approved} approved / ${this.stats.rejected} rejected / ${this.stats.totalTokens} tokens`);
