@@ -15,7 +15,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — AgentReputation model added, Invoice.agentId field added. Committed in 80f6a17."
     },
     {
       "id": "REP-002",
@@ -34,7 +35,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — 107 lines, score 0-100, tiers unrated/bronze/silver/gold/platinum, upsert to AgentReputation. Committed in 80f6a17."
     },
     {
       "id": "REP-003",
@@ -53,7 +55,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — 117 lines, GET /x402/oracle/score/:agentId + GET /x402/oracle/scores leaderboard. Committed in 80f6a17."
     },
     {
       "id": "REP-004",
@@ -72,7 +75,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — import + app.use(reputationRoutes) added. Committed in 80f6a17."
     }
   ]
 }
