@@ -1239,6 +1239,169 @@ function assessTaskComplexity(
   return { provider: 'minimax', model: 'MiniMax-M2.5', routingReason: 'fallback-legacy' };
 }
 
+// ===== Local QA Gate (Pipeline Step 4 — qwen3:4b, $0) =====
+
+interface QAResult {
+  pass: boolean;
+  issues: string[];
+  severity: 'none' | 'minor' | 'systemic' | 'architecture';
+}
+
+async function localQAGate(
+  taskTitle: string,
+  generatedCode: string,
+  deliverablePath: string,
+): Promise<QAResult> {
+  const isOllamaUp = await ollamaIsAvailable();
+  if (!isOllamaUp) return { pass: true, issues: [], severity: 'none' }; // graceful skip
+
+  const qaPrompt = `You are a code reviewer. Review this code output for a task.
+Task: ${taskTitle}
+Expected file: ${deliverablePath}
+Code:
+\`\`\`
+${generatedCode.slice(0, 4000)}
+\`\`\`
+
+Check for:
+1. Syntax errors (missing brackets, invalid TypeScript)
+2. Missing imports or undefined references
+3. Logic errors (wrong variable names, incorrect conditions)
+4. Does the code match the task description?
+
+Respond in JSON only (no markdown): {"pass": true/false, "issues": ["issue1"], "severity": "none|minor|systemic|architecture"}`;
+
+  try {
+    const result = await callOllama({ model: 'qwen3:4b', prompt: qaPrompt, maxTokens: 500 });
+    const jsonMatch = result.content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { pass: true, issues: [], severity: 'none' };
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      pass:     Boolean(parsed.pass),
+      issues:   Array.isArray(parsed.issues) ? parsed.issues : [],
+      severity: parsed.severity || 'none',
+    };
+  } catch {
+    return { pass: true, issues: [], severity: 'none' }; // parse error → don't block
+  }
+}
+
+// ===== Tiered Debugger (Pipeline Step 5) =====
+
+function classifyBugSeverity(qaIssues: string[]): 'minor' | 'systemic' | 'architecture' {
+  const text = qaIssues.join(' ').toLowerCase();
+  if (/architecture|design|cross.module|restructure|rethink/.test(text)) return 'architecture';
+  if (/logic|approach|algorithm|flow|state|wrong.method/.test(text)) return 'systemic';
+  return 'minor';
+}
+
+async function tieredDebug(
+  taskTitle: string,
+  taskContext: string,
+  code: string,
+  qaIssues: string[],
+  severity: 'minor' | 'systemic' | 'architecture',
+): Promise<string> {
+  const debugPrompt = `Fix the following code issues.
+Task: ${taskTitle}
+Context: ${taskContext.slice(0, 500)}
+
+Issues to fix:
+${qaIssues.map(i => `- ${i}`).join('\n')}
+
+Code to fix:
+\`\`\`typescript
+${code.slice(0, 3000)}
+\`\`\`
+
+Return ONLY the fixed code in a single fenced code block.`;
+
+  switch (severity) {
+    case 'minor':
+      return (await callOllama({ model: 'qwen3:14b', prompt: debugPrompt, maxTokens: 4096 })).content;
+
+    case 'systemic':
+      return (await callOllama({ model: 'deepseek-r1:14b', prompt: debugPrompt, maxTokens: 4096 })).content;
+
+    case 'architecture':
+      try {
+        const crResult = await callClawRouter({
+          model: 'anthropic/claude-sonnet-4.6',
+          prompt: debugPrompt,
+          systemPrompt: 'You are a senior architect. Fix the architecture-level issue.',
+          maxTokens: 4096,
+        });
+        walletState.spentThisMonth += crResult.costUsdc;
+        return crResult.content;
+      } catch {
+        return (await callOllama({ model: 'deepseek-r1:14b', prompt: debugPrompt, maxTokens: 4096 })).content;
+      }
+  }
+}
+
+// ===== Context Compression (qwen3:4b — reduces cloud token costs by 70-80%) =====
+
+async function compressContext(context: string, taskTitle: string): Promise<string> {
+  if (context.length < 1000) return context; // short enough, skip
+  const isOllamaUp = await ollamaIsAvailable();
+  if (!isOllamaUp) return context; // graceful skip if Ollama down
+
+  try {
+    const result = await callOllama({
+      model: 'qwen3:4b',
+      prompt: `Compress the following context for a coding task. Keep file paths, function names, error messages, and technical details verbatim. Remove prose, filler, and redundant explanations. Target: ≤500 tokens.\n\nTask: ${taskTitle}\nContext:\n${context.slice(0, 6000)}\n\nCompressed context:`,
+      maxTokens: 600,
+      temperature: 0.1,
+    });
+    return result.content.trim() || context;
+  } catch {
+    return context; // compression failed → use original
+  }
+}
+
+// ===== Post-Processing Helpers =====
+
+/**
+ * Regex-based post-processing — strips code fences from content before writing to disk.
+ */
+function postProcessContent(content: string, _deliverablePath: string): string {
+  let out = content.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '');
+  out = out.replace(/^```[\w]*$/gm, '').replace(/^```$/gm, '');
+  return out.trim();
+}
+
+/**
+ * Smart post-processor — runs regex stripping, then validates JSON files via nano model.
+ */
+async function smartPostProcess(content: string, deliverablePath: string): Promise<string> {
+  // Step 1: Run regex-based post-processing
+  let processed = postProcessContent(content, deliverablePath);
+
+  // Step 2: If output is a JSON file, validate and auto-fix with nano model
+  if (deliverablePath.endsWith('.json')) {
+    try {
+      JSON.parse(processed);
+      // JSON is valid — no fix needed
+    } catch {
+      const isOllamaUp = await ollamaIsAvailable();
+      if (isOllamaUp) {
+        try {
+          const fix = await callOllama({
+            model: 'qwen3:0.6b',
+            prompt: `Fix this invalid JSON. Return ONLY valid JSON, nothing else:\n${processed.slice(0, 2000)}`,
+            maxTokens: 2100,
+            temperature: 0.0,
+          });
+          const jsonMatch = fix.content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+          if (jsonMatch) processed = jsonMatch[0];
+        } catch { /* nano fix failed — return original processed */ }
+      }
+    }
+  }
+
+  return processed;
+}
+
 // ===== MiniMax Coding Agent (ONE FILE PER API CALL) =====
 
 class CodingAgent {

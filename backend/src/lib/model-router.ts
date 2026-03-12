@@ -11,6 +11,8 @@
 
 export type TaskType = 'code' | 'reason' | 'lang' | 'util' | 'audit' | 'content' | 'data';
 
+import { callOllama } from '../../../scripts/lib/ollama-client';
+
 // ── Expertise Routing Matrix ────────────────────────────────────────────────
 
 interface ModelRoute {
@@ -140,3 +142,31 @@ export function getSupportedAliases(): Record<string, string> {
 }
 
 export { EXPERTISE_MODELS };
+
+/**
+ * Smart task classifier — uses regex first, falls back to qwen3:0.6b nano model
+ * when regex returns the uncertain default 'util'.
+ */
+export async function classifyTaskSmart(prompt: string): Promise<TaskType> {
+  // 1. Try regex keywords first (instant, no model call)
+  const regexResult = classifyTask(prompt);
+  if (regexResult !== 'util') return regexResult; // 'util' is the uncertain fallback
+
+  // 2. If regex is uncertain, ask qwen3:0.6b (~120 tok/s, <1s, free)
+  try {
+    const result = await callOllama({
+      model: 'qwen3:0.6b',
+      prompt: `Classify this task into exactly one category: code, reason, lang, util, audit, content, data.\nTask: "${prompt.slice(0, 300)}"\nCategory:`,
+      maxTokens: 10,
+      temperature: 0.0,
+    });
+    const classified = result.content.trim().toLowerCase() as TaskType;
+    if (['code','reason','lang','util','audit','content','data'].includes(classified)) {
+      return classified;
+    }
+  } catch {
+    // Ollama unavailable — fall through to regex result
+  }
+
+  return regexResult;
+}
