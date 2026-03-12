@@ -15,7 +15,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — Phase 5 CEO assessment wrapped in if (this.stats.rejected >= 2) conditional. Committed in d604a3d."
     },
     {
       "id": "V17-S3-002",
@@ -32,7 +33,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — verifyTask() added before Orchestrator class; routes audit tasks to Claude, standard tasks to DeepSeek via ClawRouter. Both dual-supervisor call sites replaced. Committed in d604a3d."
     },
     {
       "id": "V17-S3-003",
@@ -49,7 +51,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — detectFileConflicts() + Promise.all fan-out added; cascadeRejected() helper; dependent tasks remain sequential. Committed in d604a3d."
     },
     {
       "id": "V17-S3-004",
@@ -66,7 +69,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — scripts/lib/wallet-state.ts created (116 lines): loadWalletState, saveWalletState, recordCloudCall, getWalletReport, isFrozen, isDegraded. Monthly auto-reset, mkdirSync guard. Committed in d604a3d."
     },
     {
       "id": "V17-S3-005",
@@ -85,7 +89,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "status_note": "DONE 2026-03-12 — wallet-state import added; loadWalletState() at boot; sovereignMode flag (--sovereign or isFrozen); sovereign/degraded banners; sovereign shortcut in assessTaskComplexity(); saveWalletState() after all 3 cloud spend mutations (tieredDebug arch, CodingAgent, verifyTask). Committed in d604a3d."
     }
   ]
 }
