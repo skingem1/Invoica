@@ -42,7 +42,7 @@ reports/ceo/*-202*.md
 reports/ceo/review-state.json
 reports/cfo/latest-*.md
 reports/cfo/*-202*.md
-reports/daily/202*.md
+# reports/daily/202*.md — TRACKED (post-run sync pushes these back; needed for local visibility)
 reports/invoica-x-admin/logs/202*.md
 reports/invoica-x-admin/drafts/
 

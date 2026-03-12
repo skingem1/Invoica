@@ -611,6 +611,20 @@ Wrap all decisions in a JSON array. Be concise.`;
       ? `\n## Today's Work Plan\n${dailyPlan.substring(0, 1200)}`
       : '\n## Daily Plan: No plan file found for today.';
 
+    // Load today's full run history from disk — gives the CEO cross-run visibility
+    let todayRunsSummary = '';
+    try {
+      const dailyAggPath = `reports/swarm-runs/daily-${today}.json`;
+      if (existsSync(dailyAggPath)) {
+        const allRuns: any[] = JSON.parse(readFileSync(dailyAggPath, 'utf-8'));
+        const totalApproved = allRuns.reduce((sum, r) => sum + (r.summary?.done || 0), 0);
+        const totalRejected = allRuns.reduce((sum, r) => sum + (r.summary?.rejected || 0), 0);
+        todayRunsSummary = `\n## All Swarm Runs Today (${allRuns.length} runs)\n` +
+          allRuns.map((r, i) => `- Run ${i + 1}: sprint=${r.sprint_file?.split('/').pop() ?? 'unknown'} | approved=${r.summary?.done ?? 0} | rejected=${r.summary?.rejected ?? 0} | finished=${r.finished_at?.slice(11, 16) ?? '?'}`).join('\n') +
+          `\nDay totals: ${totalApproved} approved, ${totalRejected} rejected across ${allRuns.length} runs`;
+      }
+    } catch { /* non-critical — report still generates without this */ }
+
     const userPrompt = `IMPORTANT: Output ONLY the markdown report. No tools, no XML, no file reading. All data is in this message.\n\nGenerate a daily report for the owner of Invoica. Today is ${today}.
 
 ## Sprint Data
@@ -633,6 +647,7 @@ ${dailyPlanSection}
 ## Supervisor Review Stats
 - Supervisor conflicts: ${stats.conflicts || 0}
 - CEO escalations: ${stats.escalations || 0}
+${todayRunsSummary}
 
 ## Wallet
 ${getWalletReport(walletState)}
@@ -658,9 +673,19 @@ Keep it under 400 words. Be honest about failures.`;
       log(c.green, `  ✓ Daily report saved: ${reportPath}`);
       log(c.magenta, `  Report preview: ${report.substring(0, 300)}`);
     } catch (error: any) {
-      log(c.yellow, `  ! CEO cloud report failed: ${error.message} — generating local fallback`);
+      log(c.yellow, `  ! CEO cloud report failed: ${error.message} — trying Ollama fallback`);
 
-      // ── Local fallback: sovereignty principle — never leave the day without a report ──
+      // ── Fallback 1: Ollama qwen3:14b — local LLM-generated report ──
+      try {
+        const ollamaResult = await callOllama({ model: 'qwen3:14b', prompt: userPrompt, maxTokens: 4096 });
+        writeFileSync(reportPath, ollamaResult.content);
+        log(c.green, `  ✓ Daily report saved via Ollama (qwen3:14b): ${reportPath}`);
+        return;
+      } catch (ollamaErr: any) {
+        log(c.yellow, `  ! Ollama fallback also failed: ${ollamaErr.message} — generating static template`);
+      }
+
+      // ── Fallback 2: static markdown template — sovereignty principle — never miss a day ──
       const taskTable = tasks.map(t => `| ${t.id} | ${t.agent} | ${t.status} |`).join('\n');
       const proposalRows = pendingProposals.length > 0
         ? pendingProposals.map(p => `| ${p.id} | ${p.title.substring(0, 55)} | ${p.category} |`).join('\n')
@@ -2843,6 +2868,24 @@ ONLY output the JSON array. No markdown, no explanation.`;
 
     // 9. Post-sprint: PM2 reload backend + smoke test
     await postSprintSmokeTest();
+
+    // 10. Post-run state sync — push sprint state + reports back to GitHub
+    // This closes the pull-only loop: Hetzner now writes back so local never re-queues done work
+    try {
+      const syncDate = new Date().toISOString().slice(0, 10);
+      execSync('git add sprints/ reports/daily/ reports/swarm-runs/', { timeout: 10000, stdio: 'pipe' });
+      const staged = execSync('git diff --cached --name-only', { encoding: 'utf-8', timeout: 5000 }).trim();
+      if (staged) {
+        execSync(`git commit -m "chore: post-run state sync [${syncDate}] [skip ci]" --no-verify`, { timeout: 15000, stdio: 'pipe' });
+        execSync('git pull --rebase origin main', { timeout: 30000, stdio: 'pipe' });
+        execSync('git push origin main', { timeout: 30000, stdio: 'pipe' });
+        log(c.green, `  ✓ Sprint state + reports pushed to GitHub (${staged.split('\n').length} files)`);
+      } else {
+        log(c.gray, `  [sync] No new state to push`);
+      }
+    } catch (syncErr: any) {
+      log(c.yellow, `  ! Post-run state sync failed (non-critical): ${syncErr.message}`);
+    }
 
     // Final summary
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
