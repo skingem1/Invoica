@@ -586,14 +586,32 @@ Wrap all decisions in a JSON array. Be concise.`;
       return 'CEO unavailable for CTO review';
     }
   }
-  async generateDailyReport(tasks: AgentTask[], stats: { tasksExecuted: number; approved: number; rejected: number; conflicts?: number; escalations?: number }, ctoReport: string, ctoDecisions: string): Promise<void> {
+  async generateDailyReport(
+    tasks: AgentTask[],
+    stats: { tasksExecuted: number; approved: number; rejected: number; conflicts?: number; escalations?: number },
+    ctoReport: string,
+    ctoDecisions: string,
+    dailyPlan: string,
+    pendingProposals: Array<{ id: string; title: string; category: string }>,
+  ): Promise<void> {
     log(c.magenta, '\n[ceo] Generating daily report for owner...');
-    const done = tasks.filter(t => ['done','approved'].includes(t.status)).length;
+    const done    = tasks.filter(t => ['done','approved'].includes(t.status)).length;
     const rejected = tasks.filter(t => t.status === 'rejected').length;
-    const pending = tasks.filter(t => t.status === 'pending').length;
-    const today = new Date().toISOString().split('T')[0];
+    const pending  = tasks.filter(t => t.status === 'pending').length;
+    const today   = new Date().toISOString().split('T')[0];
 
-    const userPrompt = `IMPORTANT: Output ONLY the markdown report. No tools, no XML, no file reading. All data is in this message.\n\nGenerate a daily report for the owner of Countable. Today is ${today}.
+    mkdirSync('reports/daily', { recursive: true });
+    const reportPath = `reports/daily/${today}.md`;
+
+    const pendingProposalsSection = pendingProposals.length > 0
+      ? `\n## Pending CTO Proposals (${pendingProposals.length} unactioned — stays visible until actioned or dismissed)\n${pendingProposals.map(p => `- [${p.id}] ${p.title} (${p.category})`).join('\n')}`
+      : '\n## CTO Backlog: All proposals actioned.';
+
+    const dailyPlanSection = dailyPlan
+      ? `\n## Today's Work Plan\n${dailyPlan.substring(0, 1200)}`
+      : '\n## Daily Plan: No plan file found for today.';
+
+    const userPrompt = `IMPORTANT: Output ONLY the markdown report. No tools, no XML, no file reading. All data is in this message.\n\nGenerate a daily report for the owner of Invoica. Today is ${today}.
 
 ## Sprint Data
 - Tasks executed: ${stats.tasksExecuted}
@@ -609,43 +627,82 @@ ${ctoReport}
 
 ## CEO Decisions on CTO Proposals
 ${ctoDecisions}
+${pendingProposalsSection}
+${dailyPlanSection}
 
-## Dual Supervisor Review Stats
+## Supervisor Review Stats
 - Supervisor conflicts: ${stats.conflicts || 0}
 - CEO escalations: ${stats.escalations || 0}
 
-## Estimated Costs
-- MiniMax coding: ~$0.09/task x ${stats.tasksExecuted} tasks = ~$${(stats.tasksExecuted * 0.09).toFixed(2)}
-- Claude reviews: ~$0.04/review x ${stats.approved + stats.rejected} reviews = ~$${((stats.approved + stats.rejected) * 0.04).toFixed(2)}
-- Codex reviews: ~$0.03/review x ${stats.approved + stats.rejected} reviews = ~$${((stats.approved + stats.rejected) * 0.03).toFixed(2)}
-- CEO conflict resolution: ~$0.03 x ${stats.escalations || 0} escalations = ~$${((stats.escalations || 0) * 0.03).toFixed(2)}
-- Claude CEO calls: ~$0.03 x 4 = ~$0.12
-- MiniMax CTO scan: ~$0.05
+## Wallet
+${getWalletReport(walletState)}
 
-Generate a concise daily report in markdown format following the template in your prompt. Include:
-1. Sprint Progress
-2. Cost Summary
+Generate a concise daily report in markdown format. Include:
+1. Sprint Progress (plan vs execution — what was planned, what got done)
+2. Wallet / Cost Summary
 3. Key Decisions Made
-4. CTO Proposals Reviewed
+4. Pending CTO Proposals Backlog (list ALL ${pendingProposals.length} — must stay visible until actioned)
 5. Blockers & Risks
 6. Tomorrow's Plan
 
-Keep it under 300 words. Be honest about failures.`;
+Keep it under 400 words. Be honest about failures.`;
 
     try {
-      // Daily report is template fill-in — route via ClawRouter (deepseek-chat)
+      // Daily report — route via ClawRouter (deepseek-chat)
       const crResult = await callClawRouter({ model: 'deepseek/deepseek-chat', prompt: userPrompt, systemPrompt: this.systemPrompt, maxTokens: 4096 });
-      const response = { choices: [{ message: { content: crResult.content } }], usage: { total_tokens: crResult.inputTokens + crResult.outputTokens } };
-      const report = response.choices?.[0]?.message?.content || 'Report generation failed';
-
-      // Save to reports/daily/
-      mkdirSync('reports/daily', { recursive: true });
-      const reportPath = `reports/daily/${today}.md`;
+      const report = crResult.content || 'Report generation failed';
+      walletState.spentThisMonth += crResult.costUsdc;
+      walletState.callCount++;
+      saveWalletState(walletState);
       writeFileSync(reportPath, report);
       log(c.green, `  ✓ Daily report saved: ${reportPath}`);
       log(c.magenta, `  Report preview: ${report.substring(0, 300)}`);
     } catch (error: any) {
-      log(c.yellow, `  ! Daily report failed: ${error.message}`);
+      log(c.yellow, `  ! CEO cloud report failed: ${error.message} — generating local fallback`);
+
+      // ── Local fallback: sovereignty principle — never leave the day without a report ──
+      const taskTable = tasks.map(t => `| ${t.id} | ${t.agent} | ${t.status} |`).join('\n');
+      const proposalRows = pendingProposals.length > 0
+        ? pendingProposals.map(p => `| ${p.id} | ${p.title.substring(0, 55)} | ${p.category} |`).join('\n')
+        : '| — | No pending proposals | — |';
+
+      const fallback = `# Invoica Daily Report — ${today}
+> ⚠️ CEO cloud report unavailable (${(error.message || '').substring(0, 80)}). Generated locally — sovereignty principle.
+
+## Sprint Summary
+| Metric | Value |
+|--------|-------|
+| Executed | ${stats.tasksExecuted} |
+| Approved | ${stats.approved} |
+| Rejected | ${stats.rejected} |
+| Done | ${done} |
+| Pending | ${pending} |
+| Total tasks | ${tasks.length} |
+
+## Task Results
+| ID | Agent | Status |
+|----|-------|--------|
+${taskTable}
+
+## Today's Plan vs Execution
+${dailyPlan || '_No daily plan file found for today._'}
+
+## Pending CTO Proposals Backlog (${pendingProposals.length} unactioned)
+| ID | Title | Category |
+|----|-------|----------|
+${proposalRows}
+
+## CTO Report
+${ctoReport.substring(0, 800)}
+
+## CEO Decisions
+${ctoDecisions.substring(0, 500)}
+
+## Wallet
+${getWalletReport(walletState)}
+`;
+      writeFileSync(reportPath, fallback);
+      log(c.yellow, `  ✓ Local fallback report saved: ${reportPath}`);
     }
   }
 }
@@ -2436,6 +2493,17 @@ ONLY output the JSON array. No markdown, no explanation.`;
       return;
     }
 
+    // 1b. Load today's daily plan for context and reporting
+    const runDate = new Date().toISOString().slice(0, 10);
+    let dailyPlan = '';
+    const dailyPlanPath = `plans/daily/${runDate}.md`;
+    if (existsSync(dailyPlanPath)) {
+      try { dailyPlan = readFileSync(dailyPlanPath, 'utf-8'); } catch {}
+      log(c.gray, `  [Plan] Daily plan loaded: ${dailyPlanPath} (${dailyPlan.length} chars)`);
+    } else {
+      log(c.yellow, `  [Plan] No daily plan for ${runDate} — create plans/daily/${runDate}.md to enable plan tracking`);
+    }
+
     // Sovereign / degraded mode banners
     if (sovereignMode) {
       log(c.yellow, '  [SOVEREIGN] All inference running locally — $0 cloud spend floor');
@@ -2688,7 +2756,29 @@ ONLY output the JSON array. No markdown, no explanation.`;
       : '\n\nCMO: No reports available this cycle.';
     const grokForReport = grokSection ? '\n\n## Grok Intelligence Feed\nGrok AI reports available — included in CTO/CEO analysis.' : '\n\nGrok: No feed reports this cycle.';
     const postSprintSection = postSprintReport ? '\n\n## CTO Post-Sprint Analysis\n' + postSprintReport.substring(0, 2000) : '';
-    await this.ceo.generateDailyReport(this.tasks, this.stats, ctoReportStr + cmoSection + grokForReport + postSprintSection, ctoDecisions);
+
+    // Load pending CTO proposals (backlog visibility — invisible backlogs compound)
+    let pendingProposals: Array<{ id: string; title: string; category: string }> = [];
+    try {
+      const proposalsPath = 'reports/cto/approved-proposals.json';
+      if (existsSync(proposalsPath)) {
+        const allProposals = JSON.parse(readFileSync(proposalsPath, 'utf-8')).proposals || [];
+        pendingProposals = allProposals
+          .filter((p: any) => p.implementation_status === 'pending')
+          .map((p: any) => ({ id: p.id, title: p.title, category: p.category }));
+        if (pendingProposals.length > 0) {
+          log(c.yellow, `  [Backlog] ${pendingProposals.length} pending CTO proposals will appear in report`);
+        }
+      }
+    } catch { /* non-critical — report continues without backlog */ }
+
+    await this.ceo.generateDailyReport(
+      this.tasks, this.stats,
+      ctoReportStr + cmoSection + grokForReport + postSprintSection,
+      ctoDecisions,
+      dailyPlan,
+      pendingProposals,
+    );
 
     // 8. Save updated sprint state
     const sprintFile = process.argv[2] || 'sprints/current.json';
@@ -2712,6 +2802,9 @@ ONLY output the JSON array. No markdown, no explanation.`;
         git_branch: gitBranch,
         git_head_before: this.gitHeadBefore,
         git_head_after: gitHeadAfter,
+        daily_plan_loaded: existsSync(dailyPlanPath) ? dailyPlanPath : null,
+        pending_cto_proposals: pendingProposals.length,
+        wallet: getWalletReport(walletState),
         summary: {
           total_tasks: this.tasks.length,
           done: this.tasks.filter(t => t.status === 'done' || t.status === 'approved').length,
