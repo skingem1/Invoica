@@ -22,5 +22,52 @@
       "total_tokens": 0
     },
     "tasks": []
+  },
+  {
+    "run_id": "5f1a5680-543b-40d8-b765-1c21f90050cc",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/solana-x402-2026-03-10.json",
+    "started_at": "2026-03-13T12:00:02.790Z",
+    "finished_at": "2026-03-13T12:03:28.090Z",
+    "duration_seconds": 205,
+    "git_branch": "main",
+    "git_head_before": "3045d596",
+    "git_head_after": "3045d596",
+    "daily_plan_loaded": "plans/daily/2026-03-13.md",
+    "pending_cto_proposals": 22,
+    "wallet": "Wallet: $0.0000 / $0 budget (N/A%) | 0 cloud calls this month",
+    "summary": {
+      "total_tasks": 3,
+      "done": 1,
+      "rejected": 1,
+      "skipped": 1,
+      "human_pending": 0,
+      "approval_rate": 0,
+      "total_tokens": 25686
+    },
+    "tasks": [
+      {
+        "task_id": "SOL-002",
+        "title": "SOL-002",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "rejected",
+        "attempts": 10,
+        "model_used": "deepseek/deepseek-chat",
+        "provider": "clawrouter",
+        "routing_reason": "clawrouter → deepseek/deepseek-chat",
+        "tokens_used": 0,
+        "duration_seconds": 202,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 0,
+          "summary": "Complete failure - destructive rewrite detected. File corrupted from 99 lines to 3 lines with invalid content."
+        },
+        "error": null,
+        "rejection_reason": "Complete failure - destructive rewrite detected. File corrupted from 99 lines to 3 lines with invalid content."
+      }
+    ]
   }
 ]

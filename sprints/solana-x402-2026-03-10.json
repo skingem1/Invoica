@@ -7,7 +7,7 @@
       "priority": "high",
       "dependencies": [],
       "description": "Extend ChainConfig type to support string IDs (required for Solana)",
-      "context": "FILE: backend/src/types/index.ts\n\nThe ChainConfig interface currently has `id: number` (line 11). Solana does not use a numeric chain ID \u2014 it uses a string key ('solana'). Update the field to support both.\n\nFind this line:\n  id: number;\n\nReplace with:\n  id: number | string;\n\nThat is the ONLY change. Do not modify any other field in ChainConfig or any other interface in this file. Confirm the file compiles with no type errors after the change (id is used in SettlementMatch.chain \u2014 it accepts number already, string union is backward-compatible).",
+      "context": "FILE: backend/src/types/index.ts\n\nThe ChainConfig interface currently has `id: number` (line 11). Solana does not use a numeric chain ID — it uses a string key ('solana'). Update the field to support both.\n\nFind this line:\n  id: number;\n\nReplace with:\n  id: number | string;\n\nThat is the ONLY change. Do not modify any other field in ChainConfig or any other interface in this file. Confirm the file compiles with no type errors after the change (id is used in SettlementMatch.chain — it accepts number already, string union is backward-compatible).",
       "deliverables": {
         "code": [
           "backend/src/types/index.ts"
@@ -34,7 +34,44 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "rejected",
+      "_integrityFailed": true,
+      "_integrityDetails": "File backend/src/config/chains.ts shrank from 99 to 3 lines (3%). Possible destructive rewrite.",
+      "output": {
+        "files": [
+          "backend/src/config/chains.ts"
+        ],
+        "commit": "",
+        "model": "deepseek/deepseek-chat",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 0,
+          "summary": "Complete failure - destructive rewrite detected. File corrupted from 99 lines to 3 lines with invalid content.",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "backend/src/config/chains.ts",
+              "description": "Destructive rewrite detected - file shrank from 99 lines to 3 lines (97% content loss)"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/config/chains.ts",
+              "description": "File contains invalid content starting with comment instead of actual TypeScript code"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/config/chains.ts",
+              "description": "Task explicitly required SURGICAL EDIT ONLY using Edit tool, but agent performed destructive rewrite"
+            },
+            {
+              "severity": "critical",
+              "file": "backend/src/config/chains.ts",
+              "description": "All existing functionality lost - SUPPORTED_CHAINS map, functions, classes completely removed"
+            }
+          ],
+          "strengths": []
+        }
+      }
     },
     {
       "id": "SOL-003",
@@ -45,7 +82,7 @@
         "SOL-002"
       ],
       "description": "Wire SolanaSettlementDetector into settlement-router.ts",
-      "context": "FILE: backend/src/services/settlement/settlement-router.ts\n\nBEFORE writing: read this file fully to understand the current routing logic (it routes EVM chain IDs to EvmSettlementDetector).\n\nSolanaSettlementDetector already exists at backend/src/services/settlement/solana-detector.ts and exports `class SolanaSettlementDetector` with constructor `(chain: Pick<ChainConfig, 'rpcUrl' | 'id'>)` and method `verifyTransfer(txSig, expectedRecipient, expectedAmountUsdc): Promise<boolean>`.\n\nAdd a Solana routing branch:\n- Import SolanaSettlementDetector from './solana-detector'\n- In the routing logic, check if chainId === 'solana' (or if the chain config has id === 'solana')\n- When chain is Solana, instantiate SolanaSettlementDetector with the Solana chain config\n- Call detector.verifyTransfer(txHash, recipientAddress, amount) for verification\n- Call detector.getRecentUsdcTransfers(walletAddress, limit) for polling\n\nThe interface should mirror the existing EVM detector interface. Keep the existing EVM logic intact \u2014 only ADD the Solana branch.",
+      "context": "FILE: backend/src/services/settlement/settlement-router.ts\n\nBEFORE writing: read this file fully to understand the current routing logic (it routes EVM chain IDs to EvmSettlementDetector).\n\nSolanaSettlementDetector already exists at backend/src/services/settlement/solana-detector.ts and exports `class SolanaSettlementDetector` with constructor `(chain: Pick<ChainConfig, 'rpcUrl' | 'id'>)` and method `verifyTransfer(txSig, expectedRecipient, expectedAmountUsdc): Promise<boolean>`.\n\nAdd a Solana routing branch:\n- Import SolanaSettlementDetector from './solana-detector'\n- In the routing logic, check if chainId === 'solana' (or if the chain config has id === 'solana')\n- When chain is Solana, instantiate SolanaSettlementDetector with the Solana chain config\n- Call detector.verifyTransfer(txHash, recipientAddress, amount) for verification\n- Call detector.getRecentUsdcTransfers(walletAddress, limit) for polling\n\nThe interface should mirror the existing EVM detector interface. Keep the existing EVM logic intact — only ADD the Solana branch.",
       "deliverables": {
         "code": [
           "backend/src/services/settlement/settlement-router.ts"
@@ -53,7 +90,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "skipped",
+      "skippedReason": "Blocked by: SOL-002"
     }
   ]
 }
