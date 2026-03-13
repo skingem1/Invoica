@@ -2637,7 +2637,8 @@ ONLY output the JSON array. No markdown, no explanation.`;
       const seen = new Set<string>();
       let currentGroup: AgentTask[] = [];
       for (const task of tasks) {
-        const files = [...(task.deliverables.code || []), ...(task.deliverables.tests || []), ...(task.deliverables.docs || [])];
+        const deliverables = task.deliverables ?? {};
+        const files = [...(deliverables.code || []), ...(deliverables.tests || []), ...(deliverables.docs || [])];
         const hasConflict = files.some(f => seen.has(f));
         if (hasConflict) {
           if (currentGroup.length) groups.push(currentGroup);
