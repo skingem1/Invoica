@@ -1,18 +1,4 @@
 {
-  "id": "payai-integration-2026-03-10",
-  "title": "Invoica × x402 Facilitator Integration — Arb Bot Repurposing",
-  "created": "2026-03-10",
-  "status": "pending",
-  "priority": "HIGH",
-  "source": "docs/plans/payai-integration-roadmap.md",
-  "audit_note": "Arb bot code audited 2026-03-10 from Arb-bot-main/ in Invoica folder. Bug descriptions updated to reflect actual code state.",
-  "architecture_note": "Facilitator-agnostic. verifyPayAI() replaced by verifyFacilitator() abstraction backed by on-chain registry. PayAI is first in registry with 1.2x reputation weight boost for 18 months. Coinbase and any future x402 facilitator joins registry — zero code change. Routes renamed /payai/ → /x402/.",
-  "human_gate": {
-    "required": true,
-    "action": "PRE-001 — Register 3 Invoica services at payai.network for marketplace distribution. Not a technical blocker — services are facilitator-agnostic.",
-    "blocking": ["MKT-001"],
-    "_restructured": "2026-03-10: PRE-001 demoted from technical blocker to distribution-only. Services are facilitator-agnostic — can build/deploy/test with mock or self-hosted facilitator. PayAI registration only needed for marketplace listing (MKT-001)."
-  },
   "tasks": [
     {
       "id": "PRE-001",
@@ -25,8 +11,15 @@
       "deadline": "2026-03-17",
       "escalation": "If PRE-001 is not completed by 2026-03-17, CEO to escalate via alternative channel (direct DM to PayAI founder on X/Telegram) and evaluate whether to proceed with Coinbase as launch facilitator instead. All downstream tasks (PAY-001, INFRA-002, TREAS-001 via human_gate) are blocked on this.",
       "description": "Two parts: (1) Register 3 Invoica services on PayAI partner portal. Use investor relationship for direct access. Get X402_SERVICE_ID_ROUTER, X402_SERVICE_ID_TREASURY, X402_SERVICE_ID_ORACLE. Also get PAYAI_VERIFY_URL (PayAI's x402 /verify endpoint — needed by INFRA-002 to seed the registry). Negotiate 50% fee reduction for PayAI users first 3 months. (2) Register PayAI as the first facilitator in the on-chain facilitator registry once INFRA-002 is deployed — provide PAYAI_VERIFY_URL and service IDs to CTO. Add all values to .env.example.",
-      "outputs": ["X402_SERVICE_ID_ROUTER", "X402_SERVICE_ID_TREASURY", "X402_SERVICE_ID_ORACLE", "PAYAI_VERIFY_URL"],
-      "gate_for": ["MKT-001"],
+      "outputs": [
+        "X402_SERVICE_ID_ROUTER",
+        "X402_SERVICE_ID_TREASURY",
+        "X402_SERVICE_ID_ORACLE",
+        "PAYAI_VERIFY_URL"
+      ],
+      "gate_for": [
+        "MKT-001"
+      ],
       "_restructured": "2026-03-10: PRE-001 no longer gates PAY-001 or INFRA-002. Services are facilitator-agnostic — deploy with test facilitator, add PayAI to registry later."
     },
     {
@@ -40,97 +33,129 @@
       "priority": "CRITICAL_SECURITY",
       "description": "AUDITED: wallet/keypair.json contains a REAL 64-byte Solana private key committed to the repo (confirmed: [245,255,200,179,...]). This is a live key, not a placeholder. Three steps: 1) Add wallet/keypair.json to .gitignore immediately. 2) ROTATE THE KEY — generate new keypair, transfer any funds, never use the exposed key again. 3) Document key rotation in README. This must be the very first task — do not commit any other changes to this repo before the key is rotated.",
       "repo": "Arb-bot-main/",
-      "files": [".gitignore", "README.md", "wallet/keypair.json"],
+      "files": [
+        ".gitignore",
+        "README.md",
+        "wallet/keypair.json"
+      ],
       "verification_required": true,
       "verification_deliverable": "After rotation, write the NEW wallet public key (base58) to docs/key-rotation-log.md with date. Supervisor must confirm: (1) old pubkey no longer appears in any committed file, (2) wallet/keypair.json is in .gitignore, (3) new pubkey matches the key used in README. This is the only way to prove rotation actually happened."
     },
     {
       "id": "ARB-002",
       "title": "Arb Bot — F-02: Replace CPMM quotes with DLMM swapQuote() for SOL legs",
-      "status": "pending",
+      "status": "rejected",
       "blocked_by": [],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 3,
       "description": "AUDITED: quotes.ts uses getAmountOut() (CPMM x*y=k formula) for SOL↔A and SOL↔B legs (lines 85-99). execute.ts correctly uses pool.swapQuote() for actual execution. This inconsistency means the quote engine shows phantom profit margins that don't match real execution prices — root cause of chasing false arbitrage. Fix: replace getAmountOut() calls in calculateCycle() and quoteTriangular() with DLMM.create()+swapQuote() calls, matching the execution path. The A↔B leg already uses quoteAB_DLMM() correctly — don't change that. Also check asol.ts and bsol.ts adapters which still export quoteCpmm() — mark deprecated but don't remove (smoke test utility).",
       "repo": "Arb-bot-main/",
-      "files": ["src/quotes.ts"]
+      "files": [
+        "src/quotes.ts"
+      ]
     },
     {
       "id": "ARB-003",
       "title": "Arb Bot — F-03: Fix MeteoraPoolManager WSOL/WSOL mint placeholder",
-      "status": "pending",
+      "status": "rejected",
       "blocked_by": [],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 1,
       "description": "AUDITED: meteoraSDK.ts lines 24-27 — MeteoraPoolManager hardcodes WSOL ('So11111111111111111111111111111111111111112') as BOTH mint A and mint B in the mints object. This means every DLMM quote request passes WSOL as both input and output tokens, which is why all quotes fail. Fix: pass TOKEN_A_MINT.toBase58() and TOKEN_B_MINT.toBase58() from config.ts into the mints object. Two-line fix. Also: the getQuote() method signature passes swapYtoX to determine direction but mints must match the actual pool's token ordering — verify direction logic is consistent with the pool's baseMint/quoteMint.",
       "repo": "Arb-bot-main/",
-      "files": ["src/lib/meteoraSDK.ts"]
+      "files": [
+        "src/lib/meteoraSDK.ts"
+      ]
     },
     {
       "id": "ARB-004",
       "title": "Arb Bot — F-05: Fix BigInt() crash on base58 reserve fields (REST API path)",
-      "status": "pending",
+      "status": "rejected",
       "blocked_by": [],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 1,
       "description": "AUDITED: Both asol.ts (line 145) and bsol.ts (line 135) use raw BigInt(restData?.reserve_x ?? 0) at the REST API fallback path. A toBigInt() helper is defined in each file but NOT called here — only used elsewhere. If the REST API returns a base58 string in reserve_x or reserve_y, BigInt() throws SyntaxError and the whole fallback fails silently. Fix: replace the two BigInt() calls in each file with the existing toBigInt() helper. Also: the SDK path at asol.ts line 106 / bsol.ts line 95 uses BigInt(basics.activeBin.liqX) — if liqX is a BN object, this also crashes. Use toBigInt() there too.",
       "repo": "Arb-bot-main/",
-      "files": ["src/adapters/pools/asol.ts", "src/adapters/pools/bsol.ts"]
+      "files": [
+        "src/adapters/pools/asol.ts",
+        "src/adapters/pools/bsol.ts"
+      ]
     },
     {
       "id": "ARB-005",
       "title": "Arb Bot — F-06 NEW: Add circuit breaker (consecutive loss pause)",
-      "status": "pending",
+      "status": "rejected",
       "blocked_by": [],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 2,
       "description": "AUDITED: bot.ts has rate limiting (MAX_TRADES_PER_MINUTE = 10) but NO consecutive-loss circuit breaker. The validation gate requires 'confirm circuit breaker triggers after 3 consecutive simulated losses' but there is nothing to trigger. Fix: add a consecutiveLosses counter in bot.ts. Increment on any tick where profitBps <= 0 or execution fails. Reset to 0 on any profitable tick. If consecutiveLosses >= 3, set circuitBreakerActive = true and stop executing (log only). Add a resetCircuitBreaker() export. Expose circuitBreakerActive in getBotStatus(). This is the safety rail required before the Treasury Manager can use this bot.",
       "repo": "Arb-bot-main/",
-      "files": ["src/bot.ts"]
+      "files": [
+        "src/bot.ts"
+      ]
     },
     {
       "id": "ARB-006",
       "title": "Arb Bot — F-07 NEW: Make full cycle execution atomic (Jito bundles)",
       "status": "blocked",
-      "blocked_by": ["ARB-005"],
+      "blocked_by": [
+        "ARB-005"
+      ],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 3,
       "description": "AUDITED: bot.ts executeFullCycleTrade() executes each leg sequentially in a loop (lines 80-129). There is even a comment on line 76 acknowledging this: 'In production, you might want to use Jito bundles for atomic execution'. If leg 1 succeeds and leg 2 fails, the bot is left holding intermediate tokens with no recovery path — this is a real-money stranding risk. Fix: consolidate all leg instructions into a single Jito bundle using @jito-ts/sdk. If any leg's quote fails the slippage check between simulation and execution, the bundle fails atomically — nothing executes, no stranded tokens. Add simulate:true guard: Jito bundle dry-run before live submission.",
       "repo": "Arb-bot-main/",
-      "files": ["src/bot.ts", "src/execute.ts"]
+      "files": [
+        "src/bot.ts",
+        "src/execute.ts"
+      ]
     },
     {
       "id": "ARB-GATE",
       "title": "Arb Bot — Validation: 50 clean devnet cycles",
       "status": "blocked",
-      "blocked_by": ["ARB-002", "ARB-003", "ARB-004", "ARB-005", "ARB-006"],
+      "blocked_by": [
+        "ARB-002",
+        "ARB-003",
+        "ARB-004",
+        "ARB-005",
+        "ARB-006"
+      ],
       "type": "human_validation",
       "estimate_human_hours": 1,
       "description": "Run 50 simulated cycles on devnet. 1) Confirm quotes are non-zero and directionally sane (SOL legs now use DLMM quotes, not CPMM). 2) Confirm ARB-003 fix: MeteoraPoolManager now returns valid quotes with real mints. 3) Confirm ARB-004 fix: REST API path does not crash on base58 reserve values. 4) Confirm circuit breaker (ARB-005): trigger 3 consecutive simulated losses — bot must pause and set circuitBreakerActive=true. 5) Confirm Jito bundle path (ARB-006): simulate a slippage breach — confirm bundle fails cleanly, no partial execution. DO NOT proceed to PAY-001 until all 5 checks pass.",
-      "gate_for": ["PAY-001"]
+      "gate_for": [
+        "PAY-001"
+      ]
     },
     {
       "id": "INFRA-001",
       "title": "x402 Gate — verifyFacilitator() middleware abstraction",
       "status": "blocked",
-      "blocked_by": ["ARB-GATE"],
+      "blocked_by": [
+        "ARB-GATE"
+      ],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 3,
       "description": "Create middleware/x402-gate.ts. Replaces any PayAI-specific gate. Exports requireX402(serviceEnvKey) middleware factory. At runtime: (1) extract facilitatorId from x402 payment header, (2) query on-chain facilitator registry (INFRA-002) to get verify endpoint for that facilitatorId, (3) call verifyFacilitator() against that endpoint, (4) return HTTP 402 if invalid or facilitator not in registry. Accepts any x402-compliant facilitator — PayAI, Coinbase, or anyone else in the registry. Apply to /x402/router/*, /x402/treasury/*, /x402/oracle/* using the env vars X402_SERVICE_ID_ROUTER, X402_SERVICE_ID_TREASURY, X402_SERVICE_ID_ORACLE. The only PayAI-specific config is the env var values set during PRE-001 — the middleware code itself is facilitator-agnostic.",
       "repo": "Invoica",
-      "files": ["middleware/x402-gate.ts"]
+      "files": [
+        "middleware/x402-gate.ts"
+      ]
     },
     {
       "id": "INFRA-002",
       "title": "x402 Facilitator Registry — on-chain Solana program",
       "status": "blocked",
-      "blocked_by": ["ARB-GATE"],
+      "blocked_by": [
+        "ARB-GATE"
+      ],
       "_restructured": "2026-03-10: Removed PRE-001 dependency. Deploy with test facilitator entry initially. Add PayAI as first real facilitator when PRE-001 completes (no code change — just a registry transaction).",
       "type": "code",
       "agent": "CTO",
@@ -138,50 +163,69 @@
       "estimate_agent_hours": 4,
       "description": "Deploy a small Solana program: the facilitator registry. Stores: facilitatorId (string) → { verifyUrl (string), weightBoost (u16, basis points, e.g. 12000 = 1.2×), boostExpiryUnixTs (i64), active (bool) }. Instructions: register_facilitator (admin-gated), update_facilitator, deactivate_facilitator, get_facilitator. Seed PayAI as the first entry: facilitatorId='payai', verifyUrl=PAYAI_VERIFY_URL from PRE-001, weightBoost=12000 (1.2×), boostExpiryUnixTs=18 months from launch. The INFRA-001 middleware queries this program. Adding Coinbase or any new facilitator = one registry transaction, no code change. Note: this is a separate program from the Treasury spending cap (TREAS-001).",
       "repo": "Arb-bot-main/ (new: programs/facilitator-registry/)",
-      "files": ["programs/facilitator-registry/src/lib.rs", "programs/facilitator-registry/tests/"]
+      "files": [
+        "programs/facilitator-registry/src/lib.rs",
+        "programs/facilitator-registry/tests/"
+      ]
     },
     {
       "id": "PAY-001",
       "title": "Payment Router — wire x402-gate.ts middleware",
       "status": "blocked",
-      "blocked_by": ["ARB-GATE", "INFRA-001"],
+      "blocked_by": [
+        "ARB-GATE",
+        "INFRA-001"
+      ],
       "_restructured": "2026-03-10: Removed PRE-001 dependency. Middleware is facilitator-agnostic — works with any registered facilitator.",
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 2,
       "description": "Apply requireX402('X402_SERVICE_ID_ROUTER') from middleware/x402-gate.ts to /x402/router/* routes. Returns HTTP 402 without valid x402 header from any registered facilitator. Test: PayAI header → 200. No header → 402. Unknown facilitator → 402. This is the only 'PayAI integration' task — and it's facilitator-agnostic by design.",
       "repo": "Invoica",
-      "files": ["middleware/x402-gate.ts", "backend/src/routes/router.ts"]
+      "files": [
+        "middleware/x402-gate.ts",
+        "backend/src/routes/router.ts"
+      ]
     },
     {
       "id": "PAY-002",
       "title": "Payment Router — payment-router.ts service",
       "status": "blocked",
-      "blocked_by": ["PAY-001"],
+      "blocked_by": [
+        "PAY-001"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 4,
       "description": "Create backend/src/services/payment-router.ts. Wraps arb bot executeSwap() (now Jito-bundle-atomic) into route(invoiceId, tokenIn, amountIn) returning USDC settled. simulate:true flag by default. Uses the corrected arb bot after ARB-002 through ARB-006 fixes.",
       "repo": "Invoica",
-      "files": ["backend/src/services/payment-router.ts"]
+      "files": [
+        "backend/src/services/payment-router.ts"
+      ]
     },
     {
       "id": "PAY-003",
       "title": "Payment Router — wire into settlement route",
       "status": "blocked",
-      "blocked_by": ["PAY-002"],
+      "blocked_by": [
+        "PAY-002"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 2,
       "description": "Update settlement route in backend/src/routes/ — call payment-router.ts before booking. If tokenIn is the settlement token, passthrough. Otherwise route via arb bot.",
       "repo": "Invoica",
-      "files": ["backend/src/routes/[settlement-route].ts"]
+      "files": [
+        "backend/src/routes/[settlement-route].ts"
+      ]
     },
     {
       "id": "TREAS-001",
       "title": "Treasury Manager — on-chain spending cap Solana program",
       "status": "blocked",
-      "blocked_by": ["PAY-003"],
+      "blocked_by": [
+        "PAY-003"
+      ],
       "_note_removed_dep": "CEO_SOLANA_SPRINT removed 2026-03-10 — that sprint ID does not exist. TREAS-001 now gates only on PAY-003. If a dedicated Solana sprint is created later, add its real ID back here.",
       "type": "code",
       "agent": "CTO",
@@ -189,31 +233,43 @@
       "estimate_agent_hours": 5,
       "description": "FIRST TASK IN TREASURY SPRINT. Deploy a Solana program that enforces the per-cycle spending ceiling in on-chain program logic — not TypeScript. Program cannot release more than the cap regardless of what the yield skill instructs. On-chain state tracks cumulative daily loss; when threshold hit, program automatically freezes delegation for 24h. Auditable by anyone. One program audit required before mainnet exposure. Separate program from INFRA-002 (facilitator registry) — both can be deployed in same CTO sprint.",
       "repo": "Arb-bot-main/ (new: programs/treasury-cap/)",
-      "files": ["programs/treasury-cap/src/lib.rs", "programs/treasury-cap/tests/"]
+      "files": [
+        "programs/treasury-cap/src/lib.rs",
+        "programs/treasury-cap/tests/"
+      ]
     },
     {
       "id": "TREAS-002",
       "title": "Treasury Manager — gas vs yield model + minimum cycle floor",
       "status": "blocked",
-      "blocked_by": ["TREAS-001"],
+      "blocked_by": [
+        "TREAS-001"
+      ],
       "type": "code",
       "agent": "CTO",
       "estimate_agent_hours": 2,
       "description": "Model gas costs against yield using arb bot simulation. Solana tx ≈ $0.003; triangular arb = 3 txs ≈ $0.009. At 2% edge: minimum profitable cycle ≈ 1.5–2 USDC. Hard-code floor in treasury-yield.ts: skill does not trigger if projected gross yield < $0.015 (1.5× gas). Document the threshold and the model. Produces a signed-off number before TREAS-003 ships.",
       "repo": "Invoica",
-      "files": ["backend/src/skills/treasury-yield.ts", "docs/treasury-gas-model.md"]
+      "files": [
+        "backend/src/skills/treasury-yield.ts",
+        "docs/treasury-gas-model.md"
+      ]
     },
     {
       "id": "TREAS-003",
       "title": "Treasury Manager — treasury-yield.ts OpenClaw skill with Jito bundles",
       "status": "blocked",
-      "blocked_by": ["TREAS-002"],
+      "blocked_by": [
+        "TREAS-002"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 4,
       "description": "Register invoica-treasury-yield skill via ClawRouter. Trigger: agent wallet above floor AND idle >10min AND above minimum cycle threshold (from TREAS-002). Calls arb bot fast-loop on Meteora BTC/SOL pool via Jito bundles (atomic). Deposits confirmed profit to agent wallet. Safety rails: max 2% drawdown/cycle, circuit breaker after 3 consecutive losses (uses ARB-005 circuitBreakerActive from bot.ts), minimum cycle floor from TREAS-002. Apply requireX402('X402_SERVICE_ID_TREASURY') middleware to /x402/treasury/* route.",
       "repo": "Invoica",
-      "files": ["backend/src/skills/treasury-yield.ts"],
+      "files": [
+        "backend/src/skills/treasury-yield.ts"
+      ],
       "verification_required": true,
       "verification_deliverable": "Drawdown tracking must be real code, not a comment. Supervisor checks: (1) a drawdownTracker accumulator is present and incremented on each losing cycle, (2) the skill exits early (no trade fired) when cumulative loss for the cycle >= 2% of wallet balance — confirmed with a unit test, (3) circuitBreakerActive from ARB-005 bot.ts is explicitly imported and checked before each trade attempt — NOT just mentioned in a comment. If any of the three are missing, mark TREAS-003 as rejected."
     },
@@ -221,121 +277,117 @@
       "id": "TREAS-004",
       "title": "Treasury Manager — treasury-attribution.ts",
       "status": "blocked",
-      "blocked_by": ["TREAS-003"],
+      "blocked_by": [
+        "TREAS-003"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 3,
       "description": "Create backend/src/services/treasury-attribution.ts. Maps yield earned to agent identity. Primary data source for Reputation Oracle Signal 1 (37% yield, job-size weighted). This output is also the seed data for retroactive score calculation in REP-001.",
       "repo": "Invoica",
-      "files": ["backend/src/services/treasury-attribution.ts"]
+      "files": [
+        "backend/src/services/treasury-attribution.ts"
+      ]
     },
     {
       "id": "TREAS-GATE",
       "title": "Treasury Manager — validation gate",
       "status": "blocked",
-      "blocked_by": ["TREAS-004"],
+      "blocked_by": [
+        "TREAS-004"
+      ],
       "type": "human_validation",
       "estimate_human_hours": 2,
       "description": "1. Confirm minimum cycle size vs current Solana gas — verify $0.015 floor math with live numbers. 2. One agent completes idle yield cycle on devnet via Jito bundle path — confirm sim and execution in same block. 3. Force slippage breach mid-cycle — confirm bundle fails cleanly (no partial fill). 4. Force 3 consecutive losses — confirm circuit breaker from bot.ts pauses the skill. 5. Query on-chain program state (TREAS-001) — confirm daily counter increments and delegation freezes at threshold. 6. Non-x402 request to /x402/treasury/* returns HTTP 402. 7. Unknown facilitator request returns HTTP 402 (facilitator not in registry). All 7 must pass.",
-      "gate_for": ["REP-001"]
+      "gate_for": [
+        "REP-001"
+      ]
     },
     {
       "id": "REP-001",
       "title": "Reputation Oracle — acp-scorer.ts with 5-signal formula + facilitator weight",
       "status": "blocked",
-      "blocked_by": ["TREAS-GATE"],
+      "blocked_by": [
+        "TREAS-GATE"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 6,
       "description": "Extend agent-reputation-dashboard (github.com/skingem1/agent-reputation-dashboard) to ingest treasury-attribution.ts output + retroactive transaction history from ALL facilitators in the registry. Build acp-scorer.ts: 5-signal weighted composite score — Signal 1: 37% yield (job-size weighted: 0.01 USDC task = 0.1 pts, 50 USDC job = 10 pts), Signal 2: 28% routing success, Signal 3: 18% settlement time, Signal 4: 7% completion rate, Signal 5: 10% verified dispute rate (5x negative multiplier on upheld disputes, 48h window). Score 0-1000. Cold start: agents with <10 x402 transactions return UNRATED flag. Apply facilitator weight at scoring time: read weightBoost for each transaction's facilitator from INFRA-002 registry on-chain. PayAI transactions count 1.2× until boostExpiryUnixTs.",
       "repo": "Invoica + agent-reputation-dashboard",
-      "files": ["backend/src/services/acp-scorer.ts"]
+      "files": [
+        "backend/src/services/acp-scorer.ts"
+      ]
     },
     {
       "id": "REP-002",
       "title": "Reputation Oracle — oracle routes + dispute + endorsement",
       "status": "blocked",
-      "blocked_by": ["REP-001"],
+      "blocked_by": [
+        "REP-001"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 4,
       "description": "Build oracle.ts route: GET /x402/oracle/score/:agentId (returns score, facilitator breakdown, or UNRATED), GET /x402/oracle/leaderboard, POST /x402/oracle/record, POST /x402/oracle/dispute (triggers 48h window, applies 5x multiplier if upheld), POST /x402/oracle/endorse (binary satisfied signal from verified paying client only — no self-endorsement). Apply requireX402('X402_SERVICE_ID_ORACLE') middleware. Score response includes per-facilitator transaction breakdown so clients can see PayAI vs other facilitator contribution.",
       "repo": "Invoica",
-      "files": ["backend/src/routes/oracle.ts"]
+      "files": [
+        "backend/src/routes/oracle.ts"
+      ]
     },
     {
       "id": "REP-003",
       "title": "Reputation Oracle — stake-to-bid enforcement (jobs >20 USDC)",
       "status": "blocked",
-      "blocked_by": ["REP-001"],
+      "blocked_by": [
+        "REP-001"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 4,
       "description": "Jobs above 20 USDC require the accepting agent to post a 5 USDC stake via x402 before acceptance is confirmed. Stake is slashed if a verified dispute is upheld within 48h. Extends existing x402 payment mechanics. Agent with insufficient stake balance cannot accept jobs above threshold.",
       "repo": "Invoica",
-      "files": ["backend/src/services/stake-to-bid.ts", "backend/src/routes/oracle.ts"]
+      "files": [
+        "backend/src/services/stake-to-bid.ts",
+        "backend/src/routes/oracle.ts"
+      ]
     },
     {
       "id": "REP-004",
       "title": "Reputation Oracle — facilitator weight boost integration + decay schedule",
       "status": "blocked",
-      "blocked_by": ["REP-001", "INFRA-002"],
+      "blocked_by": [
+        "REP-001",
+        "INFRA-002"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 3,
       "description": "Wire the on-chain facilitator weight boost (from INFRA-002 registry) into acp-scorer.ts. At scoring time: fetch weightBoost and boostExpiryUnixTs for each transaction's facilitator from the registry. If current time < boostExpiry, apply weightBoost multiplier to that transaction's score contribution. PayAI ships at weightBoost=12000 (1.2×), expiry=18 months from launch. After expiry, weight falls to 1.0× automatically — no code change. Also: expose 'facilitator_breakdown' field in GET /x402/oracle/score/:agentId response showing per-facilitator weighted contribution. This makes the boost transparent and auditable.",
       "repo": "Invoica",
-      "files": ["backend/src/services/acp-scorer.ts", "backend/src/routes/oracle.ts"]
+      "files": [
+        "backend/src/services/acp-scorer.ts",
+        "backend/src/routes/oracle.ts"
+      ]
     },
     {
       "id": "MKT-001",
       "title": "Marketplace — public treasury endpoint + frontend tab + multi-facilitator framing",
       "status": "blocked",
-      "blocked_by": ["REP-002", "REP-003", "REP-004"],
+      "blocked_by": [
+        "REP-002",
+        "REP-003",
+        "REP-004"
+      ],
       "type": "code",
       "agent": "coding-agent",
       "estimate_agent_hours": 3,
       "description": "Create backend/src/routes/treasury-public.ts (no auth). Add /treasury dashboard tab to Next.js frontend showing: yield generated, swarm total, per-agent P&L, circuit breaker status, emergency pause button, facilitator breakdown (PayAI vs others), UNRATED vs scored agent count. Emergency pause kills yield engine only — payment routing remains live. Submit all 3 services to PayAI marketplace with cross-branding. Pitch framing: 'Infrastructure for the x402 economy — PayAI agents build reputation 1.2× faster.'",
       "repo": "Invoica",
-      "files": ["backend/src/routes/treasury-public.ts", "frontend/app/treasury/"]
+      "files": [
+        "backend/src/routes/treasury-public.ts",
+        "frontend/app/treasury/"
+      ]
     }
-  ],
-  "sprint_sequence": [
-    "ARB-001 ✅ DONE — key rotated, git history scrubbed, .gitignore updated (2026-03-10)",
-    "ARB-002, ARB-003, ARB-004, ARB-005 → UNBLOCKED — parallel (all CTO)",
-    "ARB-006 → after ARB-005 (Jito bundles depend on circuit breaker logic)",
-    "ARB-GATE → 50 devnet cycles, all 5 checks",
-    "INFRA-001 (verifyFacilitator middleware) + INFRA-002 (on-chain registry) → after ARB-GATE, parallel (CTO)",
-    "PAY-001, PAY-002, PAY-003 → Payment Router (needs ARB-GATE + INFRA-001)",
-    "TREAS-001 → on-chain spending cap (after PAY-003)",
-    "TREAS-002 → gas model, then TREAS-003 yield skill, then TREAS-004 attribution",
-    "TREAS-GATE → all 7 validation checks",
-    "REP-001 → 5-signal scorer with facilitator weight (reads INFRA-002 registry)",
-    "REP-002 + REP-003 parallel after REP-001",
-    "REP-004 → after REP-001 + INFRA-002 (weight boost wiring)",
-    "MKT-001 → after REP-002 + REP-003 + REP-004 + PRE-001 (marketplace listing only)",
-    "PRE-001 (human action) → parallel marketing track, only blocks MKT-001 distribution"
-  ],
-  "audit_findings": {
-    "date": "2026-03-10",
-    "source": "Arb-bot-main/ in Invoica folder",
-    "confirmed_bugs": [
-      "F-01: Real Solana private key in wallet/keypair.json — confirmed byte array starting [245,255,200,179,...]",
-      "F-02: CPMM math in quotes.ts calculateCycle() lines 85-99 for SOL legs. execute.ts correctly uses pool.swapQuote() — inconsistency causes phantom profit signals",
-      "F-03: meteoraSDK.ts lines 24-27 — WSOL hardcoded as both mint A and mint B confirmed",
-      "F-05: asol.ts line 145 and bsol.ts line 135 use raw BigInt() at REST API path. toBigInt() helper defined but not called there"
-    ],
-    "new_bugs": [
-      "F-06: bot.ts executeFullCycleTrade() is sequential loop, not atomic. Line 76 comment acknowledges Jito bundles needed. Partial-fill risk if mid-cycle leg fails",
-      "F-07: No circuit breaker in bot.ts. Rate limiter (MAX_TRADES_PER_MINUTE=10) exists but no consecutive-loss pause. Validation gate assumes circuit breaker exists — it does not"
-    ],
-    "already_ok": [
-      "execute.ts uses pool.swapQuote() and pool.swap() correctly for actual execution",
-      "config.ts has safe PublicKey parsing with fallback handling",
-      "bsol.ts and asol.ts have comprehensive error handling and logging",
-      "bot.ts has rate limiting and trade size guards",
-      "bot.ts has simulateExecute flag working correctly"
-    ]
-  },
-  "ceo_notes": "ARCHITECTURE SHIFT (2026-03-10): This integration is now facilitator-agnostic. verifyPayAI() replaced by verifyFacilitator() abstraction backed by on-chain facilitator registry (INFRA-002). PayAI is first in the registry — first-mover advantage, 1.2x reputation weight boost for 18 months. Coinbase or any future x402 facilitator joins via registry with zero code change. Routes renamed /payai/ → /x402/. Two new Solana programs required: INFRA-002 (facilitator registry) and TREAS-001 (spending cap) — CTO can deploy both in the same sprint. Invoica's strategic position changes from PayAI vendor to x402 infrastructure layer. PayAI integration does NOT displace Gas Backstop (Priority 1) — both tracks run in parallel. DEPENDENCY RESTRUCTURE (2026-03-10): ARB-001 COMPLETED — key rotated (new pubkey 8Tcako8K8cuzm9CbJJ9VRjRpWCRwk8kZYAa6b7aHHA73), old key scrubbed from all git history, .gitignore updated. PRE-001 demoted from technical blocker to distribution-only gate — only blocks MKT-001 (marketplace listing). All technical tasks (PAY-001, INFRA-002) no longer depend on PRE-001. ARB-002..005 now UNBLOCKED and ready for CTO pickup."
+  ]
 }

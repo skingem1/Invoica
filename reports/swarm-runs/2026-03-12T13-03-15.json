@@ -1,0 +1,44 @@
+{
+  "run_id": "1be6412c-e52a-4a4f-8759-af6042d0c375",
+  "project": "invoica",
+  "sprint_file": "/home/invoica/apps/Invoica/sprints/solana-x402-2026-03-10.json",
+  "started_at": "2026-03-12T13:00:01.901Z",
+  "finished_at": "2026-03-12T13:03:15.581Z",
+  "duration_seconds": 194,
+  "git_branch": "main",
+  "git_head_before": "3f9e7ee9",
+  "git_head_after": "3f9e7ee9",
+  "summary": {
+    "total_tasks": 3,
+    "done": 1,
+    "rejected": 1,
+    "skipped": 1,
+    "human_pending": 0,
+    "approval_rate": 0,
+    "total_tokens": 19361
+  },
+  "tasks": [
+    {
+      "task_id": "SOL-002",
+      "title": "SOL-002",
+      "type": "feature",
+      "task_target": "cloud-code",
+      "status": "rejected",
+      "attempts": 10,
+      "model_used": "deepseek/deepseek-chat",
+      "provider": "clawrouter",
+      "routing_reason": "clawrouter → deepseek/deepseek-chat",
+      "tokens_used": 0,
+      "duration_seconds": 191,
+      "files_written": [],
+      "review": {
+        "reviewer": "dual-supervisor",
+        "verdict": "REJECTED",
+        "score": 0,
+        "summary": "Destructive rewrite detected - file reduced from 99 lines to 3 lines (97% content loss). This is a critical failure that would break existing functionality."
+      },
+      "error": null,
+      "rejection_reason": "Destructive rewrite detected - file reduced from 99 lines to 3 lines (97% content loss). This is a critical failure that would break existing functionality."
+    }
+  ]
+}

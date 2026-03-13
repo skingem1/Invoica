@@ -1,0 +1,21 @@
+{
+  "run_id": "9c010cda-c99f-4c7a-8291-762e4901806e",
+  "project": "invoica",
+  "sprint_file": "/home/invoica/apps/Invoica/sprints/payai-integration-2026-03-10.json",
+  "started_at": "2026-03-12T12:30:01.685Z",
+  "finished_at": "2026-03-12T12:30:03.450Z",
+  "duration_seconds": 2,
+  "git_branch": "main",
+  "git_head_before": "e25280ad",
+  "git_head_after": "e25280ad",
+  "summary": {
+    "total_tasks": 23,
+    "done": 1,
+    "rejected": 5,
+    "skipped": 0,
+    "human_pending": 3,
+    "approval_rate": 0,
+    "total_tokens": 0
+  },
+  "tasks": []
+}
