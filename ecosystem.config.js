@@ -15,7 +15,9 @@ module.exports = {
       max_restarts: 50,        // live beta: tolerate transient crashes (DB cold starts, port zombie loops, etc.)
       min_uptime: "30s",       // only counts as stable if it lives 30s (catches fast crash loops)
       restart_delay: 5000,     // 5s between restart attempts (gives port TIME_WAIT time to clear)
-      kill_timeout: 30000,     // 30s: give backend time to drain + port to fully release before SIGKILL
+      kill_timeout: 15000,     // 15s: server.close() + prisma.$disconnect() completes in <10s now (graceful shutdown added)
+      wait_ready: true,        // don't route traffic until process.send('ready') fires (after server.listen())
+      listen_timeout: 10000,   // max 10s to receive the ready signal before PM2 considers startup failed
       env: {
         // x402 seller wallet — receives USDC from agent inference payments
         X402_SELLER_WALLET: "0x3e127c918C83714616CF2416f8A620F1340C19f1",

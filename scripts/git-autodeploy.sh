@@ -81,6 +81,15 @@ if echo "$CHANGED" | grep -q "^backend-wrapper\.sh$"; then
   BACKEND_CHANGED=true
 fi
 if [ "$BACKEND_CHANGED" = "true" ]; then
+  # Migration lockfile guard — skip restart if a prisma migrate/push is in progress.
+  # Any script running migrations must: touch /tmp/invoica-migration.lock before
+  # starting and rm /tmp/invoica-migration.lock on exit (trap or explicit).
+  # Prevents orphaned Prisma child processes that survive a force-kill mid-migration.
+  if [ -f /tmp/invoica-migration.lock ]; then
+    echo "[$TIMESTAMP] [AutoDeploy] Migration in progress (/tmp/invoica-migration.lock) — skipping backend restart, will retry next cron tick"
+    exit 0
+  fi
+
   echo "[$TIMESTAMP] [AutoDeploy] backend changed → restarting backend"
   # Use 'restart' (not 'reload') — reload starts new process while old holds port 3001,
   # causing EADDRINUSE cascade. Restart kills old first, then starts new cleanly.
