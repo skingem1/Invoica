@@ -34,6 +34,7 @@ import { shouldRunLocally, selectLocalModel, WalletState } from './lib/local-mod
 import { selectModel, classifyTask } from '../backend/src/lib/model-router';
 import { callClawRouter } from '../backend/src/lib/clawrouter-client';
 import { loadWalletState, saveWalletState, getWalletReport, isFrozen, isDegraded } from './lib/wallet-state';
+import { brvQuery, brvCurate } from './lib/byterover-client';
 
 // ===== Types =====
 
@@ -2282,6 +2283,15 @@ ONLY output the JSON array. No markdown, no explanation.`;
       log(c.blue, `Task: ${task.id} | Agent: ${task.agent} | Attempt: ${attempt}/${MAX_RETRIES}`);
       log(c.blue, `${'='.repeat(60)}`);
 
+      // Step 0: ByteRover context injection (optional — graceful skip if brv not installed)
+      try {
+        const brvContext = await brvQuery(`${task.id}: ${task.description}`);
+        if (brvContext) {
+          task.context = (task.context || '') + `\n\n## ByteRover Context\n${brvContext}`;
+          log(c.gray, `  [BRV] Context injected (${brvContext.length} chars)`);
+        }
+      } catch { /* brv is optional — never block the pipeline */ }
+
       task.status = 'in_progress';
       this.stats.tasksExecuted++;
 
@@ -2385,6 +2395,13 @@ ONLY output the JSON array. No markdown, no explanation.`;
         taskRun.review = { reviewer: 'dual-supervisor', verdict: 'APPROVED', score: review.score, summary: review.summary || '' };
         taskRun.duration_seconds = Math.round((Date.now() - taskStartMs) / 1000);
         this.taskRuns.push(taskRun);
+
+        // Step 7: ByteRover curate — capture learning from successful task (best-effort)
+        try {
+          const deliverableFiles = [...(task.deliverables?.code || []), ...(task.deliverables?.tests || [])];
+          await brvCurate(task.id, `Task completed: ${task.description}`, deliverableFiles);
+        } catch { /* curate is optional — never block the pipeline */ }
+
         return;
       }
 

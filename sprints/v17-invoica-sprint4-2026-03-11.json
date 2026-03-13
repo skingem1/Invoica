@@ -15,7 +15,7 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "V17-S4-002",
@@ -34,7 +34,7 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done"
     }
   ]
 }
