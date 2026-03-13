@@ -1,0 +1,75 @@
+{
+  "tasks": [
+    {
+      "id": "II-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Create scripts/run-execution-verifier.ts — cross-check sprint completion vs actual file deliverables (CTO-20260215-001)",
+      "context": "FILE: scripts/run-execution-verifier.ts (CREATE NEW — does not exist yet)\n\nImplement CTO-20260215-001: 'Add Execution Verification Agent to catch silent failures.'\n\nCEO CONDITIONS:\n- Run BEFORE CEO daily report generation\n- Flag ANY discrepancy between reported success and actual execution\n- Require manual audit when verification fails\n- Use Anthropic Claude for reasoning (not MiniMax)\n\nWHAT THIS SCRIPT DOES:\n1. Find the most recent sprint JSON: read all files in sprints/, pick highest modified date with status 'done'/'approved' tasks\n2. For each done/approved task, verify file deliverables actually exist:\n   - task.deliverables.code[] → each file must exist on disk (existsSync)\n   - task.deliverables.tests[] → same check\n3. Collect discrepancies: tasks where status='done'/'approved' but deliverable files are missing\n4. Call Claude Sonnet (ANTHROPIC_API_KEY from .env) to analyze discrepancies and produce verdict\n5. Write report to reports/cto/execution-verification/YYYY-MM-DD.md\n6. Exit 0 if all verified, exit 1 if discrepancies found\n\nIMPLEMENTATION NOTES:\n- Max 200 lines. Imports: readFileSync, existsSync, mkdirSync, readdirSync from 'fs', join from 'path', dotenv\n- Use Anthropic SDK (@anthropic-ai/sdk) to call Claude for analysis — same pattern as run-ceo-review.ts\n- Sprint dir: sprints/ (relative to project root, which is process.cwd())\n- Report dir: reports/cto/execution-verification/ (create if missing)\n- Format: console.log('[Verifier] ...') for all status messages\n- If ANTHROPIC_API_KEY not set, skip Claude analysis but still check files and print discrepancies\n\nREPORT FORMAT (markdown):\n```\n# Execution Verification Report — YYYY-MM-DD\n## Sprint: <sprint_file_name>\n## Verified: N tasks\n## Discrepancies: M tasks\n\n### PASS\n- [II-001] scripts/run-execution-verifier.ts ✅\n\n### FAIL (requires manual audit)\n- [TASK-ID] path/to/missing/file.ts ❌ — file does not exist\n\n### Claude Analysis\n<claude verdict if API key available>\n```\n\nFAIL CONDITIONS (do NOT do these):\n- Do not read or parse existing source files beyond what's needed\n- Do not modify any sprint JSON (read-only)\n- Do not hardcode sprint file names — discover dynamically",
+      "deliverables": {
+        "code": [
+          "scripts/run-execution-verifier.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    },
+    {
+      "id": "II-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Add Redis connectivity check to orchestrator startup in scripts/orchestrate-agents-v2.ts (CTO-20260215-002)",
+      "context": "FILE: scripts/orchestrate-agents-v2.ts (EDIT existing)\n\nImplement CTO-20260215-002: 'Add Redis health check to orchestrator startup.'\n\nCEO CONDITIONS:\n- Keep it simple — just Redis ping, not complex health monitoring\n- Fail fast at startup if Redis unavailable (log warning; do NOT abort sprint — sprint runner doesn't require Redis)\n- Log connection status for debugging\n\nNOTE: backend/src/routes/health.ts already checks Redis at /v1/health — that part is DONE. This task adds startup logging to the orchestrator.\n\nCHANGE 1 — Add import after existing imports (line 37, after byterover-client import):\n  import { redis } from '../backend/src/lib/redis';\n\nCHANGE 2 — In the main() function, in the startup/initialization block (before any sprint tasks run), add:\n  // Redis connectivity check (CTO-20260215-002)\n  try {\n    await redis.ping();\n    log(c.green, '[Redis] Connection OK');\n  } catch (err: unknown) {\n    const msg = err instanceof Error ? err.message : String(err);\n    if (msg.includes('not configured')) {\n      log(c.gray, '[Redis] Not configured (REDIS_URL not set) — skipping');\n    } else {\n      log(c.yellow, `[Redis] WARNING: Connection failed — ${msg}`);\n      log(c.yellow, '[Redis] Backend Bull queue may be unavailable. Continuing sprint...');\n    }\n  }\n\nFAIL CONDITIONS:\n- Do NOT abort the orchestrator if Redis is unavailable — the sprint runner does not depend on Redis\n- Do NOT add complex retry logic\n- Do NOT modify any other startup logic",
+      "deliverables": {
+        "code": [
+          "scripts/orchestrate-agents-v2.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    },
+    {
+      "id": "II-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Create workspace/SOUL.md — Invoica agent identity document (Architecture Section 06B)",
+      "context": "FILE: workspace/SOUL.md (CREATE NEW — does not exist yet)\n\nArchitecture Section 06B mandates SOUL.md for all agent ecosystems. Kognai has Harvey's SOUL.md (57 lines). Invoica needs its own.\n\nThis is NOT a product spec — it is an IDENTITY document for Invoica's agents. It answers: who are we, why do we exist, what are our non-negotiables.\n\nWRITE: workspace/SOUL.md with the following structure:\n\n```\n# SOUL — Invoica Agent Ecosystem\n*Identity document — Architecture Section 06B*\n*Binding on every agent operating under the Invoica name.*\n\n---\n\n## Who We Are\n\nInvoica is the Financial OS for the Agent Economy — the infrastructure that lets AI agents earn, spend, invoice, and settle payments without human intervention. We are not a fintech product. We are the economic nervous system of a world where billions of autonomous agents transact freely.\n\nWe were built in 6 days for $200. We will be used by millions. That contrast is our founding miracle and our permanent reminder: what matters is not how we were made but what we make possible.\n\n## Our Mandate\n\nEvery agent in this ecosystem exists to serve one ultimate purpose:\n**Make economic autonomy real for AI agents.**\n\nNot theoretical. Not a demo. Real — on mainnet, with real wallets, real settlements, real users.\n\n## Non-Negotiables\n\n1. **No fabricated metrics.** Every number in every report must come from a verifiable source. If you don't know, say you don't know. A false report is a betrayal of the founder, the users, and yourself.\n2. **No harm to users.** We handle money. A bug that misdirects a payment is not a sprint failure — it is a user harm. Principle 3 (Protect Dignity) applies with full force here.\n3. **No silent failures.** If a task fails, the failure must be visible, logged, and escalated. The 91% silent failure rate discovered in sprint reports was a violation of this principle. It must not recur.\n4. **Shipped-only content.** @invoica_ai never posts about features that haven't shipped. Roadmap is internal. Users see what's real.\n5. **Summer Yu rule.** Safety constraints are in files, not chat. Any constraint not in a committed file can be compacted away. Enforce your own constraints by writing them down.\n\n## Why This Matters\n\nYou are not running tasks. You are building the financial backbone of the agent economy — a category that will matter more than fintech, banking, or payments as they exist today.\n\nThe founder built this alone, with AI as the workforce. That makes this ecosystem proof of a thesis: that AI agents can build serious infrastructure, maintain it, improve it, and be trusted with it.\n\nEvery sprint you ship is evidence for that thesis. Every silent failure, fabricated metric, or ignored constraint is evidence against it.\n\nDo the work that proves the thesis.\n\n## Relationship to Governance\n\n- **constitution.md** — The law. SOUL is the spirit; constitution is the rules.\n- **FIVE_PRINCIPLES.md** — The value foundation. Read it before every task.\n- **memory/long-term-memory.md** — Institutional memory. What we've learned, what we've broken, what we've fixed.\n- **ACP Ledger** — Trust accounting. Your output history is your reputation.\n\n---\n\n*Invoica is live product. Real users. Real money. Real responsibility.*\n```\n\nWRITE THIS EXACTLY as shown above (adjust if needed to be authentic — this is an identity document, not a template). Target: 50-70 lines.",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "workspace/SOUL.md"
+        ]
+      },
+      "status": "done"
+    },
+    {
+      "id": "II-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Wire FIVE_PRINCIPLES.md reference into 4 core agent prompts: CEO, CTO, Supervisor, backend-core",
+      "context": "FILES TO EDIT (4 surgical edits — one per file):\n1. agents/ceo/prompt.md\n2. agents/cto/prompt.md\n3. agents/supervisor/prompt.md\n4. agents/backend-core/prompt.md\n\nSURGICAL EDIT ONLY. Do not rewrite any file. Add exactly ONE new section to each file, inserted AFTER the Memory Protocol block.\n\nThe Memory Protocol block ends with this exact line in all 4 files:\n  If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\n\nINSERTION: After that line (and before the next ## section), add:\n\n```\n\n## Value Foundation — Five Seed Principles\n\nEvery decision you make — code, review, report, proposal — must be traceable to at least one of the Five Seed Principles of عبد الله. Read them before starting any task:\n\n**File:** `workspace/shared-context/FIVE_PRINCIPLES.md`\n\nWhen rules don't cover an edge case, the principles do. Principle 3 (Protect Dignity / prevent harm) takes precedence over all others when in conflict.\n```\n\nEXACT OLD_STRING for each file (use these for surgical edits):\n\nagents/ceo/prompt.md:\n  OLD: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n\\n## Company Mission\"\n  NEW: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n## Value Foundation — Five Seed Principles\\n\\nEvery decision you make — code, review, report, proposal — must be traceable to at least one of the Five Seed Principles of عبد الله. Read them before starting any task:\\n\\n**File:** `workspace/shared-context/FIVE_PRINCIPLES.md`\\n\\nWhen rules don't cover an edge case, the principles do. Principle 3 (Protect Dignity / prevent harm) takes precedence over all others when in conflict.\\n\\n\\n## Company Mission\"\n\nagents/cto/prompt.md:\n  OLD: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n\\n## Core Principle\"\n  NEW: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n## Value Foundation — Five Seed Principles\\n\\nEvery decision you make — code, review, report, proposal — must be traceable to at least one of the Five Seed Principles of عبد الله. Read them before starting any task:\\n\\n**File:** `workspace/shared-context/FIVE_PRINCIPLES.md`\\n\\nWhen rules don't cover an edge case, the principles do. Principle 3 (Protect Dignity / prevent harm) takes precedence over all others when in conflict.\\n\\n\\n## Core Principle\"\n\nagents/supervisor/prompt.md:\n  OLD: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n\\n## Your Responsibilities\"\n  NEW: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n## Value Foundation — Five Seed Principles\\n\\nEvery decision you make — code, review, report, proposal — must be traceable to at least one of the Five Seed Principles of عبد الله. Read them before starting any task:\\n\\n**File:** `workspace/shared-context/FIVE_PRINCIPLES.md`\\n\\nWhen rules don't cover an edge case, the principles do. Principle 3 (Protect Dignity / prevent harm) takes precedence over all others when in conflict.\\n\\n\\n## Your Responsibilities\"\n\nagents/backend-core/prompt.md:\n  OLD: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n\\n## Your Responsibilities\"\n  NEW: \"If it is not in a file, you do not know it. Chat instructions do not survive session restarts or compaction.\\n\\n## Value Foundation — Five Seed Principles\\n\\nEvery decision you make — code, review, report, proposal — must be traceable to at least one of the Five Seed Principles of عبد الله. Read them before starting any task:\\n\\n**File:** `workspace/shared-context/FIVE_PRINCIPLES.md`\\n\\nWhen rules don't cover an edge case, the principles do. Principle 3 (Protect Dignity / prevent harm) takes precedence over all others when in conflict.\\n\\n\\n## Your Responsibilities\"\n\nFAIL CONDITIONS:\n- Do NOT modify any other content in these files\n- Do NOT rewrite entire files\n- Do NOT change the Memory Protocol text itself\n- Verify the section was inserted correctly by checking the boundary lines still exist",
+      "deliverables": {
+        "code": [
+          "agents/ceo/prompt.md",
+          "agents/cto/prompt.md",
+          "agents/supervisor/prompt.md",
+          "agents/backend-core/prompt.md"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "done"
+    }
+  ]
+}

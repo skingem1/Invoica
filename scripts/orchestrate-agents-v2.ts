@@ -35,6 +35,7 @@ import { selectModel, classifyTask } from '../backend/src/lib/model-router';
 import { callClawRouter } from '../backend/src/lib/clawrouter-client';
 import { loadWalletState, saveWalletState, getWalletReport, isFrozen, isDegraded } from './lib/wallet-state';
 import { brvQuery, brvCurate } from './lib/byterover-client';
+import { redis } from '../backend/src/lib/redis';
 
 // ===== Types =====
 
@@ -2516,6 +2517,20 @@ ONLY output the JSON array. No markdown, no explanation.`;
     try { this.gitHeadBefore = execSync('git rev-parse --short HEAD', { encoding: 'utf-8', timeout: 5000 }).trim(); } catch { this.gitHeadBefore = 'unknown'; }
 
     log(c.bold, '\n🚀 Starting orchestration run...\n');
+
+    // Redis connectivity check (CTO-20260215-002 — fail-fast visibility, never blocks sprint)
+    try {
+      await redis.ping();
+      log(c.green, '  [Redis] Connection OK');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not configured')) {
+        log(c.gray, '  [Redis] Not configured (REDIS_URL not set) — skipping');
+      } else {
+        log(c.yellow, `  [Redis] WARNING: Connection failed — ${msg}`);
+        log(c.yellow, '  [Redis] Backend Bull queue may be unavailable. Continuing sprint...');
+      }
+    }
 
     // Mission Control — connect and register this sprint run
     const mc = createMCClient('sprint-orchestrator', 'worker');
