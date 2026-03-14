@@ -141,8 +141,8 @@
       "category": "tooling",
       "approved_date": "2026-02-18",
       "priority": "next_sprint",
-      "implementation_status": "pending",
-      "verification_notes": "Quick check scheduled for 2026-03-14. Verify current installed version, check for newer releases, review changelog for relevant fixes."
+      "implementation_status": "pending_upgrade",
+      "verification_notes": "CHECKED 2026-03-14. Current: 2026.2.26 (installed Feb 26). Latest: 2026.3.13 (released Mar 14 — today). Gap: ~17 releases including 2026.3.1 through 2026.3.13. Active daily release cadence in March. Upgrade recommended next sprint: `npm install -g openclaw@latest` on Hetzner. No changelog reviewed — no critical blockers identified in current sprint."
     },
     {
       "id": "CTO-20260222-002",
