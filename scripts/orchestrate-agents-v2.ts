@@ -124,6 +124,10 @@ interface TaskRun {
 // Reset at process start; each sprint run is a fresh process so no cross-run bleed.
 const runStats = { totalTokens: 0 };
 
+// Minimum supervisor score required for auto-approval (QG-001)
+// Override: tasks with priority='critical' bypass this gate
+const MIN_SCORE_GATE = 80;
+
 // Module-level wallet state — loaded from disk, tracks cumulative monthly spend
 const walletState: WalletState = loadWalletState();
 
@@ -2211,6 +2215,12 @@ ONLY output the JSON array. No markdown, no explanation.`;
         continue;
       }
 
+      if (review.verdict === 'APPROVED' && review.score < MIN_SCORE_GATE && subtask.priority !== 'critical') {
+        log(c.yellow, `  ⚠ Sub-task ${subtask.id} score gate FAILED: ${review.score}/100 < ${MIN_SCORE_GATE} — treating as rejection`);
+        review.verdict = 'REJECTED';
+        review.summary = `Score gate: ${review.score}/100 below minimum ${MIN_SCORE_GATE}. ${review.summary}`;
+      }
+
       if (review.verdict === 'APPROVED') {
         this.stats.approved++;
         log(c.green, `  ✓ Sub-task ${subtask.id} APPROVED on attempt ${attempt} (${review.score}/100)`);
@@ -2396,6 +2406,19 @@ ONLY output the JSON array. No markdown, no explanation.`;
       lastReview = review;
 
       task.output = { files: result.files, commit: '', model: result.model, review };
+
+      const scorePasses = review.score >= MIN_SCORE_GATE;
+      const ceoOverride = task.priority === 'critical';
+
+      if (review.verdict === 'APPROVED' && !scorePasses && !ceoOverride) {
+        log(c.yellow, `\n⚠ Task ${task.id} score gate FAILED: ${review.score}/100 < ${MIN_SCORE_GATE} required — treating as rejection`);
+        review.verdict = 'REJECTED';
+        review.summary = `Score gate: ${review.score}/100 below minimum ${MIN_SCORE_GATE}. ${review.summary}`;
+      }
+
+      if (review.verdict === 'APPROVED' && !scorePasses && ceoOverride) {
+        log(c.yellow, `\n⚡ Task ${task.id} CEO override: score ${review.score}/100 below gate but priority=critical — approving`);
+      }
 
       if (review.verdict === 'APPROVED') {
         task.status = 'done';

@@ -114,8 +114,8 @@
       "category": "process_change",
       "approved_date": "2026-02-18",
       "priority": "immediate",
-      "implementation_status": "pending",
-      "verification_notes": "Sprint task QG-001 — scheduled for implementation 2026-03-14. Auto-approve only if score >= 80 AND no critical issues. Include CEO override mechanism for emergency fixes."
+      "implementation_status": "verified",
+      "verification_notes": "IMPLEMENTED 2026-03-14. Added MIN_SCORE_GATE=80 module-level constant in orchestrate-agents-v2.ts. Gate applied at both main task and sub-task approval checks. Tasks with priority='critical' bypass the gate (CEO override). Scores below 80 downgraded from APPROVED to REJECTED with score-gate summary."
     },
     {
       "id": "CTO-20260219-003",
