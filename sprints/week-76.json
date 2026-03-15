@@ -85,6 +85,23 @@
         "docs": []
       },
       "status": "done"
+    },
+    {
+      "id": "SOL-004",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["SOL-002"],
+      "description": "Add Solana invoice creation support — chain param + base58 address validation",
+      "context": "FILE: backend/src/api/invoices-create.ts\n\nCurrently the invoice creation endpoint accepts chain: 'base' | 'polygon' | 'arbitrum' only. Solana is missing. Two things block it: (1) 'solana' is absent from SUPPORTED_CHAINS enum, (2) the paymentAddress validation only checks EVM 0x format — Solana pubkeys are base58 (32–44 alphanumeric chars, no 0x prefix).\n\nMake these targeted edits:\n\nStep 1 — Expand SUPPORTED_CHAINS (line 25):\nFIND:\n  const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum'] as const;\nREPLACE WITH:\n  const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum', 'solana'] as const;\n\nStep 2 — Add Solana address regex after EVM_ADDRESS_RE (after line 22):\nFIND:\n  /** EVM-compatible address format (0x + 40 hex chars) */\n  const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;\nREPLACE WITH:\n  /** EVM-compatible address format (0x + 40 hex chars) */\n  const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;\n  /** Solana base58 public key (32–44 alphanumeric, no 0x) */\n  const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;\n\nStep 3 — Replace the paymentAddress validation block in createInvoice (find the block that starts with 'Validate EVM address format when provided'):\nFIND:\n  // Validate EVM address format when provided\n  if (paymentAddress && !EVM_ADDRESS_RE.test(paymentAddress)) {\n    res.status(400).json({\n      error: 'Invalid payment address',\n      message: 'Payment address must be a valid EVM address (0x + 40 hex characters)',\n    });\n    return;\n  }\nREPLACE WITH:\n  // Validate chain-appropriate payment address format\n  if (paymentAddress) {\n    const isValidAddress = chain === 'solana'\n      ? SOLANA_ADDRESS_RE.test(paymentAddress)\n      : EVM_ADDRESS_RE.test(paymentAddress);\n    if (!isValidAddress) {\n      const fmt = chain === 'solana'\n        ? 'Solana address must be a valid base58 public key (32–44 characters)'\n        : 'EVM address must be 0x followed by 40 hex characters';\n      res.status(400).json({ error: 'Invalid payment address', message: fmt });\n      return;\n    }\n  }\n\nNo other changes. Do NOT modify the schema, spam check, or response format. Verify the file still has 0 TypeScript errors after the edit.",
+      "deliverables": {
+        "code": [
+          "backend/src/api/invoices-create.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
     }
   ]
 }
