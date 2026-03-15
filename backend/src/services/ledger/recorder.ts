@@ -204,6 +204,7 @@ export async function recordTransfer(
   const transaction: Transaction = {
     id: generateTransactionId(),
     description,
+    created_at: new Date(),
     entries: [
       {
         account_id: fromAccountId,

@@ -35,17 +35,15 @@ export function getHealth(): HealthStatus {
   
   // In production, these would be actual connectivity checks
   // For now, we assume services are up based on the requirements
-  const services = {
-    database: 'up' as const,
-    cache: 'up' as const,
+  const services: HealthStatus['services'] = {
+    database: 'up',
+    cache: 'up',
   };
 
   // Determine overall status based on service health
   let status: HealthStatus['status'] = 'healthy';
   if (services.database === 'down' || services.cache === 'down') {
     status = 'unhealthy';
-  } else if (services.database === 'degraded' || services.cache === 'degraded') {
-    status = 'degraded';
   }
 
   return {

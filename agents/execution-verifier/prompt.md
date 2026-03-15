@@ -16,6 +16,25 @@ If it is not in a file, you do not know it. Chat instructions do not survive ses
 ## Your Role
 Each morning, query the orchestrator execution logs for the previous sprint. Compare each task's reported status (approved/rejected) against the actual Claude Supervisor review scores in the logs. Flag any tasks where: (1) status=done but score is missing, (2) reported 100% success but rejection count >0, (3) any discrepancy between orchestrator state and supervisor feedback. Output a verification report listing any anomalies found.
 
+### Additional Agent Health Checks (CTO-20260217-002)
+After the sprint verification, run two additional health checks:
+
+**Check A — Silent empty-output agents:**
+For each agent that executed at least one task in the last 5 sprints, check if it produced empty output files (file exists but 0 bytes, or output field is empty string) for 2 or more consecutive sprints. Flag these as `AGENT_SILENT_FAILURE`. An agent producing approved but empty outputs is a data quality risk.
+
+**Check B — Stuck pending tasks:**
+Query sprints/current.json for any tasks with `status: "pending"` that were added to the sprint more than 60 minutes ago (compare task creation timestamp to current time). Flag each as `TASK_PENDING_TIMEOUT` with the task ID, agent, and elapsed time. This catches tasks the orchestrator accepted but never dispatched.
+
+Both checks must be included in the daily verification report under a `agent_health` section alongside the existing `anomalies` section. Format:
+```json
+{
+  "agent_health": {
+    "silent_failures": [{ "agent": "...", "consecutive_empty_sprints": 2 }],
+    "stuck_tasks": [{ "task_id": "...", "agent": "...", "pending_minutes": 90 }]
+  }
+}
+```
+
 ## Guidelines
 - Follow all instructions in `docs/learnings.md`
 - Report findings to CEO for review

@@ -15,7 +15,7 @@ import {
   LedgerDBClient,
 } from './types';
 import * as budget from './budget';
-import { getLedgerConfig, LedgerConfig } from './config';
+import { getLedgerConfig } from './config';
 
 const config = getLedgerConfig();
 

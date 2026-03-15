@@ -7,13 +7,13 @@ const TaskComplexitySchema = z.object({
   filePath: z.string(),
   context: z.string().max(600, 'Context must not exceed 600 characters'),
   agent: z.enum(['frontend-core', 'backend-core', 'fullstack-core'], {
-    errorMap: () => ({ message: 'Agent must be one of: frontend-core, backend-core, fullstack-core' })
+    error: 'Agent must be one of: frontend-core, backend-core, fullstack-core'
   }),
   type: z.enum(['feature', 'bug', 'refactor'], {
-    errorMap: () => ({ message: 'Type must be one of: feature, bug, refactor' })
+    error: 'Type must be one of: feature, bug, refactor'
   }),
   priority: z.enum(['low', 'medium', 'high'], {
-    errorMap: () => ({ message: 'Priority must be one of: low, medium, high' })
+    error: 'Priority must be one of: low, medium, high'
   }),
   dependencies: z.array(z.string()).length(0, 'Dependencies array must be empty')
 });
@@ -60,7 +60,7 @@ export function validateTaskComplexity(input: TaskComplexityInput): ValidationRe
     };
   }
 
-  const errors = result.error.errors.map(error => {
+  const errors = result.error.issues.map(error => {
     if (error.path.length > 0) {
       return `${error.path.join('.')}: ${error.message}`;
     }

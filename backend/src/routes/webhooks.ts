@@ -33,7 +33,7 @@ router.get('/v1/webhooks', async (_req: Request, res: Response, next: NextFuncti
 // DELETE /v1/webhooks/:id — permanently delete a webhook
 router.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const existing = await repo.findById(id);
     if (!existing) {
       res.status(404).json({ success: false, error: { message: 'Webhook not found', code: 'NOT_FOUND' } });

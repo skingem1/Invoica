@@ -9,7 +9,11 @@
   ],
   "exclude": [
     "node_modules",
+    "../node_modules",
     "../scripts",
-    "../agents"
+    "../agents",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
   ]
 }

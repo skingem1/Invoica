@@ -18,7 +18,7 @@ export const webhookQuerySchema = z.object({
 export const webhookEventSchema = z.object({
   id: z.string(),
   type: z.enum(WEBHOOK_EVENTS),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   timestamp: z.string().datetime(),
 });
 

@@ -156,7 +156,7 @@ class RedisRateLimitStore {
     multi.zCard(redisKey);
     
     const results = await multi.exec();
-    const totalHits = results?.[3] || 1;
+    const totalHits = (results?.[3] as unknown as number) || 1;
     
     // Calculate reset time
     const resetTime = now + this.windowMs;
@@ -227,7 +227,7 @@ export const createRateLimiter = (
     windowMs,
     max,
     keyGenerator: (req) => generateRateLimitKey(req, (req as any).customerId),
-    skip: options.skip,
+    skip: options.skip as any,
     handler: (req, res, next, options) => {
       const retryAfter = Math.ceil(options.windowMs / 1000);
       res.set('Retry-After', retryAfter.toString());
@@ -245,7 +245,7 @@ export const createRateLimiter = (
     legacyHeaders: false,
     // Use custom Redis store if available
     ...(redisClient ? { store: new RedisRateLimitStore(storeOptions) } : {}),
-  });
+  } as any);
 };
 
 /**

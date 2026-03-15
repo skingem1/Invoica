@@ -4,8 +4,6 @@
  * Defines all types for tax calculation, validation, and compliance tracking
  */
 
-import { CountryCode } from 'iso-country-currency';
-
 /**
  * Supported tax jurisdictions
  */

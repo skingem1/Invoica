@@ -171,7 +171,7 @@ export const xssProtection = (req: Request, res: Response, next: NextFunction) =
 
     // Sanitize query params
     if (req.query && typeof req.query === 'object') {
-      req.query = sanitizeString(req.query) as Record<string, unknown>;
+      req.query = sanitizeString(req.query) as unknown as typeof req.query;
     }
 
     next();

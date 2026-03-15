@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
-import { Logger } from '../utils/logger';
-import { RedisService } from './redis';
+import { Logger, logger } from '../utils/logger';
+import { redis } from '../lib/redis';
+type RedisService = typeof redis;
 
 interface TaskInput {
   description?: string;
@@ -39,7 +40,7 @@ interface NormalizedAgentName {
  * Prevents cascade failures by pausing agents with consecutive rejections
  */
 export class Orchestrator extends EventEmitter {
-  private readonly logger = Logger.getInstance();
+  private readonly logger: Logger = logger;
   private readonly redis: RedisService;
   private readonly rejectionStates = new Map<string, AgentRejectionState>();
   private readonly REJECTION_THRESHOLD = 2;
@@ -187,7 +188,7 @@ export class Orchestrator extends EventEmitter {
    */
   private async checkAgentExists(agentName: string): Promise<boolean> {
     try {
-      const exists = await this.redis.exists(`agent:${agentName}`);
+      const exists = await (this.redis as any).exists(`agent:${agentName}`);
       return exists === 1;
     } catch (error) {
       this.logger.error('Error checking agent existence', {

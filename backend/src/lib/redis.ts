@@ -35,6 +35,10 @@ export const redis = {
     if (!redisClient) return;
     await redisClient.del(key);
   },
+  publish: async (channel: string, message: string): Promise<void> => {
+    if (!redisClient) return;
+    await redisClient.publish(channel, message);
+  },
 };
 
 export default redis;

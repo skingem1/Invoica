@@ -20,7 +20,7 @@ export interface ProxyConfig {
  * @returns Express middleware function
  */
 export function createInvoiceProxyMiddleware(config: ProxyConfig) {
-  const proxyOptions: Options = {
+  const proxyOptions: any = {
     target: config.target,
     changeOrigin: config.changeOrigin ?? true,
     pathRewrite: config.pathRewrite,
@@ -199,7 +199,7 @@ export function createInvoiceRouteHandler(merchantUrl: string) {
         msg: "Invoice headers detected, proxying request",
         headers: Object.keys(req.headers).filter(h => h.startsWith("x-invoice-")),
       });
-      return proxyMiddleware(req, res, next);
+      void proxyMiddleware(req, res, next); return;
     }
     
     // No invoice headers, skip proxying

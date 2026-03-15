@@ -1,5 +1,5 @@
 import { setInterval, clearInterval } from 'timers';
-import { Logger } from '@nestjs/common';
+import { logger as projectLogger } from '../utils/logger';
 import axios, { AxiosInstance } from 'axios';
 import { PrismaClient, Invoice, InvoiceStatus } from '@prisma/client';
 import Bull, { Queue } from 'bull';
@@ -54,7 +54,6 @@ export class SettlementPollerError extends Error {
  * Service that polls PayAI facilitator for settlements and matches them to pending invoices
  */
 export class SettlementPollerService {
-  private readonly logger: Logger;
   private readonly prisma: PrismaClient;
   private readonly httpClient: AxiosInstance;
   private readonly queue: Bull.Queue;
@@ -68,7 +67,6 @@ export class SettlementPollerService {
     httpClient?: AxiosInstance,
     queue?: Bull.Queue
   ) {
-    this.logger = new Logger(SettlementPollerService.name);
     this.prisma = prismaClient || new PrismaClient();
     
     this.httpClient = httpClient || axios.create({
@@ -89,27 +87,27 @@ export class SettlementPollerService {
    */
   start(): void {
     if (this.pollTimer) {
-      this.logger.warn('Settlement poller is already running');
+      projectLogger.warn('Settlement poller is already running');
       return;
     }
 
-    this.logger.log(
+    projectLogger.info(
       `Starting settlement poller with interval: ${this.config.pollIntervalMs}ms`
     );
 
     // Perform initial poll
     this.pollSettlements().catch((error) => {
-      this.logger.error('Initial settlement poll failed', error);
+      projectLogger.error('Initial settlement poll failed', error);
     });
 
     // Set up interval for subsequent polls
     this.pollTimer = setInterval(() => {
       this.pollSettlements().catch((error) => {
-        this.logger.error('Scheduled settlement poll failed', error);
+        projectLogger.error('Scheduled settlement poll failed', error);
       });
     }, this.config.pollIntervalMs);
 
-    this.logger.log('Settlement poller started successfully');
+    projectLogger.info('Settlement poller started successfully');
   }
 
   /**
@@ -120,7 +118,7 @@ export class SettlementPollerService {
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
-      this.logger.log('Settlement poller stopped');
+      projectLogger.info('Settlement poller stopped');
     }
 
     // Wait for any ongoing poll to complete
@@ -129,7 +127,7 @@ export class SettlementPollerService {
     }
 
     await this.prisma.$disconnect();
-    this.logger.log('Settlement poller resources cleaned up');
+    projectLogger.info('Settlement poller resources cleaned up');
   }
 
   /**
@@ -138,7 +136,7 @@ export class SettlementPollerService {
    */
   async pollSettlements(): Promise<void> {
     if (this.isPolling) {
-      this.logger.debug('Skipping poll - previous poll still in progress');
+      projectLogger.debug('Skipping poll - previous poll still in progress');
       return;
     }
 
@@ -146,12 +144,12 @@ export class SettlementPollerService {
     const startTime = Date.now();
 
     try {
-      this.logger.debug('Polling PayAI settlements...');
+      projectLogger.debug('Polling PayAI settlements...');
 
       const response = await this.httpClient.get<PayAIListResponse>('/list');
       const { settlements } = response.data;
 
-      this.logger.debug(`Received ${settlements.length} settlements from PayAI`);
+      projectLogger.debug(`Received ${settlements.length} settlements from PayAI`);
 
       // Process each settlement
       for (const settlement of settlements) {
@@ -159,15 +157,15 @@ export class SettlementPollerService {
       }
 
       const duration = Date.now() - startTime;
-      this.logger.log(`Poll completed in ${duration}ms, processed ${settlements.length} settlements`);
+      projectLogger.info(`Poll completed in ${duration}ms, processed ${settlements.length} settlements`);
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const statusCode = error.response?.status;
         const message = error.message;
         
-        this.logger.error(
+        projectLogger.error(
           `PayAI API error: ${statusCode} - ${message}`,
-          error.stack
+          { stack: error.stack }
         );
 
         throw new SettlementPollerError(
@@ -177,7 +175,7 @@ export class SettlementPollerService {
         );
       }
 
-      this.logger.error('Unexpected error during settlement polling', error);
+      projectLogger.error('Unexpected error during settlement polling', error);
       throw new SettlementPollerError(
         'Unexpected error during settlement polling',
         'UNKNOWN_ERROR',
@@ -198,7 +196,7 @@ export class SettlementPollerService {
 
     // Skip if already processed in memory
     if (this.processedTransactionIds.has(transaction_id)) {
-      this.logger.debug(`Settlement ${transaction_id} already processed in this session`);
+      projectLogger.debug(`Settlement ${transaction_id} already processed in this session`);
       return;
     }
 
@@ -206,14 +204,12 @@ export class SettlementPollerService {
     const existingInvoice = await this.prisma.invoice.findFirst({
       where: {
         transactionId: transaction_id,
-        status: {
-          in: ['processing', 'completed'],
-        },
-      },
+        status: { in: ['PROCESSING', 'COMPLETED'] },
+      } as any,
     });
 
     if (existingInvoice) {
-      this.logger.debug(
+      projectLogger.debug(
         `Settlement ${transaction_id} already processed (invoice: ${existingInvoice.id})`
       );
       this.processedTransactionIds.add(transaction_id);
@@ -224,12 +220,12 @@ export class SettlementPollerService {
     const pendingInvoice = await this.prisma.invoice.findFirst({
       where: {
         transactionId: transaction_id,
-        status: 'pending',
-      },
+        status: 'PENDING',
+      } as any,
     });
 
     if (!pendingInvoice) {
-      this.logger.warn(
+      projectLogger.warn(
         `No pending invoice found for transaction: ${transaction_id}`
       );
       return;
@@ -251,7 +247,7 @@ export class SettlementPollerService {
   ): Promise<void> {
     const { transaction_id, settled_at } = settlement;
 
-    this.logger.log(
+    projectLogger.info(
       `Matched settlement ${transaction_id} to invoice ${invoice.id}`
     );
 
@@ -260,7 +256,7 @@ export class SettlementPollerService {
       await this.prisma.invoice.update({
         where: { id: invoice.id },
         data: {
-          status: 'processing',
+          status: 'PROCESSING',
           settledAt: new Date(settled_at),
           updatedAt: new Date(),
         },
@@ -288,11 +284,11 @@ export class SettlementPollerService {
       // Mark as processed in memory
       this.processedTransactionIds.add(transaction_id);
 
-      this.logger.log(
+      projectLogger.info(
         `Queued invoice ${invoice.id} for PDF generation (transaction: ${transaction_id})`
       );
     } catch (error) {
-      this.logger.error(
+      projectLogger.error(
         `Failed to process settlement match for invoice ${invoice.id}`,
         error
       );
@@ -325,7 +321,7 @@ export class SettlementPollerService {
    */
   clearProcessedCache(): void {
     this.processedTransactionIds.clear();
-    this.logger.debug('Cleared processed transaction cache');
+    projectLogger.debug('Cleared processed transaction cache');
   }
 }
 

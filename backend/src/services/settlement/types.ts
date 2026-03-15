@@ -4,7 +4,7 @@
  * Types for detecting and matching settlements from EVM chains to invoices.
  */
 
-import { ChainConfig } from '../chain-registry/types';
+import { ChainConfig } from '../../lib/chain-registry';
 
 /**
  * Represents a matched settlement from an EVM chain
@@ -116,4 +116,4 @@ export interface SettlementDetectedEvent {
 /**
  * Re-export ChainConfig for use in detector implementation
  */
-export type { ChainConfig } from '../chain-registry/types';
+export type { ChainConfig } from '../../lib/chain-registry';

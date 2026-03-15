@@ -22,7 +22,7 @@ export class EvmSettlementDetector {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
     });
-    const json = await res.json();
+    const json = await res.json() as any;
     if (json.error) throw new Error(json.error.message);
     return json.result;
   }
@@ -56,7 +56,7 @@ export class EvmSettlementDetector {
         to: `0x${log.topics[2].slice(-40)}`,
         blockNumber: parseInt(log.blockNumber, 16),
         timestamp: block ? parseInt(block.timestamp, 16) : 0,
-        chain: this.chain.name
+        chain: this.chain.id
       });
     }
     return matches;

@@ -4,7 +4,6 @@ import { createPendingInvoice } from '../services/invoice';
 
 /**
  * Blacklisted email domains for spam prevention
- * Invoices cannot be created for merchants using these domains
  */
 const SPAM_DOMAINS = [
   'out.ndlz.net',
@@ -19,11 +18,20 @@ const SPAM_DOMAINS = [
   'yopmail.com',
 ] as const;
 
+/** EVM-compatible address format (0x + 40 hex chars) */
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+/** Supported chains for invoice payment */
+const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum'] as const;
+type SupportedChain = typeof SUPPORTED_CHAINS[number];
+
 export const createInvoiceSchema = z.object({
   amount: z.number().positive(),
-  currency: z.string().length(3),
+  currency: z.string().min(2).max(6),
   customerEmail: z.string().email(),
   customerName: z.string().min(1),
+  chain: z.enum(SUPPORTED_CHAINS).optional().default('base'),
+  paymentAddress: z.string().optional(),
   merchant: z.object({
     email: z.string().email(),
     name: z.string().min(1),
@@ -32,45 +40,26 @@ export const createInvoiceSchema = z.object({
 
 type CreateInvoiceBody = z.infer<typeof createInvoiceSchema>;
 
-/**
- * Extracts domain from an email address
- * @param email - The email address to extract domain from
- * @returns The domain part of the email or null if invalid
- */
 function extractDomainFromEmail(email: string): string | null {
   const parts = email.split('@');
   return parts.length === 2 ? parts[1].toLowerCase() : null;
 }
 
-/**
- * Checks if an email domain is in the spam blacklist
- * @param email - The email address to check
- * @returns True if the domain is blacklisted, false otherwise
- */
 function isSpamDomain(email: string): boolean {
   const domain = extractDomainFromEmail(email);
-  if (!domain) {
-    return false;
-  }
+  if (!domain) return false;
   return (SPAM_DOMAINS as readonly string[]).includes(domain);
 }
 
-/**
- * Logs blocked invoice creation attempts due to spam domains
- * @param merchantEmail - The merchant's email that was blocked
- * @param domain - The blacklisted domain
- */
 function logBlockedAttempt(merchantEmail: string, domain: string): void {
-  const timestamp = new Date().toISOString();
   console.log(
     JSON.stringify({
       level: 'warn',
-      timestamp,
+      timestamp: new Date().toISOString(),
       event: 'INVOICE_CREATION_BLOCKED',
       reason: 'SPAM_DOMAIN_DETECTED',
       merchantEmail,
       blockedDomain: domain,
-      message: `Invoice creation blocked: merchant email domain ${domain} is blacklisted`,
     })
   );
 }
@@ -83,30 +72,48 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { customerEmail, merchant } = parseResult.data;
+  const { amount, currency, customerEmail, customerName, chain, paymentAddress, merchant } = parseResult.data;
 
-  // Check if merchant email domain is blacklisted (if merchant info provided)
+  // Validate EVM address format when provided
+  if (paymentAddress && !EVM_ADDRESS_RE.test(paymentAddress)) {
+    res.status(400).json({
+      error: 'Invalid payment address',
+      message: 'Payment address must be a valid EVM address (0x + 40 hex characters)',
+    });
+    return;
+  }
+
+  // Check merchant domain blacklist
   if (merchant?.email) {
     const merchantDomain = extractDomainFromEmail(merchant.email);
-    
     if (merchantDomain && isSpamDomain(merchant.email)) {
       logBlockedAttempt(merchant.email, merchantDomain);
-      
       res.status(403).json({
         error: 'Invoice rejected',
-        message: `Cannot create invoice: merchant email domain "${merchantDomain}" is not allowed. Please use a valid business email address.`,
+        message: `Cannot create invoice: merchant email domain "${merchantDomain}" is not allowed.`,
       });
       return;
     }
   }
 
   try {
-    const invoice = await createPendingInvoice(parseResult.data);
+    const invoice = await createPendingInvoice({
+      amount,
+      currency,
+      customerEmail,
+      customerName,
+      paymentDetails: {
+        chain,
+        ...(paymentAddress ? { paymentAddress } : {}),
+      },
+    });
+
     res.status(201).json({
       id: invoice.id,
       number: 'INV-' + invoice.invoiceNumber,
       amount: Number(invoice.amount),
       currency: invoice.currency,
+      chain,
       status: invoice.status.toLowerCase(),
       customerEmail: invoice.customerEmail,
       customerName: invoice.customerName,

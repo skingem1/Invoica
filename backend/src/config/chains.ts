@@ -63,6 +63,17 @@ export const SUPPORTED_CHAINS: Map<string, ChainConfig> = new Map<string, ChainC
       isTestnet: false,
     },
   ],
+  [
+    'solana',
+    {
+      id: 'solana',
+      name: 'Solana',
+      rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+      usdcAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      explorerUrl: 'https://solscan.io',
+      isTestnet: false,
+    },
+  ],
 ]);
 
 /**

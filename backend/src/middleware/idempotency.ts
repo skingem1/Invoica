@@ -51,7 +51,8 @@ export function idempotencyMiddleware(): RequestHandler {
     // Cache hit: return cached response immediately
     const cached = responseCache.get(idempotencyKey);
     if (cached) {
-      return res.status(cached.statusCode).json(cached.body);
+      res.status(cached.statusCode).json(cached.body);
+      return;
     }
 
     // Cache miss: wrap res.json to capture and cache the response

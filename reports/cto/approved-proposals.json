@@ -78,8 +78,8 @@
       "category": "process_change",
       "approved_date": "2026-02-15",
       "priority": "next_sprint",
-      "implementation_status": "pending",
-      "verification_notes": "Not yet implemented. Execution-verifier script exists (II-001) but monitors file existence only, not agent health. Enhancement: add check for agents with empty output for 2+ consecutive sprints, pending task >1hr alert."
+      "implementation_status": "done",
+      "verification_notes": "Implemented 2026-03-15. Added two health checks to execution-verifier/prompt.md: (A) silent empty-output detection for agents with 2+ consecutive empty-output sprints, (B) stuck pending task detection >60min. Both output to agent_health section of daily verification report."
     },
     {
       "id": "CTO-20260217-003",

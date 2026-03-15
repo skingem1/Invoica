@@ -5,14 +5,14 @@ export const createInvoiceSchema = z.object({
   currency: z.string().min(3).max(3),
   description: z.string().max(500).optional(),
   customerId: z.string().uuid().optional(),
-  metadata: z.record(z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateInvoiceSchema = z
   .object({
     status: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
     description: z.string().max(500).optional(),
-    metadata: z.record(z.string()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided for update',

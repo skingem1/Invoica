@@ -41,7 +41,7 @@ export class InvalidStatusTransitionError extends Error {
  */
 export const CreateInvoiceInputSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
-  currency: z.string().length(3, 'Currency must be a 3-letter code').default('USD'),
+  currency: z.string().min(2).max(6).default('USD'),
   customerEmail: z.string().email('Invalid email address'),
   customerName: z.string().min(1, 'Customer name is required'),
   companyId: z.string().optional(),

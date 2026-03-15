@@ -49,7 +49,7 @@ export interface LocationInput {
  * @example
  * // EU customer with VAT number
  * getJurisdiction({ countryCode: 'DE', vatNumber: 'DE123456789' })
- * // Returns: TaxJurisdiction.EU_VAT
+ * // Returns: TaxJurisdiction.EU
  * 
  * @example
  * // US state not in our list
@@ -81,10 +81,10 @@ export function getJurisdiction(location: LocationInput): TaxJurisdiction {
   if (EU_COUNTRIES.has(normalizedCountry)) {
     // If buyer has valid VAT number, it's B2B reverse charge
     if (vatNumber && vatNumber.length > 0) {
-      return TaxJurisdiction.EU_VAT;
+      return TaxJurisdiction.EU;
     }
     // Otherwise, charge EU VAT
-    return TaxJurisdiction.EU_VAT;
+    return TaxJurisdiction.EU;
   }
 
   // No tax jurisdiction found

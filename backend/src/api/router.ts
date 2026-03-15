@@ -9,7 +9,7 @@ import { getDashboardActivity } from './dashboard-activity';
 import { getInvoicesWithSettlements } from './invoices-settlements';
 import { listApiKeys, createApiKey } from './api-keys-mock';
 import { listWebhooks, registerWebhook } from './webhooks-mock';
-import { AppError, ValidationError } from '../errors';
+import { ApiError, ValidationError } from '../errors';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -20,7 +20,7 @@ const router = Router();
 function validate<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new ValidationError('Invalid request data', result.error.errors);
+    throw new ValidationError('Invalid request data');
   }
   return result.data;
 }
@@ -82,7 +82,7 @@ router.use((_req: Request, res: Response, _next: NextFunction) => {
 router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   logger.error('Router error', { error: err.message, stack: err.stack });
 
-  if (err instanceof AppError) {
+  if (err instanceof ApiError) {
     res.status(err.statusCode).json({
       error: err.message,
       code: err.code,
@@ -93,7 +93,7 @@ router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof z.ZodError) {
     res.status(400).json({
       error: 'Validation error',
-      details: err.errors,
+      details: err.issues,
     });
     return;
   }

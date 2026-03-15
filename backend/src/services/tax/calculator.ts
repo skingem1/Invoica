@@ -5,8 +5,20 @@
  * Supports EU VAT (B2B reverse charge and B2C) and US sales tax (nexus-based).
  */
 
-import { TaxJurisdiction, TaxCalculationInput, TaxCalculationResult } from './types';
+import { TaxJurisdiction } from './types';
 import { getJurisdiction, LocationInput } from './location-resolver';
+
+interface TaxCalculationInput {
+  amount: number;
+  buyerLocation: LocationInput;
+}
+
+interface TaxCalculationResult {
+  taxRate: number;
+  taxAmount: number;
+  jurisdiction: TaxJurisdiction;
+  invoiceNote?: string;
+}
 
 /**
  * US Nexus Tax Rates
@@ -163,7 +175,7 @@ export function calculateTax(input: TaxCalculationInput): TaxCalculationResult {
       taxRate: 0,
       taxAmount: 0,
       jurisdiction: TaxJurisdiction.NONE,
-      note: 'Invalid amount'
+      invoiceNote: 'Invalid amount'
     };
   }
 
@@ -173,7 +185,7 @@ export function calculateTax(input: TaxCalculationInput): TaxCalculationResult {
     case TaxJurisdiction.US:
       return calculateUSTaxResult(amount, buyerLocation);
 
-    case TaxJurisdiction.EU_VAT:
+    case TaxJurisdiction.EU:
       return calculateEUVATResult(amount, buyerLocation);
 
     case TaxJurisdiction.NONE:
@@ -182,7 +194,7 @@ export function calculateTax(input: TaxCalculationInput): TaxCalculationResult {
         taxRate: 0,
         taxAmount: 0,
         jurisdiction: TaxJurisdiction.NONE,
-        note: 'No applicable tax jurisdiction'
+        invoiceNote: 'No applicable tax jurisdiction'
       };
   }
 }
@@ -198,7 +210,7 @@ function calculateUSTaxResult(amount: number, buyerLocation: LocationInput): Tax
     taxRate,
     taxAmount,
     jurisdiction: TaxJurisdiction.US,
-    note: taxRate > 0 
+    invoiceNote: taxRate > 0
       ? `Sales tax applied for ${buyerLocation.stateCode}`
       : 'No nexus in this state - no tax required'
   };
@@ -215,8 +227,8 @@ function calculateEUVATResult(amount: number, buyerLocation: LocationInput): Tax
     return {
       taxRate: 0,
       taxAmount: 0,
-      jurisdiction: TaxJurisdiction.EU_VAT,
-      note: 'Reverse charge - Art. 196 Council Directive 2006/112/EC'
+      jurisdiction: TaxJurisdiction.EU,
+      invoiceNote: 'Reverse charge - Art. 196 Council Directive 2006/112/EC'
     };
   }
 
@@ -227,8 +239,8 @@ function calculateEUVATResult(amount: number, buyerLocation: LocationInput): Tax
   return {
     taxRate,
     taxAmount,
-    jurisdiction: TaxJurisdiction.EU_VAT,
-    note: `EU VAT applied at ${(taxRate * 100).toFixed(1)}%`
+    jurisdiction: TaxJurisdiction.EU,
+    invoiceNote: `EU VAT applied at ${(taxRate * 100).toFixed(1)}%`
   };
 }
 

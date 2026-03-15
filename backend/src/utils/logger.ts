@@ -14,12 +14,13 @@ export interface LogMeta {
 
 /**
  * Logger interface defining the available logging methods
+ * Supports both string-first and pino-style object-first signatures
  */
 export interface Logger {
-  info(message: string, meta?: LogMeta): void;
-  warn(message: string, meta?: LogMeta): void;
-  error(message: string, meta?: LogMeta): void;
-  debug(message: string, meta?: LogMeta): void;
+  info(message: string | LogMeta, meta?: LogMeta): void;
+  warn(message: string | LogMeta, meta?: LogMeta): void;
+  error(message: string | LogMeta, meta?: LogMeta): void;
+  debug(message: string | LogMeta, meta?: LogMeta): void;
 }
 
 /**
@@ -77,8 +78,17 @@ function formatMessage(
  * @returns A logger function for the specified level
  */
 function createLogMethod(level: LogLevel) {
-  return (message: string, meta?: LogMeta): void => {
-    const formattedMessage = formatMessage(level, message, meta);
+  return (message: string | LogMeta, meta?: LogMeta): void => {
+    let msg: string;
+    let mergedMeta: LogMeta | undefined = meta;
+    if (typeof message === 'object') {
+      const { msg: msgField, ...rest } = message as { msg?: string } & LogMeta;
+      msg = msgField ?? level;
+      mergedMeta = Object.keys(rest).length > 0 ? { ...rest, ...meta } : meta;
+    } else {
+      msg = message;
+    }
+    const formattedMessage = formatMessage(level, msg, mergedMeta);
 
     switch (level) {
       case 'info':

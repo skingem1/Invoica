@@ -8,7 +8,7 @@ export async function getSettlement(req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
 
-    const settlement = await prisma.settlement.findUnique({
+    const settlement = await (prisma as any).settlement.findUnique({
       where: { id },
       include: {
         invoice: true,

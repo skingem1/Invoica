@@ -57,7 +57,7 @@ router.post('/v1/api-keys', async (req: Request, res: Response, next: NextFuncti
         error: {
           message: 'Validation failed',
           code: 'VALIDATION_ERROR',
-          details: err.errors,
+          details: err.issues,
         },
       });
       return;
@@ -87,7 +87,7 @@ router.get('/v1/api-keys', extractUserId, async (req: Request, res: Response, ne
  */
 router.post('/v1/api-keys/:id/rotate', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const keyId = req.params.id;
+    const keyId = req.params.id as string;
     const keyIdValidation = keyIdSchema.safeParse(keyId);
     if (!keyIdValidation.success) {
       res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });
@@ -115,7 +115,7 @@ router.post('/v1/api-keys/:id/rotate', async (req: Request, res: Response, next:
  */
 router.post('/v1/api-keys/:id/revoke', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const keyId = req.params.id;
+    const keyId = req.params.id as string;
     await updateApiKey(keyId, { isActive: false });
     res.status(200).json({ success: true });
   } catch (error) {
@@ -129,7 +129,7 @@ router.post('/v1/api-keys/:id/revoke', async (req: Request, res: Response, next:
  */
 router.delete('/v1/api-keys/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const keyId = req.params.id;
+    const keyId = req.params.id as string;
     const keyIdValidation = keyIdSchema.safeParse(keyId);
     if (!keyIdValidation.success) {
       res.status(400).json({ error: 'Invalid Request', message: 'Invalid key ID format' });
@@ -152,7 +152,7 @@ router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     res.status(400).json({
       error: 'VALIDATION_ERROR',
       message: 'Invalid request data',
-      details: err.errors,
+      details: err.issues,
     });
     return;
   }

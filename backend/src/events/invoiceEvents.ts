@@ -3,11 +3,11 @@
 import { redis } from '../lib/redis';
 
 export type InvoiceEventType =
-  | invoice.created
-  | invoice.updated
-  | invoice.paid
-  | invoice.settled
-  | invoice.cancelled;
+  | 'invoice.created'
+  | 'invoice.updated'
+  | 'invoice.paid'
+  | 'invoice.settled'
+  | 'invoice.cancelled';
 
 export interface InvoiceEventPayload {
   invoiceId: string;
@@ -35,7 +35,7 @@ export async function createInvoiceEvent(
   };
 
   try {
-    await redis.publish(invoice-events, JSON.stringify(event));
+    await redis.publish('invoice-events', JSON.stringify(event));
   } catch {
     // Redis not configured or unavailable — log locally and continue
     console.log(`[InvoiceEvent] ${eventType}`, JSON.stringify(payload));

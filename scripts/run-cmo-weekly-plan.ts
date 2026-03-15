@@ -215,7 +215,7 @@ function getCtoShippedReport(): string {
 }
 
 // ── Context gathering ─────────────────────────────────────────────────────────
-function gatherContext(): { soul: string; recentCommits: string; marketWatch: string; shippedFeatures: string; ctoShippedReport: string } {
+function gatherContext(): { soul: string; recentCommits: string; marketWatch: string; shippedFeatures: string; ctoShippedReport: string; xGuidelines: string } {
   const soul = fs.existsSync(SOUL_FILE) ? fs.readFileSync(SOUL_FILE, 'utf-8').slice(0, 1500) : '';
 
   let recentCommits = '';

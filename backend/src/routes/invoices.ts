@@ -46,7 +46,7 @@ function mapInvoice(inv: any) {
  */
 router.get('/v1/invoices/number/:number', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const invoiceNumber = parseInt(req.params.number, 10);
+    const invoiceNumber = parseInt(req.params.number as string, 10);
     if (isNaN(invoiceNumber) || invoiceNumber <= 0) {
       res.status(400).json({
         success: false,

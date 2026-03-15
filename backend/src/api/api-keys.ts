@@ -30,7 +30,7 @@ export async function createApiKeyHandler(
 
     const result = await createApiKey(parseResult.data);
     
-    sendWelcomeEmail(parseResult.data.email ?? '', (result.key ?? '').slice(0, 8)).catch(() => {});
+    sendWelcomeEmail(parseResult.data.customerEmail ?? '', (result.key ?? '').slice(0, 8)).catch(() => {});
     
     res.status(201).json(result);
   } catch (error) {
@@ -70,7 +70,7 @@ export async function revokeApiKeyHandler(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id) {
       res.status(400).json({ error: 'API key ID is required' });
@@ -93,7 +93,7 @@ export async function rotateApiKeyHandler(
   res: Response
 ): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id) {
       res.status(400).json({ error: 'API key ID is required' });

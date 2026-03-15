@@ -32,7 +32,7 @@ export function errorHandler(
       error: {
         message: 'Validation failed',
         code: 'VALIDATION_ERROR',
-        details: err.errors.map((e) => ({
+        details: err.issues.map((e) => ({
           path: e.path.join('.'),
           message: e.message
         }))
