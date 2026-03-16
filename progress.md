@@ -845,3 +845,14 @@
 - Health check post: 146/146 suites, 1261/1261 tests — ALL PASS
 - Notes: Queries AgentReputation with 30-day updatedAt filter; returns single-entry or empty history array
 - Timestamp: 2026-03-16T17:20:00Z
+
+## Sprint 072 — DASHBOARD-REFRESH-001
+- Status: PASS
+- Branch: sprint-072-dashboard-refresh-001 → merged to main
+- Commit: 79de69f
+- Files modified: frontend/app/dashboard/page.tsx ('use client' + useEffect polling), .env.example (NEXT_PUBLIC_DASHBOARD_POLL_INTERVAL_MS=30000)
+- Tests: backend 146/146 suites, 1261/1261 — ALL PASS (frontend no Jest tests)
+- Health check pre: ✅ infra healthy
+- Health check post: 146/146 suites, 1261/1261 — ALL PASS
+- Notes: Week-84 ALL DONE (5/5 tasks complete). Need week-85 backlog.
+- Timestamp: 2026-03-16T17:30:00Z

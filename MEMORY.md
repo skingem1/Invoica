@@ -137,18 +137,17 @@
 - DASHBOARD-ACTIVITY-001 ✅ (Sprint 046), UTILS-TASK-VALID-001 ✅ (Sprint 046)
 - WEBHOOK-EVENTS-001 pending, API-ROUTER-001 pending, DASHBOARD-ACTIVITY-001 ✅
 
-## Next Sprint: Sprint 072
-- REP-HISTORY-001 ✅ (Sprint 071) — GET /v1/reputation/:agentId/history + 5 tests
-- MILESTONE: 1261 tests across 146 suites
-- Week-84 backlog remaining: DASHBOARD-REFRESH-001
-- Next priority: DASHBOARD-REFRESH-001 (frontend polling interval config)
+## Week-84 Status — ALL DONE ✅
+- INVOICE-SCHEMA-EDGE-001 ✅ (Sprint 068), INVOICE-EXPORT-001 ✅ (Sprint 069)
+- HEALTH-DETAIL-001 ✅ (Sprint 070), REP-HISTORY-001 ✅ (Sprint 071)
+- DASHBOARD-REFRESH-001 ✅ (Sprint 072)
 
-## Current State (2026-03-16 — Sprint 071)
-- **Git**: 3c692b3 on main, pushed to origin (clean)
+## Current State (2026-03-16 — Sprint 072)
+- **Git**: 79de69f on main, pushed to origin (clean)
 - **Tests**: 146/146 suites, 1261/1261 tests — ALL PASS
 - **New endpoints**: GET /v1/health/detailed + GET /v1/reputation/:agentId/history LIVE
-- **Backend port**: 3001. Health: /v1/health (basic) + /v1/health/detailed (with openclaw)
-- **Week-84**: INVOICE-SCHEMA-EDGE-001 ✅, INVOICE-EXPORT-001 ✅, HEALTH-DETAIL-001 ✅, REP-HISTORY-001 ✅
+- **Frontend**: Dashboard page now polls every NEXT_PUBLIC_DASHBOARD_POLL_INTERVAL_MS ms (default 30s)
+- **Next**: Need new week-85 sprint backlog
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

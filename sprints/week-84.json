@@ -39,8 +39,8 @@
       "title": "Dashboard polling interval configuration",
       "description": "Add DASHBOARD_POLL_INTERVAL_MS env var (default 30000) to control how often the frontend dashboard auto-refreshes. Update .env.example. Update frontend/app/dashboard/page.tsx to use the interval. File: .env.example + frontend/app/dashboard/page.tsx (or wherever SWR/polling is configured).",
       "file": "frontend/app/dashboard/page.tsx",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": "072"
     }
   ]
 }
