@@ -1275,3 +1275,13 @@
 - Health check post: 224/224 suites, 1654/1654 tests — ALL PASS
 - Notes: Groups by companyId with settled breakdown; ?limit= capped at 50
 - Timestamp: 2026-03-16T21:30:00Z
+## Sprint 151 — SETTLEMENTS-ANALYTICS-001
+- Status: PASS
+- Branch: sprint-151-settlements-analytics-001 → merged to main
+- Commit: 0ff2483
+- Files created: backend/src/routes/__tests__/settlements-analytics.test.ts
+- Files modified: backend/src/routes/settlements.ts (+GET /v1/settlements/analytics before /:id)
+- Tests: 5 new tests (200-returns-shape, 200-correct-aggregates, 200-empty-state, 200-single-item, 500-db-error) — PASS
+- Health check post: 225/225 suites, 1664/1664 tests — ALL PASS
+- Notes: Hotfix: registered before /:id to avoid param capture. Removed duplicate endpoint at bottom.
+- Timestamp: 2026-03-16T21:45:00Z
