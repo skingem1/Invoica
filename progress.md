@@ -710,3 +710,12 @@
 - Tests: 10 new tests — all 6 branching paths: schema fail, EVM address, Solana address, programId, tokenMint, EVM-only guard, spam domain 403, success 201, Solana defaults, 500 service throw
 - Note: existing schema tests (invoices-create-schema.test.ts, invoices-create-solana.test.ts) already covered Zod layer — this sprint covers the handler execution layer
 - Timestamp: 2026-03-16T17:20:00Z
+
+## Sprint 060 — TELEGRAM-CUSTOMER-001 (customerBot unit tests)
+- Status: PASS
+- Branch: sprint-060-telegram-customer-001 → merged to main
+- Commit: 7332e08
+- Files created: backend/src/telegram/__tests__/customerBot.test.ts
+- Tests: 8 new tests — skip no token, /start /pricing /docs /help commands, free-text MiniMax reply, empty MiniMax fallback, empty updates no POST
+- Approach: jest.mock('https') + jest.isolateModules per test (fresh module per env) + setImmediate spy to stop poll loop + queueResponse helper for chained https.request mocks
+- Timestamp: 2026-03-16T17:45:00Z
