@@ -309,6 +309,46 @@ router.get('/v1/invoices/stats/void', async (_req: Request, res: Response, next:
 });
 
 /**
+ * GET /v1/invoices/stats/payment-lag
+ * Time-to-payment stats for settled invoices: avgLagMs, medianLagMs, minLagMs, maxLagMs, avgLagHours.
+ * Returns null values when no settled invoices exist.
+ */
+router.get('/v1/invoices/stats/payment-lag', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('createdAt, settledAt, completedAt')
+      .in('status', ['SETTLED', 'COMPLETED']);
+    if (error) throw error;
+
+    const lags: number[] = [];
+    for (const row of (data || [])) {
+      const settled = row.settledAt || row.completedAt;
+      if (settled) {
+        const lag = new Date(settled).getTime() - new Date(row.createdAt).getTime();
+        if (lag >= 0) lags.push(lag);
+      }
+    }
+
+    if (lags.length === 0) {
+      return res.json({ success: true, data: { count: 0, avgLagMs: null, medianLagMs: null, minLagMs: null, maxLagMs: null, avgLagHours: null } });
+    }
+
+    lags.sort((a, b) => a - b);
+    const total = lags.length;
+    const avgLagMs = Math.round(lags.reduce((s, l) => s + l, 0) / total);
+    const mid = Math.floor(total / 2);
+    const medianLagMs = total % 2 === 0 ? Math.round((lags[mid - 1] + lags[mid]) / 2) : lags[mid];
+    const minLagMs = lags[0];
+    const maxLagMs = lags[total - 1];
+    const avgLagHours = Math.round((avgLagMs / 3600000) * 100) / 100;
+
+    res.json({ success: true, data: { count: total, avgLagMs, medianLagMs, minLagMs, maxLagMs, avgLagHours } });
+  } catch (err) { next(err); }
+});
+
+/**
  * GET /v1/invoices/stats/by-company
  * Invoice stats grouped by companyId: count, totalAmount, settledCount, settledAmount.
  * Sorted by totalAmount desc. Optional ?limit= (default 10, max 50).
