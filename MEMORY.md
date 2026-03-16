@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: f118149 on main, pushed to origin (clean)
-- **Tests**: 82/82 suites, 510/510 tests — ALL PASS
+- **Git**: 22eda17 on main, pushed to origin (clean)
+- **Tests**: 84/84 suites, 552/552 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
 - **OpenClaw**: Stable (v2026.3.13, port 18789 WebSocket)
@@ -39,6 +39,7 @@
 18. HF-006 — flock mutex in backend-wrapper.sh (prevents parallel wrapper race on port 3001)
 19. Sprint 013 — Reputation API: fix agentId→companyId query + env var consistency + 4 route tests (8fd5e88)
 20. Sprint 014 — Route coverage: add tests for admin, ledger, ai-inference, gas-backstop (f118149)
+21. Sprint 015 — Service unit tests: tax calculator (28 tests) + reputation scoring (14 tests) (22eda17)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured — non-blocking)
@@ -72,9 +73,13 @@
 - 14 new tests — all route files now have coverage
 - Tests: 82/82 suites, 510/510 pass
 
-## Next Sprint: Sprint 015
-- All route files covered with tests
-- All week-76 tasks done, Sprints 012-014 complete
+## Sprint 015 — COMPLETE
+- services/tax/__tests__/calculator.test.ts: 28 tests for calculateTax(), calculateUSTax(), calculateEUVAT(), hasUSNexus(), getUSNexusRate(), calculateNoTax()
+- services/__tests__/reputation.test.ts: 14 tests for computeAndStoreReputation() — score algorithm, tier boundaries, bonus caps, status handling, error propagation
+- Tests: 84/84 suites, 552/552 pass (42 new tests)
+
+## Next Sprint: Sprint 016
+- All service unit tests complete
 - Next priority: create week-77.json with new feature tasks (Agent Marketplace or invoice improvements)
 
 ## V17 + Solana Migration — COMPLETE

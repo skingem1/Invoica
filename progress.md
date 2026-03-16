@@ -172,3 +172,15 @@
 - Tests: 82/82 suites, 510/510 — ALL PASS (14 new tests)
 - Notes: All route files now have test coverage
 - Timestamp: 2026-03-16T13:20:00Z
+
+## Sprint 015 — Service Unit Tests (Tax Calculator + Reputation Scoring)
+- Status: PASS
+- Branch: sprint-015-service-unit-tests → merged to main
+- Commit: 22eda17
+- Files created: backend/src/services/tax/__tests__/calculator.test.ts, backend/src/services/__tests__/reputation.test.ts
+- Files modified: None (test-only sprint)
+- Tests: 84/84 suites, 552/552 — ALL PASS (42 new tests: 28 tax calculator + 14 reputation)
+- Health check pre: ✅ Backend OK, DB OK, disk 19%
+- Health check post: (running next)
+- Issues: None
+- Timestamp: 2026-03-16T13:35:00Z
