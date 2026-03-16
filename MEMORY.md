@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: e4fd741 on main, pushed to origin (clean)
-- **Tests**: 104/104 suites, 825/825 tests — ALL PASS
+- **Git**: da5c10c on main, pushed to origin (clean)
+- **Tests**: 105/105 suites, 835/835 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
 - **OpenClaw**: Stable (v2026.3.13, port 18789 WebSocket)
@@ -62,6 +62,7 @@
 41. Sprint 035 — graceful-shutdown coverage: 4 new tests (server error, onShutdown error, custom config, log msg) (ab3df0e)
 42. Sprint 036 — logger coverage: 5 new tests (production JSON, dev meta, pino-style messages) (caddf66)
 43. Sprint 037 — week-80.json + 4 new test suites: apiKeyAuth (12), lib/errors (12), chain-registry (13), chain-validator (11) = 48 tests (e4fd741)
+44. Sprint 038 — API-INVOICES-LIST-001: listInvoices unit tests (10 tests: response shape, pagination, empty, error) (da5c10c)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured — non-blocking)
@@ -121,17 +122,16 @@
 ## Week-79 Status — ALL DONE ✅
 - ORCH-CONFIG-001, API-REPO-001, SETTLE-POLL-001 — all complete (Sprints 030-032)
 
-## Next Sprint: Sprint 038
-- week-80 in progress: MIDDLEWARE-AUTH-001 ✅, LIB-ERRORS-001 ✅, LIB-CHAIN-REG-001 ✅, LIB-CHAIN-VAL-001 ✅
-- Remaining week-80 task: API-INVOICES-LIST-001 (api/invoices-list.ts tests)
-- After week-80 complete: candidates include middleware/x402.ts tests, services/orchestrator.ts, vat-validator.ts
+## Next Sprint: Sprint 039
+- week-80 COMPLETE ✅ (all 5 tasks done across Sprints 037-038)
+- Next: create week-81.json — candidates: middleware/x402.ts (EVM payment middleware), services/orchestrator.ts (279 lines, most complex, untested), services/tax/vat-validator.ts (346 lines), services/settlement/evm-detector.ts
 
-## Week-80 Status — IN PROGRESS
+## Week-80 Status — ALL DONE ✅
 - MIDDLEWARE-AUTH-001 ✅ (Sprint 037)
 - LIB-ERRORS-001 ✅ (Sprint 037)
 - LIB-CHAIN-REG-001 ✅ (Sprint 037)
 - LIB-CHAIN-VAL-001 ✅ (Sprint 037)
-- API-INVOICES-LIST-001 pending
+- API-INVOICES-LIST-001 ✅ (Sprint 038)
 
 ## V17 + Solana Migration — COMPLETE
 - All 4 V17 sprints COMPLETE

@@ -445,3 +445,16 @@
 - Health check post: ✅ 104/104 suites, 825/825 tests
 - Issues: Worker graceful-exit warning (pre-existing open handles, not new)
 - Timestamp: 2026-03-16T19:15:00Z
+
+## Sprint 038 — API-INVOICES-LIST-001 (invoices-list unit tests)
+- Status: PASS
+- Branch: sprint-038-invoices-list-tests → merged to main
+- Commit: da5c10c
+- Files created: backend/src/api/__tests__/invoices-list.test.ts
+- Files modified: None
+- Tests: 105/105 suites, 835/835 — ALL PASS (10 new tests)
+- Coverage added: listInvoices response shape, INV- number prefix, status lowercasing, pagination defaults, empty result, 500 error handling
+- Health check pre: ✅ 104/104 suites, 825/825
+- Health check post: ✅ 105/105 suites, 835/835
+- Issues: None
+- Timestamp: 2026-03-16T19:25:00Z
