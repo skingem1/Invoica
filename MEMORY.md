@@ -1,7 +1,7 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: b9efabd on main, pushed to origin (clean)
+- **Git**: 87a6ea0 on main, pushed to origin (clean)
 - **Tests**: 94/94 suites, 654/654 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
@@ -48,6 +48,7 @@
 27. Sprint 021 — ENFORCE-001: enforcement.ts unit tests — 13 tests covering all 7 exported functions (665c436)
 28. Sprint 022 — REP-002: GET /v1/reputation/leaderboard (tier filter, limit cap, rank field) + 5 tests (bb5df43)
 29. Sprint 023 — SETTLE-002: GET /v1/settlements/summary (chain grouping, volume totals) + 3 tests (b9efabd)
+30. Sprint 024 — week-78.json created: 5 tasks queued (TASK-VALID-001, API-KEY-001, API-ROTATE-001, REP-003, SETTLE-004) (87a6ea0)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured — non-blocking)
@@ -96,9 +97,9 @@
 ## Week-77 Status — ALL DONE ✅
 - INVOICE-002, INVOICE-003, REP-002, ENFORCE-001, SETTLE-002 — all complete (Sprints 019-023)
 
-## Next Sprint: Sprint 024
-- week-77 fully complete — need to create week-78.json with next sprint plan
-- Priority candidates: Reputation Scoring API (Priority 1 in SOUL.md), Agent Marketplace groundwork, API auth middleware tests, frontend dashboard enhancements
+## Next Sprint: Sprint 025
+- week-78.json exists with 5 pending tasks
+- Next: TASK-VALID-001 (easy — pure function tests) or API-KEY-001 (critical auth tests)
 
 ## V17 + Solana Migration — COMPLETE
 - All 4 V17 sprints COMPLETE
