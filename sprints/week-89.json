@@ -23,8 +23,8 @@
       "title": "GET /v1/agents/:agentId — combined agent profile",
       "description": "New route file: backend/src/routes/agents.ts. Returns combined profile: { agentId, reputation: { score, tier } | null, invoices: { total, byStatus }, totalValueSettled }. Register in app.ts. Tests: 200-full-profile, 200-no-reputation, 200-no-invoices, 404-agent-not-found (if 0 invoices AND no reputation), 500-db-error.",
       "file": "backend/src/routes/agents.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 90
     },
     {
       "id": "WEBHOOK-EVENTS-LIST-001",

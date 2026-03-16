@@ -17,6 +17,7 @@ import reputationRoutes from './routes/reputation';
 import reputationHistoryRoutes from './routes/reputation-history';
 import metricsRoutes from './routes/metrics';
 import taxRoutes from './routes/tax';
+import agentRoutes from './routes/agents';
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use(reputationRoutes);
 app.use(reputationHistoryRoutes);
 app.use(metricsRoutes);
 app.use(taxRoutes);
+app.use(agentRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { message: 'Not found', code: 'NOT_FOUND' } });
