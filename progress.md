@@ -959,3 +959,14 @@
 - Health check post: 156/156 suites, 1319/1319 tests — ALL PASS
 - Notes: Merges metadata into existing paymentDetails JSON, max 20 keys validation
 - Timestamp: 2026-03-16T19:15:00Z
+
+## Sprint 083 — METRICS-AGENT-001
+- Status: PASS
+- Branch: sprint-083-metrics-agent-001 → merged to main
+- Commit: d952c54
+- Files created: backend/src/routes/__tests__/metrics-agent.test.ts
+- Files modified: backend/src/routes/metrics.ts (+GET /v1/metrics/agent/:agentId)
+- Tests: 4 new tests (200-full, 200-null-rep, 200-zero, 500-error) — PASS
+- Health check post: 157/157 suites, 1323/1323 tests — ALL PASS
+- Notes: week-87 ALL DONE. Per-agent metrics: invoice counts, totalValueSettled, reputation snapshot.
+- Timestamp: 2026-03-16T19:25:00Z

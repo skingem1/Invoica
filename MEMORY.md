@@ -149,15 +149,15 @@
 ## Week-86 Status — ALL DONE ✅
 - All 5 tasks done (4 pre-existing + Sprint 078)
 
-## Week-87 Status — IN PROGRESS
+## Week-87 Status — ALL DONE ✅
 - INVOICE-BY-ID-TESTS-001 ✅ (Sprint 079), ORACLE-SCORES-TESTS-001 ✅ (Sprint 080), WEBHOOK-PING-001 ✅ (Sprint 081)
-- INVOICE-METADATA-001 ✅ (Sprint 082), METRICS-AGENT-001 pending
+- INVOICE-METADATA-001 ✅ (Sprint 082), METRICS-AGENT-001 ✅ (Sprint 083)
 
-## Current State (2026-03-16 — Sprint 082)
-- **Git**: d278ce0 on main, pushed to origin (clean)
-- **Tests**: 156/156 suites, 1319/1319 tests — ALL PASS
-- **New endpoints**: POST /v1/webhooks/:id/test + PATCH /v1/invoices/:id/metadata LIVE
-- **Next priority**: METRICS-AGENT-001
+## Current State (2026-03-16 — Sprint 083)
+- **Git**: d952c54 on main, pushed to origin (clean)
+- **Tests**: 157/157 suites, 1323/1323 tests — ALL PASS
+- **New endpoints this week**: POST /v1/webhooks/:id/test, PATCH /v1/invoices/:id/metadata, GET /v1/metrics/agent/:agentId
+- **Next**: Need week-88 backlog
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
