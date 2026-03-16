@@ -39,8 +39,8 @@
       "title": "GET /v1/metrics/compare — compare two time periods",
       "description": "New endpoint: GET /v1/metrics/compare?period1Start=&period1End=&period2Start=&period2End=. Returns invoice counts for both periods side by side: { period1: { from, to, invoiceCount, settlementCount }, period2: { from, to, invoiceCount, settlementCount }, delta: { invoiceCount, settlementCount } }. Tests: 200-with-both-periods, 200-positive-delta, 200-negative-delta, 400-missing-params, 500-db-error. File: backend/src/routes/metrics.ts (add new route) + tests.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 92
     }
   ]
 }

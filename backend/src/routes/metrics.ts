@@ -108,4 +108,56 @@ router.get('/v1/metrics/agent/:agentId', async (req: Request, res: Response): Pr
   }
 });
 
+/**
+ * GET /v1/metrics/compare
+ * Compare invoice and settlement counts across two time periods.
+ * Query params: period1Start, period1End, period2Start, period2End (ISO strings)
+ */
+router.get('/v1/metrics/compare', async (req: Request, res: Response): Promise<void> => {
+  const { period1Start, period1End, period2Start, period2End } = req.query as Record<string, string>;
+
+  if (!period1Start || !period1End || !period2Start || !period2End) {
+    res.status(400).json({
+      success: false,
+      error: { message: 'period1Start, period1End, period2Start, and period2End are all required', code: 'MISSING_PARAMS' },
+    });
+    return;
+  }
+
+  try {
+    const sb = getSb();
+
+    const [p1Res, p2Res] = await Promise.all([
+      sb.from('Invoice').select('status').gte('createdAt', period1Start).lte('createdAt', period1End),
+      sb.from('Invoice').select('status').gte('createdAt', period2Start).lte('createdAt', period2End),
+    ]);
+
+    if (p1Res.error) throw p1Res.error;
+    if (p2Res.error) throw p2Res.error;
+
+    const p1Invoices = p1Res.data || [];
+    const p2Invoices = p2Res.data || [];
+
+    const SETTLED_STATUSES = ['SETTLED', 'COMPLETED'];
+    const p1InvoiceCount = p1Invoices.length;
+    const p1SettlementCount = p1Invoices.filter((r: { status: string }) => SETTLED_STATUSES.includes(r.status)).length;
+    const p2InvoiceCount = p2Invoices.length;
+    const p2SettlementCount = p2Invoices.filter((r: { status: string }) => SETTLED_STATUSES.includes(r.status)).length;
+
+    res.json({
+      success: true,
+      data: {
+        period1: { from: period1Start, to: period1End, invoiceCount: p1InvoiceCount, settlementCount: p1SettlementCount },
+        period2: { from: period2Start, to: period2End, invoiceCount: p2InvoiceCount, settlementCount: p2SettlementCount },
+        delta: {
+          invoiceCount: p2InvoiceCount - p1InvoiceCount,
+          settlementCount: p2SettlementCount - p1SettlementCount,
+        },
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
 export default router;
