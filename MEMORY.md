@@ -1,7 +1,7 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 6a2bcf0 on main, pushed to origin
+- **Git**: dd1529a on main, pushed to origin
 - **Tests**: 76/76 suites, 481/481 tests — ALL PASS
 - **TypeScript**: 0 source errors (6 in node_modules/ox — skipLibCheck)
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected
@@ -26,6 +26,7 @@
 6. Sprint 006 — Solana x402 adapter + OpenClaw fix + task status sync
 7. Sprint 007 — Low-score pattern monitoring script (MONITOR-001)
 8. Sprint 008 — Agent health monitoring assessment (CTO-20260217-002 — already done)
+9. Sprint 009 — Backend PM2 stability fix (removed cron restart loop)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured)
