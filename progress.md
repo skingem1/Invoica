@@ -288,3 +288,15 @@
 - Tasks queued: TASK-VALID-001 (task validator tests), API-KEY-001 (api-keys pure fn tests), API-ROTATE-001 (rotation service tests), REP-003 (leaderboard disputeRate), SETTLE-004 (settlement summary edge cases)
 - NOTE: Week-77 fully complete (5/5 tasks), week-78 queued
 - Timestamp: 2026-03-16T15:50:00Z
+
+## Sprint 025 — Task Complexity Validator Tests (TASK-VALID-001)
+- Status: PASS
+- Branch: sprint-025-task-validator-tests → merged to main
+- Commit: 15e30fe
+- Files created: backend/src/services/__tests__/task-complexity-validator.test.ts (14 tests)
+- Files modified: None (test-only sprint)
+- Tests: 95/95 suites, 668/668 — ALL PASS (14 new tests)
+- Health check pre: ✅ 94/94 suites, disk 80% free
+- Health check post: ✅ 95/95 suites, disk 80% free
+- Issues: None — clean pure-function tests, no mocks needed
+- Timestamp: 2026-03-16T16:00:00Z

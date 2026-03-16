@@ -7,7 +7,7 @@
       "priority": "high",
       "dependencies": [],
       "description": "Add unit tests for task-complexity-validator.ts — emergency killswitch + pattern validation",
-      "context": "backend/src/services/task-complexity-validator.ts is the emergency orchestration killswitch (EMERGENCY_SUSPEND_ORCHESTRATION boolean) and validates task inputs for suspicious patterns. It is pure business logic with no I/O — easy to test comprehensively.\n\nFirst READ the file fully before writing tests.\n\nCREATE: backend/src/services/__tests__/task-complexity-validator.test.ts (max 150 lines)\n\nTest targets (derive from reading the file):\n1. validateTask() with ORCH- prefixed task ID returns blocked when killswitch enabled\n2. validateTask() with AGENT-034- prefixed task ID returns blocked\n3. validateTask() with 'orchestrat' keyword in description returns blocked\n4. validateTask() with auto_decomposed=true bypasses pattern checks — returns allowed\n5. validateTask() with normal task ID and clean description returns allowed\n6. EMERGENCY_SUSPEND_ORCHESTRATION constant exists and is a boolean\n7. Case sensitivity: 'Orchestrate' in description is still caught (lowercase check)\n8. Empty task ID and description — should not crash, returns allowed or blocked depending on implementation\n\nMock strategy: none needed — this is pure function logic with no external dependencies.\nPattern: import { validateTask, EMERGENCY_SUSPEND_ORCHESTRATION } from '../task-complexity-validator';\n\nMin: 8 tests. Read the file first to discover all edge cases.",
+      "context": "DONE — Sprint 025 (15e30fe). 14 tests covering killswitch, ORCH-* blocking, AGENT-034-* blocking, keyword matching, auto-decomposed bypass.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -15,7 +15,7 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved"
     },
     {
       "id": "API-KEY-001",
