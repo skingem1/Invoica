@@ -10,6 +10,7 @@ import ledgerRoutes from './routes/ledger';
 import adminRoutes from './routes/admin';
 import gasBackstopRouter from './routes/gas-backstop';
 import reputationRoutes from './routes/reputation';
+import taxRoutes from './routes/tax';
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use(ledgerRoutes);
 app.use(adminRoutes);
 app.use(gasBackstopRouter);
 app.use(reputationRoutes);
+app.use(taxRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { message: 'Not found', code: 'NOT_FOUND' } });

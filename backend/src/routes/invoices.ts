@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { calculateTax } from '../services/tax/calculator';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ function mapInvoice(inv: any) {
       paidBy: pd.paidBy || null,
       ...pd,
     },
+    tax: pd.tax || null,
     settledAt: inv.settledAt,
     completedAt: inv.completedAt,
     createdAt: inv.createdAt,
@@ -169,6 +171,9 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
       paymentAddress,
       programId,
       tokenMint,
+      buyerCountryCode,
+      buyerStateCode,
+      buyerVatNumber,
     } = req.body;
 
     if (!customerEmail || typeof customerEmail !== 'string') {
@@ -222,11 +227,32 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
     }
 
     // Build paymentDetails with chain context
-    const paymentDetails: Record<string, string> = { chain };
+    const paymentDetails: Record<string, any> = { chain };
     if (paymentAddress) paymentDetails.paymentAddress = paymentAddress;
     if (chain === 'solana') {
       paymentDetails.programId = programId || SOLANA_TOKEN_PROGRAM;
       paymentDetails.tokenMint = tokenMint || SOLANA_USDC_MINT;
+    }
+
+    // Wire tax calculation when buyer location is provided
+    if (buyerCountryCode && typeof buyerCountryCode === 'string') {
+      const taxResult = calculateTax({
+        amount: Number(amount),
+        buyerLocation: {
+          countryCode: buyerCountryCode,
+          stateCode: buyerStateCode,
+          vatNumber: buyerVatNumber,
+        },
+      });
+      paymentDetails.tax = {
+        taxRate: taxResult.taxRate,
+        taxAmount: taxResult.taxAmount,
+        jurisdiction: taxResult.jurisdiction,
+        invoiceNote: taxResult.invoiceNote || null,
+        buyerCountryCode,
+        buyerStateCode: buyerStateCode || null,
+        buyerVatNumber: buyerVatNumber || null,
+      };
     }
 
     const sb = getSupabase();
