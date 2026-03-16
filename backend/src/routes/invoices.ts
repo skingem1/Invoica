@@ -117,27 +117,51 @@ router.get('/v1/invoices/:id', async (req: Request, res: Response, next: NextFun
   }
 });
 
+const VALID_SORT_FIELDS = ['createdAt', 'amount', 'updatedAt'];
+
+function buildInvoiceFilters(query: any, params: {
+  status?: string; customerEmail?: string; companyId?: string; chain?: string;
+  fromDate?: string; toDate?: string; minAmount?: string; maxAmount?: string;
+}): any {
+  if (params.status) query = query.eq('status', params.status.toUpperCase());
+  if (params.customerEmail) query = query.eq('customerEmail', params.customerEmail);
+  if (params.companyId) query = query.eq('companyId', params.companyId);
+  if (params.fromDate) query = query.gte('createdAt', params.fromDate);
+  if (params.toDate) query = query.lte('createdAt', params.toDate);
+  if (params.minAmount) query = query.gte('amount', parseFloat(params.minAmount));
+  if (params.maxAmount) query = query.lte('amount', parseFloat(params.maxAmount));
+  if (params.chain) query = query.contains('paymentDetails', { network: params.chain.toLowerCase() });
+  return query;
+}
+
 /**
  * GET /v1/invoices
  * List invoices with pagination and optional filters.
- * Query params: status, customerEmail, limit (max 100), offset
+ * Query params: status, customerEmail, companyId, chain, from, to, minAmount, maxAmount,
+ *               sortBy (createdAt|amount|updatedAt), sortDir (asc|desc), limit (max 100), offset
  */
 router.get('/v1/invoices', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string || '20', 10) || 20, 100);
     const offset = parseInt(req.query.offset as string || '0', 10) || 0;
-    const status = req.query.status as string | undefined;
-    const customerEmail = req.query.customerEmail as string | undefined;
+    const sortBy = VALID_SORT_FIELDS.includes(req.query.sortBy as string) ? req.query.sortBy as string : 'createdAt';
+    const sortDir = (req.query.sortDir as string) === 'asc';
 
     const sb = getSupabase();
-    let query = sb
-      .from('Invoice')
-      .select(SELECT_FIELDS, { count: 'exact' })
-      .order('createdAt', { ascending: false })
-      .range(offset, offset + limit - 1);
+    let query: any = sb.from('Invoice').select(SELECT_FIELDS, { count: 'exact' });
 
-    if (status) query = query.eq('status', status.toUpperCase());
-    if (customerEmail) query = query.eq('customerEmail', customerEmail);
+    query = buildInvoiceFilters(query, {
+      status: req.query.status as string | undefined,
+      customerEmail: req.query.customerEmail as string | undefined,
+      companyId: req.query.companyId as string | undefined,
+      chain: req.query.chain as string | undefined,
+      fromDate: req.query.from as string | undefined,
+      toDate: req.query.to as string | undefined,
+      minAmount: req.query.minAmount as string | undefined,
+      maxAmount: req.query.maxAmount as string | undefined,
+    });
+
+    query = query.order(sortBy, { ascending: sortDir }).range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
     if (error) throw error;
