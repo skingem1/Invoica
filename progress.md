@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 143 — INVOICE-VOID-STATS-001
+- Status: PASS | Commit: b202378 | Branch: sprint-143-invoice-void-stats → main | Tests: 5/5 | Files: invoices.ts +32 lines, invoice-stats-void.test.ts (new), week-100.json (new) | Note: GET /v1/invoices/stats/void — CANCELLED+REFUNDED with last24h/7d | Timestamp: 2026-03-16T23:10:00Z
+
 ## Sprint 142 — SETTLEMENTS-BY-AGENT-SUMMARY-001
 - Status: PASS | Commit: ed300a5 | Branch: sprint-142-settlements-by-agent → main | Tests: 5/5 | Files: settlements.ts +32 lines, settlements-by-agent.test.ts (new) | Note: GET /v1/settlements/by-agent — grouped by agentId, sorted DESC, ?limit= | Timestamp: 2026-03-16T23:00:00Z
 

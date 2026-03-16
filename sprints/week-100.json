@@ -7,8 +7,8 @@
       "title": "GET /v1/invoices/stats/void — count of voided invoices and total amount",
       "description": "New endpoint: GET /v1/invoices/stats/void. Returns { total, totalAmount, last24h: { count, amount }, last7d: { count, amount } } for CANCELLED+REFUNDED invoices. Tests: 200-returns-shape, 200-has-total, 200-has-total-amount, 200-zero-when-empty, 500-db-error. File: backend/src/routes/invoices.ts (add after /v1/invoices/stats/currency) + tests at backend/src/routes/__tests__/invoice-stats-void.test.ts.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "approved",
+      "sprint": 143
     },
     {
       "id": "AGENTS-TOP-EARNERS-001",
