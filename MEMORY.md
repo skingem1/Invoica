@@ -142,14 +142,14 @@
 - HEALTH-DETAIL-001 ✅ (Sprint 070), REP-HISTORY-001 ✅ (Sprint 071)
 - DASHBOARD-REFRESH-001 ✅ (Sprint 072)
 
-## Week-85 Status — IN PROGRESS
+## Week-85 Status — ALL DONE ✅
 - INVOICE-STATUS-TESTS-001 ✅ (Sprint 073), METRICS-001 ✅ (Sprint 074), WEBHOOK-TESTS-002 ✅ (Sprint 075)
-- INVOICE-PATCH-VALIDATOR-001 ✅ (Sprint 076), SETTLEMENT-FILTER-001 pending
+- INVOICE-PATCH-VALIDATOR-001 ✅ (Sprint 076), SETTLEMENT-FILTER-001 ✅ (Sprint 077)
 
-## Current State (2026-03-16 — Sprint 076)
-- **Git**: eb67e53 on main, pushed to origin (clean)
-- **Tests**: 150/150 suites, 1290/1290 tests — ALL PASS
-- **Next priority**: SETTLEMENT-FILTER-001
+## Current State (2026-03-16 — Sprint 077)
+- **Git**: fd16c08 on main, pushed to origin (clean)
+- **Tests**: 151/151 suites, 1295/1295 tests — ALL PASS
+- **Next**: Need week-86 backlog
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

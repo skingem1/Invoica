@@ -898,3 +898,14 @@
 - Tests: 7 new tests (4 valid statuses, lowercase rejected, unknown rejected, missing rejected) — PASS
 - Health check post: 150/150 suites, 1290/1290 tests — ALL PASS
 - Timestamp: 2026-03-16T18:10:00Z
+
+## Sprint 077 — SETTLEMENT-FILTER-001
+- Status: PASS
+- Branch: sprint-077-settlement-filter-001 → merged to main
+- Commit: fd16c08
+- Files created: backend/src/routes/__tests__/settlements-filters.test.ts
+- Files modified: backend/src/routes/settlements.ts (+agentId/from/to filter params)
+- Tests: 5 new tests (agentId-eq, from-gte, to-lte, combined, 200-empty) — PASS
+- Health check post: 151/151 suites, 1295/1295 tests — ALL PASS
+- Notes: week-85 ALL DONE (5/5). Fixed thenable mock chain pattern for post-range filter calls.
+- Timestamp: 2026-03-16T18:20:00Z
