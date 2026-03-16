@@ -10,6 +10,27 @@ function getSupabase() {
 }
 
 // ─────────────────────────────────────────────
+// GET /v1/settlements/pending
+// Returns PROCESSING invoices awaiting settlement.
+// Must be before /:id to avoid param capture.
+// ─────────────────────────────────────────────
+router.get('/v1/settlements/pending', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('id, invoiceNumber, status, amount, currency, agentId, createdAt, updatedAt')
+      .eq('status', 'PROCESSING')
+      .order('createdAt', { ascending: false });
+
+    if (error) throw error;
+
+    const rows = data || [];
+    res.json({ success: true, data: rows, meta: { total: rows.length } });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/settlements/export.csv
 // Export settled/completed invoices as CSV
 // Must be before /:id to avoid param capture
