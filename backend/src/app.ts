@@ -10,6 +10,7 @@ import aiInferenceRoutes from './routes/ai-inference';
 import ledgerRoutes from './routes/ledger';
 import adminRoutes from './routes/admin';
 import gasBackstopRouter from './routes/gas-backstop';
+import reputationLeaderboardRoutes from './routes/reputation-leaderboard';
 import reputationRoutes from './routes/reputation';
 import taxRoutes from './routes/tax';
 
@@ -50,6 +51,7 @@ app.use(aiInferenceRoutes);
 app.use(ledgerRoutes);
 app.use(adminRoutes);
 app.use(gasBackstopRouter);
+app.use(reputationLeaderboardRoutes);
 app.use(reputationRoutes);
 app.use(taxRoutes);
 
