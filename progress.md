@@ -1265,3 +1265,13 @@
 - Health check post: 223/223 suites, 1654/1654 tests — ALL PASS
 - Notes: Zero-param WoW growth. growthPct=null when previous=0. 4 parallel Supabase queries.
 - Timestamp: 2026-03-16T21:15:00Z
+## Sprint 150 — INVOICE-STATS-BY-COMPANY-001
+- Status: PASS
+- Branch: sprint-150-invoice-stats-by-company-001 → merged to main
+- Commit: d2024a9
+- Files created: backend/src/routes/__tests__/invoice-stats-by-company.test.ts
+- Files modified: backend/src/routes/invoices.ts (+GET /v1/invoices/stats/by-company)
+- Tests: 5 new tests (200-returns-array, 200-has-company-id, 200-sorted-by-amount, 200-respects-limit, 500-db-error) — PASS
+- Health check post: 224/224 suites, 1654/1654 tests — ALL PASS
+- Notes: Groups by companyId with settled breakdown; ?limit= capped at 50
+- Timestamp: 2026-03-16T21:30:00Z
