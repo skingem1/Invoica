@@ -15,8 +15,8 @@
       "title": "GET /v1/agents/:agentId/invoices — list invoices for an agent",
       "description": "New endpoint: GET /v1/agents/:agentId/invoices. Returns paginated list of invoices for a given agent: { data: Invoice[], meta: { total, limit, offset, hasMore } }. Supports ?limit (default 20, max 100) and ?offset. Returns 200 with empty array if no invoices (no 404). Tests: 200-returns-array, 200-pagination-meta, 200-empty-agent, 200-limit-param, 500-db-error. File: backend/src/routes/agents.ts (add route) + tests.",
       "file": "backend/src/routes/agents.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 104
     },
     {
       "id": "METRICS-DAILY-001",

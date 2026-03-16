@@ -51,6 +51,39 @@ router.get('/v1/agents', async (req: Request, res: Response): Promise<void> => {
 });
 
 // ─────────────────────────────────────────────
+// GET /v1/agents/:agentId/invoices
+// Paginated invoice list for a specific agent.
+// Must be before /:agentId (profile) — Express matches /:agentId first
+// otherwise, but the /invoices suffix distinguishes it.
+// ─────────────────────────────────────────────
+router.get('/v1/agents/:agentId/invoices', async (req: Request, res: Response): Promise<void> => {
+  const { agentId } = req.params;
+  const limit = Math.min(parseInt((req.query.limit as string) || '20', 10), 100);
+  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const sb = getSb();
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('id, invoiceNumber, status, amount, currency, customerEmail, customerName, createdAt, updatedAt')
+    .eq('agentId', agentId)
+    .order('createdAt', { ascending: false });
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  const all = data || [];
+  const paginated = all.slice(offset, offset + limit);
+
+  res.json({
+    success: true,
+    data: paginated,
+    meta: { total: all.length, limit, offset, hasMore: (offset + limit) < all.length },
+  });
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/agents/:agentId
 // Combined agent profile: reputation + invoice stats
 // ─────────────────────────────────────────────
