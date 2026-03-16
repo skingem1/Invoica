@@ -570,3 +570,15 @@
 - Health check post: ✅ 119/119, 980/980
 - Issues: None
 - Timestamp: 2026-03-16T21:20:00Z
+
+## Sprint 048 — LIB-EMAIL-001 + LIB-REDIS-001
+- Status: PASS
+- Branch: sprint-048-lib-email-tests → merged to main
+- Commit: ebbed67
+- Files created: backend/src/lib/__tests__/email.test.ts, backend/src/lib/__tests__/redis.test.ts
+- Tests: 121/121 suites, 992/992 — ALL PASS (12 new tests)
+- Coverage added: sendVerificationEmail (sendMail call count, correct recipient, code in text/html body, subject, error propagation); redis not-configured (ping throws, get null, set/set+ttl/del/publish no-ops via jest.resetModules)
+- Health check pre: ✅ 119/119, 980/980
+- Health check post: ✅ 121/121, 992/992
+- Issues: None
+- Timestamp: 2026-03-16T21:35:00Z
