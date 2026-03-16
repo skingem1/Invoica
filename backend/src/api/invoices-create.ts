@@ -24,6 +24,10 @@ const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 /** Solana base58 public key format (32–44 chars, no 0/O/I/l) */
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
+/** Known Solana program and token constants */
+const SOLANA_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
 /** Supported chains for invoice payment */
 const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum', 'solana'] as const;
 type SupportedChain = typeof SUPPORTED_CHAINS[number];
@@ -35,6 +39,8 @@ export const createInvoiceSchema = z.object({
   customerName: z.string().min(1),
   chain: z.enum(SUPPORTED_CHAINS).optional().default('base'),
   paymentAddress: z.string().optional(),
+  programId: z.string().optional(),
+  tokenMint: z.string().optional(),
   merchant: z.object({
     email: z.string().email(),
     name: z.string().min(1),
@@ -75,7 +81,7 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { amount, currency, customerEmail, customerName, chain, paymentAddress, merchant } = parseResult.data;
+  const { amount, currency, customerEmail, customerName, chain, paymentAddress, programId, tokenMint, merchant } = parseResult.data;
 
   // Validate address format when provided (chain-aware)
   if (paymentAddress) {
@@ -92,6 +98,44 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
     }
   }
 
+  // Solana-specific paymentDetails validation
+  if (chain === 'solana') {
+    if (programId && programId !== SOLANA_TOKEN_PROGRAM) {
+      res.status(400).json({
+        error: 'Invalid programId',
+        message: `Solana programId must be the SPL Token Program: ${SOLANA_TOKEN_PROGRAM}`,
+      });
+      return;
+    }
+    if (tokenMint && tokenMint !== SOLANA_USDC_MINT) {
+      res.status(400).json({
+        error: 'Invalid tokenMint',
+        message: `Only USDC is supported. tokenMint must be: ${SOLANA_USDC_MINT}`,
+      });
+      return;
+    }
+    if (programId && !SOLANA_ADDRESS_RE.test(programId)) {
+      res.status(400).json({
+        error: 'Invalid programId format',
+        message: 'programId must be a valid Solana base58 address',
+      });
+      return;
+    }
+    if (tokenMint && !SOLANA_ADDRESS_RE.test(tokenMint)) {
+      res.status(400).json({
+        error: 'Invalid tokenMint format',
+        message: 'tokenMint must be a valid Solana base58 address',
+      });
+      return;
+    }
+  } else if (programId || tokenMint) {
+    res.status(400).json({
+      error: 'Invalid parameters',
+      message: 'programId and tokenMint are only valid for Solana chain invoices',
+    });
+    return;
+  }
+
   // Check merchant domain blacklist
   if (merchant?.email) {
     const merchantDomain = extractDomainFromEmail(merchant.email);
@@ -106,15 +150,19 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
   }
 
   try {
+    const paymentDetails: Record<string, string> = { chain };
+    if (paymentAddress) paymentDetails.paymentAddress = paymentAddress;
+    if (chain === 'solana') {
+      paymentDetails.programId = programId || SOLANA_TOKEN_PROGRAM;
+      paymentDetails.tokenMint = tokenMint || SOLANA_USDC_MINT;
+    }
+
     const invoice = await createPendingInvoice({
       amount,
       currency,
       customerEmail,
       customerName,
-      paymentDetails: {
-        chain,
-        ...(paymentAddress ? { paymentAddress } : {}),
-      },
+      paymentDetails,
     });
 
     res.status(201).json({

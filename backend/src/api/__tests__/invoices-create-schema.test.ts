@@ -21,10 +21,15 @@ describe('createInvoiceSchema', () => {
   });
 
   it('rejects invalid currency length', () => {
-    const short = createInvoiceSchema.safeParse({ amount: 100, currency: 'US', customerEmail: 'a@b.com', customerName: 'A' });
-    const long = createInvoiceSchema.safeParse({ amount: 100, currency: 'USDD', customerEmail: 'a@b.com', customerName: 'A' });
-    expect(short.success).toBe(false);
-    expect(long.success).toBe(false);
+    const tooShort = createInvoiceSchema.safeParse({ amount: 100, currency: 'U', customerEmail: 'a@b.com', customerName: 'A' });
+    const tooLong = createInvoiceSchema.safeParse({ amount: 100, currency: 'USDCENT', customerEmail: 'a@b.com', customerName: 'A' });
+    expect(tooShort.success).toBe(false);
+    expect(tooLong.success).toBe(false);
+    // min(2) and max(6) — boundary values should pass
+    const min = createInvoiceSchema.safeParse({ amount: 100, currency: 'US', customerEmail: 'a@b.com', customerName: 'A' });
+    const max = createInvoiceSchema.safeParse({ amount: 100, currency: 'USDCCC', customerEmail: 'a@b.com', customerName: 'A' });
+    expect(min.success).toBe(true);
+    expect(max.success).toBe(true);
   });
 
   it('rejects invalid email', () => {
