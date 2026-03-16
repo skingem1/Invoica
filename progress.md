@@ -683,3 +683,12 @@
 - Fix: haiku agent corrected mock paths (./middleware → ../middleware) and afterAll syntax during test run
 - Infrastructure note: root PM2 backend (305 restarts) stopped and saved to prevent flock race
 - Timestamp: 2026-03-16T16:35:00Z
+
+## Sprint 057 — MCP-SERVER-001 (invoica-mcp-server unit tests)
+- Status: PASS
+- Branch: sprint-057-mcp-server-001 → merged to main
+- Commit: 90aa9fb
+- Files created: backend/src/mcp/__tests__/invoica-mcp-server.test.ts
+- Tests: 9 new tests — ListTools 3 tools, create_invoice success+error, list_invoices array/wrapped/default limit, check_settlement settled+unsettled, unknown tool
+- Approach: mocked MCP SDK entirely, captured setRequestHandler handlers via mockHandlers map with 'mock' prefix, mocked global.fetch per test
+- Timestamp: 2026-03-16T16:50:00Z
