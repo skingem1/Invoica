@@ -321,6 +321,38 @@ router.get('/v1/metrics/chains', async (_req: Request, res: Response): Promise<v
 });
 
 /**
+ * GET /v1/metrics/chains/breakdown
+ * Per-chain stats: count, totalAmount, settledCount sorted by count DESC.
+ */
+router.get('/v1/metrics/chains/breakdown', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const sb = getSb();
+    const { data, error } = await sb.from('Invoice').select('amount, status, paymentDetails');
+    if (error) throw error;
+
+    const settledStatuses = new Set(['SETTLED', 'COMPLETED']);
+    const chainMap = new Map<string, { chain: string; count: number; totalAmount: number; settledCount: number }>();
+
+    for (const row of (data || [])) {
+      const pd = row.paymentDetails
+        ? (typeof row.paymentDetails === 'string' ? JSON.parse(row.paymentDetails) : row.paymentDetails)
+        : {};
+      const chain = (pd.chain || pd.network || 'unknown').toLowerCase();
+      if (!chainMap.has(chain)) chainMap.set(chain, { chain, count: 0, totalAmount: 0, settledCount: 0 });
+      const entry = chainMap.get(chain)!;
+      entry.count += 1;
+      entry.totalAmount += Number(row.amount) || 0;
+      if (settledStatuses.has(row.status)) entry.settledCount += 1;
+    }
+
+    const sorted = Array.from(chainMap.values()).sort((a, b) => b.count - a.count);
+    res.json({ success: true, data: sorted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
+/**
  * GET /v1/metrics/top-currencies
  * Most used payment currencies by invoice count, sorted DESC.
  */
