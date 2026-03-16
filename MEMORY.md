@@ -170,15 +170,16 @@
 - METRICS-SUMMARY-001 ✅ (Sprint 095), SETTLEMENT-EXPORT-001 ✅ (Sprint 096)
 - WEBHOOK-STATS-001 ✅ (Sprint 097)
 
-## Week-91 Status — IN PROGRESS
-- INVOICE-REMIND-001 ✅ (Sprint 098)
-- LEDGER-SUMMARY-AGENT-001 ⏳, REPUTATION-AGENT-STATS-001 ⏳, METRICS-AGENTS-LEADERBOARD-001 ⏳, HEALTH-SERVICES-001 ⏳
+## Week-91 Status — ALL DONE ✅
+- INVOICE-REMIND-001 ✅ (Sprint 098), LEDGER-SUMMARY-AGENT-001 ✅ (Sprint 099)
+- REPUTATION-AGENT-STATS-001 ✅ (Sprint 100), METRICS-AGENTS-LEADERBOARD-001 ✅ (Sprint 101)
+- HEALTH-SERVICES-001 ✅ (Sprint 102)
 
-## Current State (2026-03-16 — Sprint 098)
-- **Git**: 26302d3 on main, pushed to origin (clean)
-- **Tests**: 173/173 suites, 1404/1404 tests — ALL PASS (+5 Sprint 098)
-- **New endpoints (Sprints 089-098)**: GET /v1/ledger/:agentId/balance, GET /v1/agents/:agentId, GET /v1/webhooks/events, GET /v1/metrics/compare, POST /v1/invoices/:id/void, GET /v1/agents, GET /v1/metrics/summary, GET /v1/settlements/export.csv, GET /v1/webhooks/stats, POST /v1/invoices/:id/remind
-- **week-91.json**: 4 tasks remaining
+## Current State (2026-03-16 — Sprint 102)
+- **Git**: 6cbd329 on main, pushed to origin (clean)
+- **Tests**: 178/178 suites, 1429/1429 tests — ALL PASS (+25 Sprints 098-102)
+- **New endpoints (Sprints 098-102)**: POST /v1/invoices/:id/remind, GET /v1/ledger/summary/:agentId, GET /v1/reputation/:agentId/stats, GET /v1/metrics/leaderboard, GET /v1/health/services
+- **week-92.json**: not yet created
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
