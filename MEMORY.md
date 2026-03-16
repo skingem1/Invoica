@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 22eda17 on main, pushed to origin (clean)
-- **Tests**: 84/84 suites, 552/552 tests — ALL PASS
+- **Git**: e697bf8 on main, pushed to origin (clean)
+- **Tests**: 87/87 suites, 593/593 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
 - **OpenClaw**: Stable (v2026.3.13, port 18789 WebSocket)
@@ -40,6 +40,7 @@
 19. Sprint 013 — Reputation API: fix agentId→companyId query + env var consistency + 4 route tests (8fd5e88)
 20. Sprint 014 — Route coverage: add tests for admin, ledger, ai-inference, gas-backstop (f118149)
 21. Sprint 015 — Service unit tests: tax calculator (28 tests) + reputation scoring (14 tests) (22eda17)
+22. Sprint 016 — Core service unit tests: invoice (18 tests) + ledger recorder (12) + ledger budget (11) — jest uuid ESM fix (e697bf8)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured — non-blocking)
@@ -78,9 +79,16 @@
 - services/__tests__/reputation.test.ts: 14 tests for computeAndStoreReputation() — score algorithm, tier boundaries, bonus caps, status handling, error propagation
 - Tests: 84/84 suites, 552/552 pass (42 new tests)
 
-## Next Sprint: Sprint 016
-- All service unit tests complete
-- Next priority: create week-77.json with new feature tasks (Agent Marketplace or invoice improvements)
+## Sprint 016 — COMPLETE
+- services/__tests__/invoice.test.ts: 18 tests for isValidStatusTransition(), error classes, Zod schemas
+- services/ledger/__tests__/recorder.test.ts: 12 tests for validateBalancedTransaction(), generateTransactionId(), recordTransaction(), isTransactionIdempotent()
+- services/ledger/__tests__/budget.test.ts: 11 tests for getBudget(), checkBudget(), reservation lifecycle, cleanupExpiredReservations(), createBudget()
+- jest.config.js: uuid added to transformIgnorePatterns (ESM fix)
+- Tests: 87/87 suites, 593/593 pass (41 new tests)
+
+## Next Sprint: Sprint 017
+- Remaining service test gaps: ledger/query.ts, ledger/enforcement.ts, settlement-poller.ts, gas-manager.ts
+- OR: create week-77.json with new feature tasks (Agent Marketplace or invoice improvements)
 
 ## V17 + Solana Migration — COMPLETE
 - All 4 V17 sprints COMPLETE

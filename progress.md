@@ -184,3 +184,14 @@
 - Health check post: (running next)
 - Issues: None
 - Timestamp: 2026-03-16T13:35:00Z
+
+## Sprint 016 — Core Service Unit Tests (Invoice + Ledger Recorder + Ledger Budget)
+- Status: PASS
+- Branch: sprint-016-core-service-tests → merged to main
+- Commit: e697bf8
+- Files created: backend/src/services/__tests__/invoice.test.ts, backend/src/services/ledger/__tests__/recorder.test.ts, backend/src/services/ledger/__tests__/budget.test.ts
+- Files modified: jest.config.js (uuid added to transformIgnorePatterns)
+- Tests: 87/87 suites, 593/593 — ALL PASS (41 new tests: 18 invoice + 12 recorder + 11 budget)
+- Health check pre: ✅ Backend OK, DB OK, disk 19%
+- Issues: uuid ESM compatibility — fixed by adding to transformIgnorePatterns
+- Timestamp: 2026-03-16T13:50:00Z
