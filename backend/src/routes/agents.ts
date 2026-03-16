@@ -11,6 +11,42 @@ function getSb() {
 }
 
 // ─────────────────────────────────────────────
+// GET /v1/agents/top-earners
+// Top N agents by settled revenue.
+// Must be registered before /:agentId to avoid param capture.
+// ─────────────────────────────────────────────
+router.get('/v1/agents/top-earners', async (req: Request, res: Response): Promise<void> => {
+  const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 50);
+  const sb = getSb();
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('agentId, amount')
+    .in('status', ['SETTLED', 'COMPLETED']);
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  const agentMap = new Map<string, { agentId: string; totalRevenue: number; invoiceCount: number }>();
+  for (const row of (data || [])) {
+    const agentId = row.agentId || 'unknown';
+    const existing = agentMap.get(agentId) || { agentId, totalRevenue: 0, invoiceCount: 0 };
+    existing.totalRevenue += Number(row.amount) || 0;
+    existing.invoiceCount += 1;
+    agentMap.set(agentId, existing);
+  }
+
+  const sorted = Array.from(agentMap.values())
+    .map((a) => ({ ...a, avgRevenue: a.invoiceCount > 0 ? a.totalRevenue / a.invoiceCount : 0 }))
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .slice(0, limit);
+
+  res.json({ success: true, data: sorted });
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/agents/activity/summary
 // Platform-wide agent activity summary.
 // Must be registered before /:agentId to avoid param capture.
