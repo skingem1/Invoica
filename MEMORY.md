@@ -185,11 +185,16 @@
 - METRICS-REVENUE-001 ✅ (Sprint 110), WEBHOOK-RETRY-001 ✅ (Sprint 111)
 - LEDGER-RECENT-001 ✅ (Sprint 112)
 
-## Current State (2026-03-16 — Sprint 112)
-- **Git**: a6f2faa on main, pushed to origin (clean)
-- **Tests**: 186/186 suites, 1469/1469 tests — ALL PASS (+5 fix: reputation route count assertion)
-- **New endpoints (Sprints 108-112)**: GET /v1/invoices/overdue, GET /v1/agents/:agentId/settlements/summary, GET /v1/metrics/revenue, GET /v1/webhooks/:id, GET /v1/ledger/recent
-- **week-94.json**: created (5 tasks pending)
+## Week-94 Status — ALL DONE ✅
+- INVOICE-TIMELINE-001 ✅ (Sprint 113), METRICS-TOP-CURRENCIES-001 ✅ (Sprint 114)
+- AGENT-ACTIVITY-001 ✅ (Sprint 115), SETTLEMENTS-PENDING-001 ✅ (Sprint 116)
+- HEALTH-METRICS-001 ✅ (Sprint 117)
+
+## Current State (2026-03-16 — Sprint 117)
+- **Git**: 0036818 on main, pushed to origin (clean)
+- **Tests**: 191/191 suites, 1494/1494 tests — ALL PASS (+25 Sprints 113-117)
+- **New endpoints (Sprints 113-117)**: GET /v1/invoices/:id/timeline, GET /v1/metrics/top-currencies, GET /v1/agents/:agentId/activity, GET /v1/settlements/pending, GET /v1/health/metrics
+- **week-95.json**: created (5 tasks pending)
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
