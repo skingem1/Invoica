@@ -12,7 +12,9 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: "512M",
-      max_restarts: 20,        // live beta: real crashes are rare; 20 allows recovery from transient issues
+      // max_restarts not set → unlimited (PM2 default). Crash loops are bounded by
+      // min_uptime:"30s" — only restarts within 30s count. Intentional restarts
+      // (git-autodeploy, pm2 restart) were exhausting the old limit (50 then 20).
       min_uptime: "30s",       // only counts as stable if it lives 30s (catches fast crash loops)
       restart_delay: 5000,     // 5s between restart attempts (gives port TIME_WAIT time to clear)
       kill_timeout: 15000,     // 15s: server.close() + prisma.$disconnect() completes in <10s now (graceful shutdown added)
