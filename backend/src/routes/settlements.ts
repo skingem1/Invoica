@@ -31,6 +31,47 @@ router.get('/v1/settlements/pending', async (_req: Request, res: Response, next:
 });
 
 // ─────────────────────────────────────────────
+// GET /v1/settlements/volume
+// Settlement volume for last 7d, 30d, and all-time.
+// Must be before /:id to avoid param capture.
+// ─────────────────────────────────────────────
+router.get('/v1/settlements/volume', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('amount, settledAt')
+      .in('status', ['SETTLED', 'COMPLETED']);
+
+    if (error) throw error;
+
+    const now = Date.now();
+    const cutoff7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff30d = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    let last7d = { count: 0, amount: 0 };
+    let last30d = { count: 0, amount: 0 };
+    let allTime = { count: 0, amount: 0 };
+
+    for (const row of (data || [])) {
+      const amt = row.amount || 0;
+      allTime.count += 1;
+      allTime.amount += amt;
+      if (row.settledAt && row.settledAt >= cutoff30d) {
+        last30d.count += 1;
+        last30d.amount += amt;
+        if (row.settledAt >= cutoff7d) {
+          last7d.count += 1;
+          last7d.amount += amt;
+        }
+      }
+    }
+
+    res.json({ success: true, data: { last7d, last30d, allTime } });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/settlements/export.csv
 // Export settled/completed invoices as CSV
 // Must be before /:id to avoid param capture
