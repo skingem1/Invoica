@@ -7,16 +7,16 @@
       "title": "POST /v1/invoices/:id/duplicate — clone an invoice",
       "description": "New endpoint: POST /v1/invoices/:id/duplicate. Fetches source invoice by ID (404 if not found). Creates a new PENDING invoice copying customerEmail, customerName, amount, currency, companyId, and paymentDetails from the source. Returns 201 with new invoice. Tests: 201-new-id, 201-pending-status, 201-copied-fields, 404-source-not-found, 500-db-error. File: backend/src/routes/invoices.ts (add route) + tests.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 88
     },
     {
       "id": "LEDGER-BALANCE-001",
       "title": "GET /v1/ledger/:agentId/balance — agent net balance",
       "description": "New endpoint returning net balance for an agent: { agentId, totalCredits, totalDebits, balance }. Reads from Ledger table (or Invoice table if no Ledger). Tests: 200-with-entries, 200-zero-balance, 200-credits-only, 404-or-empty-agent, 500-db-error. File: backend/src/routes/ledger.ts (add route) + tests.",
       "file": "backend/src/routes/ledger.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 89
     },
     {
       "id": "AGENT-PROFILE-001",

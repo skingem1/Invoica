@@ -341,4 +341,49 @@ router.get('/v1/ledger/export.csv', requireApiKey, async (req: AuthedRequest, re
   res.send(csv);
 });
 
+// ─────────────────────────────────────────────
+// GET /v1/ledger/:agentId/balance
+// Net balance for an agent across all companies
+// ─────────────────────────────────────────────
+router.get('/v1/ledger/:agentId/balance', async (req: Request, res: Response): Promise<void> => {
+  const { agentId } = req.params;
+  const sb = getSb();
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('status, amount')
+    .eq('agentId', agentId);
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    res.status(404).json({ success: false, error: { message: 'Agent not found', code: 'NOT_FOUND' } });
+    return;
+  }
+
+  let totalCredits = 0;
+  let totalDebits = 0;
+  for (const row of data) {
+    const amt = row.amount || 0;
+    if (row.status === 'REFUNDED') {
+      totalCredits += amt;
+    } else if (['PENDING', 'PROCESSING', 'SETTLED', 'COMPLETED'].includes(row.status)) {
+      totalDebits += amt;
+    }
+  }
+
+  res.json({
+    success: true,
+    data: {
+      agentId,
+      totalCredits,
+      totalDebits,
+      balance: totalCredits - totalDebits,
+    },
+  });
+});
+
 export default router;
