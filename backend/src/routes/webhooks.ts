@@ -23,10 +23,14 @@ router.post('/v1/webhooks', async (req: Request, res: Response, next: NextFuncti
 });
 
 // GET /v1/webhooks — list all registered webhooks
-router.get('/v1/webhooks', async (_req: Request, res: Response, next: NextFunction) => {
+router.get('/v1/webhooks', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const limit  = Math.min(parseInt((req.query.limit  as string) || '20', 10), 100);
+    const offset = Math.max(parseInt((req.query.offset as string) || '0',  10), 0);
     const webhooks = await repo.listAll();
-    res.json({ success: true, data: webhooks, meta: { total: webhooks.length } });
+    const total = webhooks.length;
+    const page = webhooks.slice(offset, offset + limit);
+    res.json({ success: true, data: page, meta: { total, limit, offset } });
   } catch (err) { next(err); }
 });
 

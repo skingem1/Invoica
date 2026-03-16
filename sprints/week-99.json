@@ -1,0 +1,46 @@
+{
+  "week": 99,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "WEBHOOKS-LIST-001",
+      "title": "GET /v1/webhooks — list all webhooks with pagination",
+      "description": "New endpoint: GET /v1/webhooks. Returns paginated list of webhooks: [{ id, url, events, active, createdAt }]. Accepts ?limit=N (default 20, max 100) and ?offset=N. Returns { data, meta: { total, limit, offset } }. Tests: 200-returns-array, 200-has-meta, 200-respects-limit, 200-empty-state, 500-db-error. File: backend/src/routes/webhooks.ts (add before /:id routes) + tests at backend/src/routes/__tests__/webhooks-list.test.ts.",
+      "file": "backend/src/routes/webhooks.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "INVOICE-SEARCH-ADVANCED-001",
+      "title": "GET /v1/invoices/search/advanced — multi-field invoice search",
+      "description": "New endpoint: GET /v1/invoices/search/advanced. Accepts query params: q (text search in customerEmail+customerName+invoiceNumber), status, currency, minAmount, maxAmount, fromDate, toDate. Returns matching invoices with pagination: { data: Invoice[], meta: { total, limit, offset } }. Defaults: limit=20, max 100. Tests: 200-returns-array, 200-filters-by-status, 200-filters-by-amount-range, 200-empty-state, 500-db-error. File: backend/src/routes/invoices.ts (add before /v1/invoices/search) + tests at backend/src/routes/__tests__/invoice-search-advanced.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "AGENTS-ACTIVITY-SUMMARY-001",
+      "title": "GET /v1/agents/activity/summary — platform-wide agent activity summary",
+      "description": "New endpoint: GET /v1/agents/activity/summary. Returns platform-wide stats: { totalAgents, activeAgents (last 30d), totalInvoices, totalSettled, totalRevenue }. Tests: 200-returns-shape, 200-has-total-agents, 200-has-total-revenue, 200-zero-when-empty, 500-db-error. File: backend/src/routes/agents.ts (add before /v1/agents/count) + tests at backend/src/routes/__tests__/agents-activity-summary.test.ts.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-CHAIN-BREAKDOWN-001",
+      "title": "GET /v1/metrics/chains/breakdown — invoice counts and volume by chain",
+      "description": "New endpoint: GET /v1/metrics/chains/breakdown. Returns per-chain stats: [{ chain, count, totalAmount, settledCount }] from paymentDetails.network field, sorted by count DESC. Tests: 200-returns-array, 200-has-chain-field, 200-has-settled-count, 200-empty-state, 500-db-error. File: backend/src/routes/metrics.ts (add after /v1/metrics/chains) + tests at backend/src/routes/__tests__/metrics-chain-breakdown.test.ts.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENTS-BY-AGENT-SUMMARY-001",
+      "title": "GET /v1/settlements/by-agent — settlement totals grouped by agent",
+      "description": "New endpoint: GET /v1/settlements/by-agent. Returns SETTLED+COMPLETED invoices grouped by agentId: [{ agentId, count, totalAmount }], sorted by totalAmount DESC. Accepts ?limit=N (default 10, max 50). Tests: 200-returns-array, 200-sorted-by-amount, 200-has-required-fields, 200-respects-limit, 500-db-error. File: backend/src/routes/settlements.ts (add after /v1/settlements/by-currency) + tests at backend/src/routes/__tests__/settlements-by-agent.test.ts.",
+      "file": "backend/src/routes/settlements.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}
