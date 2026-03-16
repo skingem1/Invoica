@@ -761,3 +761,15 @@
 - Health check post: 137/137 suites, 1187/1187 tests — ALL PASS
 - Issues: none
 - Timestamp: 2026-03-16T00:00:00Z
+
+## Sprint 065 — SETTLE-TYPES-001
+- Status: PASS
+- Branch: sprint-065-settle-types → merged to main
+- Commit: b84dcbe
+- Files created: backend/src/services/settlement/__tests__/types.test.ts
+- Files modified: none
+- Tests: 12 new tests (SettlementStatus enum 5, SettlementMatch/Filter/QueryResult/RawSettlement/DetectionConfig/DetectedEvent shapes) — PASS
+- Health check pre: 1187/1187 — ALL PASS
+- Health check post: 138/138 suites, 1199/1199 tests — ALL PASS
+- Issues: none
+- Timestamp: 2026-03-16T00:01:00Z
