@@ -199,6 +199,35 @@ router.get('/v1/invoices/:id', async (req: Request, res: Response, next: NextFun
   }
 });
 
+/**
+ * GET /v1/invoices/:id/timeline
+ * Returns a derived status timeline for an invoice.
+ */
+router.get('/v1/invoices/:id/timeline', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('id, status, createdAt, settledAt, completedAt')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+      return;
+    }
+
+    const events: Array<{ status: string; timestamp: string; note: string }> = [];
+    events.push({ status: 'PENDING', timestamp: data.createdAt, note: 'Invoice created' });
+    if (data.settledAt) events.push({ status: 'SETTLED', timestamp: data.settledAt, note: 'Payment settled on-chain' });
+    if (data.completedAt) events.push({ status: 'COMPLETED', timestamp: data.completedAt, note: 'Invoice completed' });
+    if (data.status === 'CANCELLED') events.push({ status: 'CANCELLED', timestamp: data.completedAt || data.settledAt || data.createdAt, note: 'Invoice cancelled' });
+
+    res.json({ success: true, data: events, meta: { invoiceId: id, currentStatus: data.status } });
+  } catch (err) { next(err); }
+});
+
 const VALID_SORT_FIELDS = ['createdAt', 'amount', 'updatedAt'];
 
 function buildInvoiceFilters(query: any, params: {
