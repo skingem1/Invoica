@@ -1,0 +1,46 @@
+{
+  "week": 82,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "TAX-LOC-001",
+      "title": "location-resolver unit tests",
+      "description": "Unit tests for backend/src/services/tax/location-resolver.ts — getJurisdiction (US/EU/NONE paths, case-insensitive, stateCode fallback, empty/missing countryCode), isEUCountry, isUSState.",
+      "file": "backend/src/services/tax/__tests__/location-resolver.test.ts",
+      "status": "done",
+      "sprint": "043"
+    },
+    {
+      "id": "EMAIL-WELCOME-001",
+      "title": "welcome-email unit tests",
+      "description": "Unit tests for backend/src/services/email/welcome-email.ts — SMTP not configured path (no-op), nodemailer mock for send success, send failure (non-throwing).",
+      "file": "backend/src/services/email/__tests__/welcome-email.test.ts",
+      "status": "pending",
+      "sprint": "044"
+    },
+    {
+      "id": "API-DASH-STATS-001",
+      "title": "dashboard-stats handler unit tests",
+      "description": "Unit tests for backend/src/api/dashboard-stats.ts — getDashboardStats returns expected shape: totalInvoices, pending, settled, revenue, failedSettlements.",
+      "file": "backend/src/api/__tests__/dashboard-stats.test.ts",
+      "status": "pending",
+      "sprint": "044"
+    },
+    {
+      "id": "WEBHOOKS-GET-001",
+      "title": "webhooks-get handler unit tests",
+      "description": "Unit tests for backend/src/api/webhooks-get.ts — invalid id (400), not found (404), found (200 with registration object). Mock WebhookRepository.",
+      "file": "backend/src/api/__tests__/webhooks-get.test.ts",
+      "status": "pending",
+      "sprint": "045"
+    },
+    {
+      "id": "API-KEYS-FULL-001",
+      "title": "api-keys full handler unit tests",
+      "description": "Unit tests for backend/src/api/api-keys.ts — list keys, create key (welcome email integration), revoke key, error paths. Mock SupabaseApiKeyRepository and sendWelcomeEmail.",
+      "file": "backend/src/api/__tests__/api-keys-full.test.ts",
+      "status": "pending",
+      "sprint": "045"
+    }
+  ]
+}
