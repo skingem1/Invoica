@@ -1014,3 +1014,14 @@
 - Health check post: 161/161 suites, 1344/1344 tests — ALL PASS
 - Notes: week-88 ALL DONE. Backward compatible: period.from/to null when params absent. Settlement query uses from as sevenDaysAgo fallback.
 - Timestamp: 2026-03-16T20:20:00Z
+
+## Sprint 088 — INVOICE-DUPLICATE-001
+- Status: PASS
+- Branch: sprint-088-invoice-duplicate-001 → merged to main
+- Commit: bfa678c
+- Files created: backend/src/routes/__tests__/invoice-duplicate.test.ts, sprints/week-89.json
+- Files modified: backend/src/routes/invoices.ts (+POST /v1/invoices/:id/duplicate)
+- Tests: 5 new tests (201-new-id, 201-pending, 201-fields, 404, 500) — PASS
+- Health check post: 162/162 suites, 1349/1349 tests — ALL PASS
+- Notes: Copies customer fields + paymentDetails from source. New invoiceNumber via MAX query. Source status ignored — duplicate always starts PENDING.
+- Timestamp: 2026-03-16T20:35:00Z
