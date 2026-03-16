@@ -1,0 +1,91 @@
+{
+  "tasks": [
+    {
+      "id": "TASK-VALID-001",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Add unit tests for task-complexity-validator.ts — emergency killswitch + pattern validation",
+      "context": "backend/src/services/task-complexity-validator.ts is the emergency orchestration killswitch (EMERGENCY_SUSPEND_ORCHESTRATION boolean) and validates task inputs for suspicious patterns. It is pure business logic with no I/O — easy to test comprehensively.\n\nFirst READ the file fully before writing tests.\n\nCREATE: backend/src/services/__tests__/task-complexity-validator.test.ts (max 150 lines)\n\nTest targets (derive from reading the file):\n1. validateTask() with ORCH- prefixed task ID returns blocked when killswitch enabled\n2. validateTask() with AGENT-034- prefixed task ID returns blocked\n3. validateTask() with 'orchestrat' keyword in description returns blocked\n4. validateTask() with auto_decomposed=true bypasses pattern checks — returns allowed\n5. validateTask() with normal task ID and clean description returns allowed\n6. EMERGENCY_SUSPEND_ORCHESTRATION constant exists and is a boolean\n7. Case sensitivity: 'Orchestrate' in description is still caught (lowercase check)\n8. Empty task ID and description — should not crash, returns allowed or blocked depending on implementation\n\nMock strategy: none needed — this is pure function logic with no external dependencies.\nPattern: import { validateTask, EMERGENCY_SUSPEND_ORCHESTRATION } from '../task-complexity-validator';\n\nMin: 8 tests. Read the file first to discover all edge cases.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/src/services/__tests__/task-complexity-validator.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "API-KEY-001",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Unit tests for pure functions in api-keys.ts — generate, hash, verify, validate, prefix",
+      "context": "backend/src/services/api-keys.ts contains a mix of pure functions and Supabase-wired repository functions. This task tests ONLY the pure crypto/format functions — the Supabase-integrated ones are out of scope here.\n\nFirst READ backend/src/services/api-keys.ts fully.\n\nPure functions to test (verify by reading):\n- generateApiKey() — returns a string of expected format/length\n- hashApiKey(key) — returns a hash (bcrypt or crypto); different from key\n- verifyApiKey(key, hash) — returns true when key matches hash, false otherwise\n- validateApiKeyFormat(key) — returns true/false for valid/invalid formats\n- getKeyPrefix(key) — returns the prefix (first N chars) of the key\n\nCREATE: backend/src/services/__tests__/api-keys.test.ts (max 150 lines)\n\nIMPORTANT: hashApiKey and verifyApiKey likely use bcrypt (async). Tests should use await.\n\nTests:\n1. generateApiKey() returns a non-empty string\n2. generateApiKey() returns keys of consistent length or prefix pattern\n3. generateApiKey() returns different values on each call (randomness check)\n4. validateApiKeyFormat() returns true for a freshly generated key\n5. validateApiKeyFormat() returns false for empty string\n6. validateApiKeyFormat() returns false for a clearly invalid string (too short)\n7. getKeyPrefix() returns the correct prefix from a known key\n8. hashApiKey() returns a different string from the input key\n9. verifyApiKey() returns true when given the correct key + its hash\n10. verifyApiKey() returns false when given wrong key + hash\n\nNote: if hashApiKey uses bcrypt, tests will be async and may take 1-2s. That is fine.\nMin: 10 tests.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/src/services/__tests__/api-keys.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "API-ROTATE-001",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Unit tests for ApiKeyRotationService — rotate, revoke, list operations with Supabase mock",
+      "context": "backend/src/services/api-key-rotation.ts exports ApiKeyRotationService with methods for rotating (generate new + expire old in 24h), revoking (immediate deactivation), and listing (sanitized prefix + last 4 chars) API keys.\n\nFirst READ backend/src/services/api-key-rotation.ts fully.\n\nCREATE: backend/src/services/__tests__/api-key-rotation.test.ts (max 200 lines)\n\nMock strategy:\njest.mock('@supabase/supabase-js', () => ({ createClient: jest.fn() }));\nimport { createClient } from '@supabase/supabase-js';\n// For each test, set (createClient as jest.Mock).mockReturnValue({ from: ... });\n\nTests (read the file to adapt to actual implementation):\n1. rotateKey(userId, keyId) — fetches existing key, validates ownership (userId match)\n2. rotateKey() — throws ApiKeyRotationError when key not found\n3. rotateKey() — throws when userId does not match key's userId\n4. rotateKey() — creates new key and sets old one to expire_at = now+24h\n5. revokeKey(userId, keyId) — sets key is_active=false immediately\n6. revokeKey() — throws when key not found\n7. revokeKey() — throws when already revoked\n8. listKeys(userId) — returns array of sanitized keys (prefix + last4, no full key)\n9. listKeys() — returns empty array when no keys found\n10. Supabase error propagation — DB failure throws ApiKeyRotationError\n\nMin: 10 tests.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/src/services/__tests__/api-key-rotation.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "REP-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Enhance GET /v1/reputation/leaderboard — add invoicesDisputed ratio and trend fields to response",
+      "context": "The current leaderboard (Sprint 022) returns raw invoicesCompleted, invoicesDisputed, etc. This sprint adds two computed fields to each entry to make the leaderboard more useful for the Agent Marketplace (Priority 2 in SOUL.md):\n\n1. disputeRate: invoicesDisputed / (invoicesCompleted + invoicesDisputed), rounded to 4 decimal places. Returns 0 if no invoices.\n2. completionRate: invoicesCompleted / (invoicesCompleted + invoicesDisputed), rounded to 4 decimal places. Returns 1 if no invoices.\n\nEDIT: backend/src/routes/reputation-leaderboard.ts\n\nIn the .map() that builds each entry, add:\n  const total = (agent.invoicesCompleted || 0) + (agent.invoicesDisputed || 0);\n  const disputeRate = total > 0 ? parseFloat(((agent.invoicesDisputed || 0) / total).toFixed(4)) : 0;\n  const completionRate = total > 0 ? parseFloat(((agent.invoicesCompleted || 0) / total).toFixed(4)) : 1;\n\nAnd include disputeRate and completionRate in the returned object.\n\nEDIT: backend/src/routes/__tests__/reputation-leaderboard.test.ts\n\nAdd 2 new tests:\n1. disputeRate is correctly computed — mock agent with 1 disputed out of 10 total → disputeRate = 0.1\n2. completionRate defaults to 1 when agent has 0 invoices (total = 0)\n\nFile should stay under 120 lines after additions.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/reputation-leaderboard.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/reputation-leaderboard.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SETTLE-004",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Unit tests for settlement-summary route — paymentDetails JSON string parsing + unknown chain fallback",
+      "context": "The GET /v1/settlements/summary route (Sprint 023) has 3 tests but is missing edge case coverage for two important code paths:\n\n1. paymentDetails stored as a JSON STRING (not object) — the route has: typeof inv.paymentDetails === 'string' ? JSON.parse(inv.paymentDetails) : inv.paymentDetails — this branch needs a test\n2. paymentDetails is null/missing — should fall back to chain = 'unknown'\n3. SETTLED status invoices (not just COMPLETED) — verifying both statuses count toward totals\n\nEDIT: backend/src/routes/__tests__/settlement-summary.test.ts\n\nAdd 3 more tests to the existing describe block (file currently has 3 tests, add 3 more):\n1. paymentDetails as JSON string — mock invoice with paymentDetails: '{\"network\":\"arbitrum\"}' (string) — verify chain='arbitrum' in byChain\n2. paymentDetails null — verify chain='unknown' in byChain result\n3. SETTLED status counts — mock 1 SETTLED + 1 COMPLETED invoice, verify totalSettlements=2\n\nThe test file mock pattern uses buildChain() and buildChainWithEq() helpers already defined in the file — reuse them.\n\nMax 120 lines total for the test file after additions.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/src/routes/__tests__/settlement-summary.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    }
+  ]
+}
