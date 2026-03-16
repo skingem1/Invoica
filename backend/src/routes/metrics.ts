@@ -292,6 +292,32 @@ router.get('/v1/metrics/compare', async (req: Request, res: Response): Promise<v
 });
 
 /**
+ * GET /v1/metrics/top-currencies
+ * Most used payment currencies by invoice count, sorted DESC.
+ */
+router.get('/v1/metrics/top-currencies', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const sb = getSb();
+    const { data, error } = await sb.from('Invoice').select('currency, amount');
+    if (error) throw error;
+
+    const currMap = new Map<string, { currency: string; invoiceCount: number; totalAmount: number }>();
+    for (const row of (data || [])) {
+      const key = (row.currency || 'UNKNOWN').toUpperCase();
+      if (!currMap.has(key)) currMap.set(key, { currency: key, invoiceCount: 0, totalAmount: 0 });
+      const entry = currMap.get(key)!;
+      entry.invoiceCount += 1;
+      entry.totalAmount += row.amount || 0;
+    }
+
+    const sorted = Array.from(currMap.values()).sort((a, b) => b.invoiceCount - a.invoiceCount);
+    res.json({ success: true, data: sorted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
+/**
  * GET /v1/metrics/revenue
  * Daily revenue totals for last 30 days. Only SETTLED/COMPLETED invoices. Zero-fills empty days.
  */
