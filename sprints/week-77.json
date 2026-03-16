@@ -66,7 +66,7 @@
       "priority": "medium",
       "dependencies": [],
       "description": "Add unit tests for ledger/enforcement.ts — hierarchical budget enforcement logic",
-      "context": "The last untested major service is backend/src/services/ledger/enforcement.ts (377 lines). It depends on budget.ts functions (mock using jest.mock('../budget')). This is the budget guard for AI agents — any regression would let agents overspend.\n\nFirst READ enforcement.ts fully to understand all exported functions before writing tests.\n\nCREATE: backend/src/services/ledger/__tests__/enforcement.test.ts (max 200 lines)\n\nMock strategy:\n  jest.mock('../budget', () => ({\n    checkBudget: jest.fn(),\n    getBudget: jest.fn(),\n    createBudgetReservation: jest.fn(),\n    cancelBudgetReservation: jest.fn(),\n    consumeBudgetReservation: jest.fn(),\n  }));\n\nTest targets (read enforcement.ts to find all exports):\n1. checkHierarchicalBudget() — allowed when all levels allow\n2. checkHierarchicalBudget() — denied when department budget exceeded\n3. checkHierarchicalBudget() — denied when team budget exceeded (department OK)\n4. checkHierarchicalBudget() — denied when agent budget exceeded (department+team OK)\n5. checkHierarchicalBudget() with skipLevels — skips specified BudgetLevel\n6. Any other exported functions — read the file and test them\n\nMin: 12 tests. Tests should cover all exported functions.\nMock the `db` argument as an empty object `{} as any` — enforcement.ts passes db to budget.ts functions which are mocked.",
+      "context": "DONE — Sprint 021 (665c436). 13 tests for all 7 exported functions in enforcement.ts.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -74,7 +74,7 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved"
     },
     {
       "id": "SETTLE-002",

@@ -240,3 +240,15 @@
 - Health check post: ✅ 91/91 suites, disk 80% free
 - Issues: None — clean implementation
 - Timestamp: 2026-03-16T14:50:00Z
+
+## Sprint 021 — Enforcement Unit Tests (ENFORCE-001)
+- Status: PASS
+- Branch: sprint-021-enforcement-tests → merged to main
+- Commit: 665c436
+- Files created: backend/src/services/ledger/__tests__/enforcement.test.ts (13 tests)
+- Files modified: None (test-only sprint)
+- Tests: 92/92 suites, 646/646 — ALL PASS (13 new tests)
+- Health check pre: ✅ 91/91 suites, disk 80% free
+- Health check post: ✅ 92/92 suites, disk 80% free
+- Issues: None
+- Timestamp: 2026-03-16T15:05:00Z
