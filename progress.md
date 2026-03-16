@@ -937,3 +937,14 @@
 - Tests: 4 new tests (200-array, 200-empty, response-fields, 500-error) — PASS
 - Health check post: 154/154 suites, 1309/1309 tests — ALL PASS
 - Timestamp: 2026-03-16T18:55:00Z
+
+## Sprint 081 — WEBHOOK-PING-001
+- Status: PASS
+- Branch: sprint-081-webhook-ping-001 → merged to main
+- Commit: 6ac79e6
+- Files created: backend/src/routes/__tests__/webhook-ping.test.ts
+- Files modified: backend/src/routes/webhooks.ts (+POST /v1/webhooks/:id/test handler)
+- Tests: 5 new tests (delivered-2xx, delivered-4xx, failed-5xx, failed-network, 404-not-found) — PASS
+- Health check post: 155/155 suites, 1314/1314 tests — ALL PASS
+- Notes: New feature: webhook test ping with 5s timeout, AbortSignal.timeout, delivered/failed/null responseCode
+- Timestamp: 2026-03-16T19:05:00Z
