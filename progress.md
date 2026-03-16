@@ -797,3 +797,15 @@
 - Health check post: 142/142 suites, 1226/1226 tests — ALL PASS
 - Issues: none
 - Timestamp: 2026-03-16T00:03:00Z
+
+## Sprint 068 — INVOICE-SCHEMA-EDGE-001 + week-84.json
+- Status: PASS
+- Branch: sprint-068-invoice-schema-edge → merged to main
+- Commit: dc3faad
+- Files created: backend/src/validators/__tests__/invoice-schemas-edge.test.ts, sprints/week-84.json
+- Files modified: none
+- Tests: 14 new tests (updateInvoiceSchema 7, invoiceQuerySchema status 5, createInvoiceSchema edge 2) — PASS
+- Health check pre: 1226/1226 — ALL PASS
+- Health check post: 143/143 suites, 1240/1240 tests — ALL PASS
+- Notes: week-84 backlog created (HEALTH-DETAIL-001, INVOICE-EXPORT-001, REP-HISTORY-001, DASHBOARD-REFRESH-001)
+- Timestamp: 2026-03-16T00:04:00Z
