@@ -39,8 +39,8 @@
       "title": "GET /v1/webhooks/by-event/:eventType — webhooks subscribed to an event",
       "description": "New endpoint: GET /v1/webhooks/by-event/:eventType. Returns all registered webhooks that subscribe to the given event type: { data: Webhook[], meta: { total, eventType } }. Returns 200 with empty array if none found. Tests: 200-returns-array, 200-total-correct, 200-all-have-event, 200-empty-when-no-match, 500-db-error. File: backend/src/routes/webhooks.ts (add route before /:id) + tests.",
       "file": "backend/src/routes/webhooks.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 107
     }
   ]
 }
