@@ -37,16 +37,23 @@ router.get('/v1/reputation/leaderboard', async (req: Request, res: Response, nex
 
     res.json({
       success: true,
-      data: (data || []).map((agent, idx) => ({
-        rank: idx + 1,
-        agentId: agent.agentId,
-        score: agent.score,
-        tier: agent.tier,
-        invoicesCompleted: agent.invoicesCompleted,
-        invoicesDisputed: agent.invoicesDisputed,
-        totalValueSettled: agent.totalValueSettled,
-        lastUpdated: agent.lastUpdated,
-      })),
+      data: (data || []).map((agent, idx) => {
+        const total = (agent.invoicesCompleted || 0) + (agent.invoicesDisputed || 0);
+        const disputeRate = total > 0 ? parseFloat(((agent.invoicesDisputed || 0) / total).toFixed(4)) : 0;
+        const completionRate = total > 0 ? parseFloat(((agent.invoicesCompleted || 0) / total).toFixed(4)) : 1;
+        return {
+          rank: idx + 1,
+          agentId: agent.agentId,
+          score: agent.score,
+          tier: agent.tier,
+          invoicesCompleted: agent.invoicesCompleted,
+          invoicesDisputed: agent.invoicesDisputed,
+          totalValueSettled: agent.totalValueSettled,
+          lastUpdated: agent.lastUpdated,
+          disputeRate,
+          completionRate,
+        };
+      }),
       meta: { total: (data || []).length, limit },
     });
   } catch (err) {

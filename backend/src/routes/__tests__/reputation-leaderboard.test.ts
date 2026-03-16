@@ -83,4 +83,28 @@ describe('GET /v1/reputation/leaderboard', () => {
     await request(app).get('/v1/reputation/leaderboard?limit=200');
     expect(chain.limit).toHaveBeenCalledWith(100);
   });
+
+  it('computes disputeRate correctly — 1 disputed out of 10 total = 0.1', async () => {
+    const mockData = [
+      { agentId: 'a1', score: 90, tier: 'gold', invoicesCompleted: 9, invoicesDisputed: 1, totalValueSettled: 5000, lastUpdated: '2026-01-01' },
+    ];
+    (createClient as jest.Mock).mockReturnValue({ from: jest.fn(() => buildChain({ data: mockData, error: null })) });
+
+    const res = await request(app).get('/v1/reputation/leaderboard');
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].disputeRate).toBe(0.1);
+    expect(res.body.data[0].completionRate).toBe(0.9);
+  });
+
+  it('completionRate defaults to 1 when agent has 0 invoices', async () => {
+    const mockData = [
+      { agentId: 'a2', score: 50, tier: 'unrated', invoicesCompleted: 0, invoicesDisputed: 0, totalValueSettled: 0, lastUpdated: '2026-01-01' },
+    ];
+    (createClient as jest.Mock).mockReturnValue({ from: jest.fn(() => buildChain({ data: mockData, error: null })) });
+
+    const res = await request(app).get('/v1/reputation/leaderboard');
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].disputeRate).toBe(0);
+    expect(res.body.data[0].completionRate).toBe(1);
+  });
 });
