@@ -17,7 +17,7 @@ module.exports = {
     }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@noble)/)',
+    'node_modules/(?!(@noble|uuid)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/backend/src/$1',
