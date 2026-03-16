@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 130 — SETTLEMENTS-RECENT-001
+- Status: PASS | Commit: aa2c51f | Branch: sprint-130-settlements-recent → main | Tests: 5/5 | Files: settlements.ts +22 lines, settlements-recent.test.ts (new) | Timestamp: 2026-03-16T21:05:00Z
+
 ## Sprint 129 — METRICS-HOURLY-001
 - Status: PASS | Commit: 3072508 | Branch: sprint-129-metrics-hourly → main | Tests: 5/5 | Files: metrics.ts +43 lines, metrics-hourly.test.ts (new) | Timestamp: 2026-03-16T21:00:00Z
 
