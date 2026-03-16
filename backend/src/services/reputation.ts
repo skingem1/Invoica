@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 function getSb() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!url || !key) throw new Error('Supabase env vars not set');
+  return createClient(url, key);
 }
 
 export interface AgentReputationRecord {
@@ -28,7 +31,7 @@ export async function computeAndStoreReputation(agentId: string): Promise<AgentR
   const { data: invoices, error } = await supabase
     .from('Invoice')
     .select('status, amount')
-    .eq('agentId', agentId);
+    .eq('companyId', agentId);
 
   if (error) {
     throw error;

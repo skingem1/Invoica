@@ -5,17 +5,13 @@ import { computeAndStoreReputation } from '../services/reputation';
 const router = Router();
 
 /**
- * Create Supabase client helper
+ * Create Supabase client helper (uses service role for leaderboard reads)
  */
 const getSb = () => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase configuration');
-  }
-  
-  return createClient(supabaseUrl, supabaseKey);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!url || !key) throw new Error('Supabase env vars not set');
+  return createClient(url, key);
 };
 
 /**
