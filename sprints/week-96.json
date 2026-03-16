@@ -1,0 +1,46 @@
+{
+  "week": 96,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "AGENT-INVOICE-SUMMARY-001",
+      "title": "GET /v1/agents/:agentId/invoices/summary — invoice counts by status per agent",
+      "description": "New endpoint: GET /v1/agents/:agentId/invoices/summary. Returns invoice breakdown for a specific agent: { agentId, total, byStatus: { PENDING, SETTLED, CANCELLED, ... }, totalAmount, settledAmount }. settledAmount includes only SETTLED+COMPLETED invoices. total is count of all invoices. byStatus is a map of status → count. Tests: 200-returns-shape, 200-counts-by-status, 200-zero-when-empty, 200-settled-amount-correct, 500-db-error. File: backend/src/routes/agents.ts (add before /:agentId/invoices) + tests at backend/src/routes/__tests__/agent-invoice-summary.test.ts.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "INVOICE-CANCEL-001",
+      "title": "POST /v1/invoices/:id/cancel — cancel a pending invoice",
+      "description": "New endpoint: POST /v1/invoices/:id/cancel. Cancels a PENDING invoice by setting status to CANCELLED. Returns 404 if invoice not found, 400 if invoice is not in PENDING status (cannot cancel settled/completed). Returns updated invoice object on success. Tests: 200-cancels-pending, 400-already-settled, 400-already-cancelled, 404-not-found, 500-db-error. File: backend/src/routes/invoices.ts (add after void route) + tests at backend/src/routes/__tests__/invoice-cancel.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-AGENTS-TOP-001",
+      "title": "GET /v1/metrics/agents/top — top agents by settled invoice value",
+      "description": "New endpoint: GET /v1/metrics/agents/top. Returns top 10 agents sorted by total settled value descending: [{ agentId, settledCount, totalSettledAmount }]. Only SETTLED+COMPLETED invoices count toward totals. Accepts optional ?limit=N (max 50). Tests: 200-returns-array, 200-sorted-by-value, 200-has-required-fields, 200-empty-state, 500-db-error. File: backend/src/routes/metrics.ts (add after /v1/metrics/revenue) + tests at backend/src/routes/__tests__/metrics-agents-top.test.ts.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "WEBHOOKS-BULK-DELETE-001",
+      "title": "DELETE /v1/webhooks/bulk — bulk delete webhooks by IDs",
+      "description": "New endpoint: DELETE /v1/webhooks/bulk. Body: { ids: string[] }. Deletes multiple webhook registrations in one call (max 20). Returns { deleted: number, ids: string[] }. Returns 400 if ids missing or exceeds 20. Tests: 200-returns-deleted-count, 200-validates-ids-array, 400-missing-ids, 400-too-many-ids, 500-db-error. File: backend/src/routes/webhooks.ts (add before DELETE /:id) + tests at backend/src/routes/__tests__/webhook-bulk-delete.test.ts.",
+      "file": "backend/src/routes/webhooks.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENTS-BY-CURRENCY-001",
+      "title": "GET /v1/settlements/by-currency — settlement totals grouped by currency",
+      "description": "New endpoint: GET /v1/settlements/by-currency. Returns SETTLED+COMPLETED invoice totals grouped by currency: [{ currency, count, totalAmount }], sorted by totalAmount DESC. Tests: 200-returns-array, 200-sorted-by-amount, 200-has-required-fields, 200-empty-state, 500-db-error. File: backend/src/routes/settlements.ts (add before /:id) + tests at backend/src/routes/__tests__/settlements-by-currency.test.ts.",
+      "file": "backend/src/routes/settlements.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}

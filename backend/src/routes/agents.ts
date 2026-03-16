@@ -51,6 +51,45 @@ router.get('/v1/agents', async (req: Request, res: Response): Promise<void> => {
 });
 
 // ─────────────────────────────────────────────
+// GET /v1/agents/:agentId/invoices/summary
+// Invoice count breakdown by status for a specific agent.
+// Must be before /:agentId/invoices to avoid partial match.
+// ─────────────────────────────────────────────
+router.get('/v1/agents/:agentId/invoices/summary', async (req: Request, res: Response): Promise<void> => {
+  const { agentId } = req.params;
+  const sb = getSb();
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('status, amount')
+    .eq('agentId', agentId);
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  const rows = data || [];
+  const byStatus: Record<string, number> = {};
+  let totalAmount = 0;
+  let settledAmount = 0;
+
+  for (const row of rows) {
+    const s = row.status || 'UNKNOWN';
+    byStatus[s] = (byStatus[s] || 0) + 1;
+    totalAmount += row.amount || 0;
+    if (s === 'SETTLED' || s === 'COMPLETED') {
+      settledAmount += row.amount || 0;
+    }
+  }
+
+  res.json({
+    success: true,
+    data: { agentId, total: rows.length, byStatus, totalAmount, settledAmount },
+  });
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/agents/:agentId/invoices
 // Paginated invoice list for a specific agent.
 // Must be before /:agentId (profile) — Express matches /:agentId first
