@@ -1,0 +1,46 @@
+{
+  "week": 86,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "TAX-ROUTE-TESTS-001",
+      "title": "POST /v1/tax/calculate functional tests",
+      "description": "Functional tests for the tax routes. POST /v1/tax/calculate: 200 with tax breakdown for US, 200 for EU VAT, 200 for non-taxable jurisdiction, 400 missing required fields, 500 on service error. GET /v1/tax/jurisdictions: 200 returns array of supported jurisdictions. File: backend/src/routes/__tests__/tax-functional.test.ts",
+      "file": "backend/src/routes/__tests__/tax-functional.test.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "INVOICE-STATS-TESTS-001",
+      "title": "GET /v1/invoices/stats functional tests",
+      "description": "Functional tests for invoice stats endpoint. Tests: 200 with correct status counts and revenue totals, 200 filtered by companyId, 200 with empty data returns zeros, 500 on DB error, response shape (totalInvoices, byStatus, revenue fields). File: backend/src/routes/__tests__/invoice-stats-functional.test.ts",
+      "file": "backend/src/routes/__tests__/invoice-stats-functional.test.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "LEADERBOARD-TESTS-001",
+      "title": "GET /v1/reputation/leaderboard functional tests",
+      "description": "Functional tests for reputation leaderboard. Tests: 200 returns ranked agents, tier filter applied, limit capped at 100, rank field present and sequential, empty result on unknown tier, 500 on DB error. File: backend/src/routes/__tests__/reputation-leaderboard-functional.test.ts",
+      "file": "backend/src/routes/__tests__/reputation-leaderboard-functional.test.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENT-SUMMARY-TESTS-001",
+      "title": "GET /v1/settlements/summary functional tests",
+      "description": "Functional tests for settlement summary endpoint. Tests: 200 returns grouped chain volumes, 200 with empty data, correct volume totals per chain, 500 on error. File: backend/src/routes/__tests__/settlement-summary-functional.test.ts",
+      "file": "backend/src/routes/__tests__/settlement-summary-functional.test.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "INVOICE-NUMBER-TESTS-001",
+      "title": "GET /v1/invoices/number/:number functional tests",
+      "description": "Functional tests for invoice lookup by number. Tests: 200 found, 404 not found, 400 non-numeric number, response shape matches invoice format. File: backend/src/routes/__tests__/invoice-by-number.test.ts",
+      "file": "backend/src/routes/__tests__/invoice-by-number.test.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}
