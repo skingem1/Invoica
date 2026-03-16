@@ -72,6 +72,19 @@ router.get('/v1/webhooks/events', (_req: Request, res: Response) => {
   res.json({ success: true, data: WEBHOOK_EVENT_TYPES });
 });
 
+// GET /v1/webhooks/:id — get a single webhook registration by ID
+router.get('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const webhook = await repo.findById(id);
+    if (!webhook) {
+      res.status(404).json({ success: false, error: { message: 'Webhook not found', code: 'NOT_FOUND' } });
+      return;
+    }
+    res.json({ success: true, data: webhook });
+  } catch (err) { next(err); }
+});
+
 // DELETE /v1/webhooks/:id — permanently delete a webhook
 router.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
