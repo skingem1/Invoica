@@ -243,6 +243,40 @@ router.get('/v1/invoices/stats/currency', async (_req: Request, res: Response, n
 });
 
 /**
+ * GET /v1/invoices/stats/customers
+ * Top customers by invoice count and total amount. Registered before /:id.
+ */
+router.get('/v1/invoices/stats/customers', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 50);
+    const sb = getSupabase();
+    const { data, error } = await sb.from('Invoice').select('customerEmail, customerName, amount');
+    if (error) throw error;
+
+    const customerMap = new Map<string, { customerEmail: string; customerName: string; count: number; totalAmount: number }>();
+    for (const row of (data || [])) {
+      const email = row.customerEmail || 'unknown';
+      const existing = customerMap.get(email) || {
+        customerEmail: email,
+        customerName: row.customerName || '',
+        count: 0,
+        totalAmount: 0,
+      };
+      existing.count += 1;
+      existing.totalAmount += Number(row.amount) || 0;
+      if (row.customerName && !existing.customerName) existing.customerName = row.customerName;
+      customerMap.set(email, existing);
+    }
+
+    const result = Array.from(customerMap.values())
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, limit);
+
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+/**
  * GET /v1/invoices/stats/void
  * Count and amount of CANCELLED+REFUNDED invoices with recent breakdowns.
  * Registered before /:id.
