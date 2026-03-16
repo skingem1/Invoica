@@ -992,3 +992,14 @@
 - Health check post: 159/159 suites, 1334/1334 tests — ALL PASS
 - Notes: Search route registered before /:id param route to prevent Express clash. ilike filter on customerEmail + customerName.
 - Timestamp: 2026-03-16T19:50:00Z
+
+## Sprint 086 — SETTLEMENT-STATS-001
+- Status: PASS
+- Branch: sprint-086-settlement-stats-001 → merged to main
+- Commit: f1140c9
+- Files created: backend/src/routes/__tests__/settlement-stats.test.ts
+- Files modified: backend/src/routes/settlement-summary.ts (+GET /v1/settlements/stats)
+- Tests: 5 new tests (200-data, 200-empty, null-avg, unknown-network, 500-error) — PASS
+- Health check post: 160/160 suites, 1339/1339 tests — ALL PASS
+- Notes: Adds avgSettlementTimeMs (createdAt→settledAt diff) as differentiator from /summary. byNetwork uses 'unknown' fallback when paymentDetails.network absent.
+- Timestamp: 2026-03-16T20:05:00Z
