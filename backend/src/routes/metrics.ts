@@ -291,4 +291,46 @@ router.get('/v1/metrics/compare', async (req: Request, res: Response): Promise<v
   }
 });
 
+/**
+ * GET /v1/metrics/revenue
+ * Daily revenue totals for last 30 days. Only SETTLED/COMPLETED invoices. Zero-fills empty days.
+ */
+router.get('/v1/metrics/revenue', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const sb = getSb();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    thirtyDaysAgo.setUTCHours(0, 0, 0, 0);
+
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('amount, status, createdAt')
+      .in('status', ['SETTLED', 'COMPLETED'])
+      .gte('createdAt', thirtyDaysAgo.toISOString());
+
+    if (error) throw error;
+
+    // Pre-fill last 30 days with zeros
+    const dayMap = new Map<string, { revenue: number; invoiceCount: number }>();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().slice(0, 10);
+      dayMap.set(key, { revenue: 0, invoiceCount: 0 });
+    }
+
+    for (const row of (data || [])) {
+      const key = new Date(row.createdAt).toISOString().slice(0, 10);
+      if (dayMap.has(key)) {
+        const entry = dayMap.get(key)!;
+        entry.revenue += row.amount || 0;
+        entry.invoiceCount += 1;
+      }
+    }
+
+    const result = Array.from(dayMap.entries()).map(([date, vals]) => ({ date, ...vals }));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
 export default router;
