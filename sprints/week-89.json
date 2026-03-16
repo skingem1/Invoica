@@ -1,0 +1,46 @@
+{
+  "week": 89,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "INVOICE-DUPLICATE-001",
+      "title": "POST /v1/invoices/:id/duplicate — clone an invoice",
+      "description": "New endpoint: POST /v1/invoices/:id/duplicate. Fetches source invoice by ID (404 if not found). Creates a new PENDING invoice copying customerEmail, customerName, amount, currency, companyId, and paymentDetails from the source. Returns 201 with new invoice. Tests: 201-new-id, 201-pending-status, 201-copied-fields, 404-source-not-found, 500-db-error. File: backend/src/routes/invoices.ts (add route) + tests.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "LEDGER-BALANCE-001",
+      "title": "GET /v1/ledger/:agentId/balance — agent net balance",
+      "description": "New endpoint returning net balance for an agent: { agentId, totalCredits, totalDebits, balance }. Reads from Ledger table (or Invoice table if no Ledger). Tests: 200-with-entries, 200-zero-balance, 200-credits-only, 404-or-empty-agent, 500-db-error. File: backend/src/routes/ledger.ts (add route) + tests.",
+      "file": "backend/src/routes/ledger.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "AGENT-PROFILE-001",
+      "title": "GET /v1/agents/:agentId — combined agent profile",
+      "description": "New route file: backend/src/routes/agents.ts. Returns combined profile: { agentId, reputation: { score, tier } | null, invoices: { total, byStatus }, totalValueSettled }. Register in app.ts. Tests: 200-full-profile, 200-no-reputation, 200-no-invoices, 404-agent-not-found (if 0 invoices AND no reputation), 500-db-error.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "WEBHOOK-EVENTS-LIST-001",
+      "title": "GET /v1/webhooks/events — list available webhook event types",
+      "description": "New read endpoint (no DB call). Returns the list of valid webhook event types that can be subscribed to: [ 'invoice.created', 'invoice.settled', 'invoice.completed', 'settlement.confirmed', 'agent.reputation_changed' ]. Tests: 200-returns-array, 200-has-invoice-events, 200-has-settlement-events, response-shape, registered-before-/:id-param. File: backend/src/routes/webhooks.ts (add GET /v1/webhooks/events before /:id route) + tests.",
+      "file": "backend/src/routes/webhooks.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-COMPARE-001",
+      "title": "GET /v1/metrics/compare — compare two time periods",
+      "description": "New endpoint: GET /v1/metrics/compare?period1Start=&period1End=&period2Start=&period2End=. Returns invoice counts for both periods side by side: { period1: { from, to, invoiceCount, settlementCount }, period2: { from, to, invoiceCount, settlementCount }, delta: { invoiceCount, settlementCount } }. Tests: 200-with-both-periods, 200-positive-delta, 200-negative-delta, 400-missing-params, 500-db-error. File: backend/src/routes/metrics.ts (add new route) + tests.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}

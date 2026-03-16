@@ -459,4 +459,61 @@ router.patch('/v1/invoices/:id/metadata', async (req: Request, res: Response, ne
   }
 });
 
+/**
+ * POST /v1/invoices/:id/duplicate
+ * Clone an existing invoice as a new PENDING invoice.
+ * Copies customerEmail, customerName, amount, currency, companyId, paymentDetails.
+ * Returns 201 with the new invoice. Returns 404 if source not found.
+ */
+router.post('/v1/invoices/:id/duplicate', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const sb = getSupabase();
+
+    const { data: source, error: fetchErr } = await sb
+      .from('Invoice')
+      .select(SELECT_FIELDS)
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !source) {
+      res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+      return;
+    }
+
+    const { data: maxData } = await sb
+      .from('Invoice')
+      .select('invoiceNumber')
+      .order('invoiceNumber', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextNumber = ((maxData?.invoiceNumber as number) || 0) + 1;
+    const now = new Date().toISOString();
+
+    const { data: created, error: insertErr } = await sb
+      .from('Invoice')
+      .insert({
+        invoiceNumber: nextNumber,
+        status: 'PENDING',
+        amount: source.amount,
+        currency: source.currency,
+        customerEmail: source.customerEmail,
+        customerName: source.customerName,
+        companyId: source.companyId || null,
+        paymentDetails: source.paymentDetails || null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .select(SELECT_FIELDS)
+      .single();
+
+    if (insertErr) throw insertErr;
+
+    res.status(201).json({ success: true, data: mapInvoice(created) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
