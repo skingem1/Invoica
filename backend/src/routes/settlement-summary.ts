@@ -66,4 +66,60 @@ router.get('/v1/settlements/summary', async (req: Request, res: Response, next: 
   }
 });
 
+/**
+ * GET /v1/settlements/stats
+ * Extended settlement statistics: total count, total value, byNetwork breakdown,
+ * and average settlement time in milliseconds (createdAt → settledAt).
+ * Returns avgSettlementTimeMs: null when no timestamps are available.
+ */
+router.get('/v1/settlements/stats', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { data, error } = await getSb()
+      .from('Invoice')
+      .select('amount, paymentDetails, createdAt, settledAt')
+      .in('status', ['SETTLED', 'COMPLETED']);
+
+    if (error) throw error;
+
+    const invoices = data || [];
+    const byNetwork: Record<string, { count: number; value: number }> = {};
+    let totalValue = 0;
+    let settlementTimesMs: number[] = [];
+
+    for (const inv of invoices) {
+      const pd = inv.paymentDetails
+        ? (typeof inv.paymentDetails === 'string' ? JSON.parse(inv.paymentDetails) : inv.paymentDetails)
+        : {};
+      const network = pd.network || 'unknown';
+      const amt = parseFloat(inv.amount as string) || 0;
+
+      if (!byNetwork[network]) byNetwork[network] = { count: 0, value: 0 };
+      byNetwork[network].count++;
+      byNetwork[network].value = Math.round((byNetwork[network].value + amt) * 100) / 100;
+      totalValue += amt;
+
+      if (inv.createdAt && inv.settledAt) {
+        const ms = new Date(inv.settledAt).getTime() - new Date(inv.createdAt).getTime();
+        if (ms >= 0) settlementTimesMs.push(ms);
+      }
+    }
+
+    const avgSettlementTimeMs = settlementTimesMs.length > 0
+      ? Math.round(settlementTimesMs.reduce((a, b) => a + b, 0) / settlementTimesMs.length)
+      : null;
+
+    res.json({
+      success: true,
+      data: {
+        total: invoices.length,
+        totalValue: Math.round(totalValue * 100) / 100,
+        byNetwork,
+        avgSettlementTimeMs,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
