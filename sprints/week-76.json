@@ -269,8 +269,8 @@
       "type": "bugfix",
       "priority": "critical",
       "dependencies": [],
-      "description": "Fix listInvoices response schema mismatch \u2014 backend returns wrong field names, causing Invoices page to break",
-      "context": "The Invoices page (app.invoica.ai/invoices) shows \"Something went wrong\". Root cause: backend/src/api/invoices-list.ts returns a minimal schema that does NOT match what the frontend InvoiceListItem type expects.\n\nCURRENT backend response (wrong):\n{\n  invoices: [{ id, number, amount, currency, status, createdAt }],\n  total, limit, offset\n}\n\nREQUIRED by frontend (InvoiceListItem fields used in the render):\n- invoiceNumber (string, e.g. \"INV-42\") \u2014 currently sent as \"number\" \u2190 RENAME THIS KEY\n- sellerName (string | null)\n- customerName (string | null)\n- customerEmail (string | null)\n- amount (number) \u2190 keep\n- total (number | null) \u2014 invoice total after tax\n- subtotal (number | null) \u2014 pre-tax amount\n- taxAmount (number | null)\n- taxRate (number | null)\n- taxType (string | null, e.g. \"VAT\")\n- taxCountry (string | null)\n- currency (string) \u2190 keep\n- status (string, lowercase) \u2190 keep\n- createdAt (ISO string) \u2190 keep\n- serviceDescription (string | null)\n\nEDIT: backend/src/api/invoices-list.ts\n\nIn the res.json() call, change the invoice mapping from:\n  number: 'INV-' + inv.invoiceNumber,\n  amount: Number(inv.amount),\n  currency: inv.currency,\n  status: inv.status.toLowerCase(),\n  createdAt: inv.createdAt.toISOString()\n\nTo (include all fields the frontend needs, use ?. and null fallbacks for optional fields):\n  invoiceNumber: 'INV-' + String(inv.invoiceNumber).padStart(3, '0'),\n  sellerName: (inv as any).sellerName ?? null,\n  customerName: (inv as any).customerName ?? null,\n  customerEmail: (inv as any).customerEmail ?? null,\n  amount: Number(inv.amount),\n  total: (inv as any).total \\!= null ? Number((inv as any).total) : Number(inv.amount),\n  subtotal: (inv as any).subtotal \\!= null ? Number((inv as any).subtotal) : Number(inv.amount),\n  taxAmount: (inv as any).taxAmount \\!= null ? Number((inv as any).taxAmount) : 0,\n  taxRate: (inv as any).taxRate ?? null,\n  taxType: (inv as any).taxType ?? null,\n  taxCountry: (inv as any).taxCountry ?? null,\n  currency: inv.currency,\n  status: inv.status.toLowerCase(),\n  createdAt: inv.createdAt.toISOString(),\n  serviceDescription: (inv as any).serviceDescription ?? null\n\nNOTE: Use (inv as any) for fields not in the current Prisma type. Check schema.prisma first to see which fields actually exist \u2014 only map fields that are in the schema. For fields not in the schema, return null.\nAfter editing, restart backend: pm2 restart backend\nThen verify: curl -s http://localhost:3001/v1/invoices | python3 -m json.tool",
+      "description": "Fix Invoices page crash \u2014 frontend reads wrong keys from actual API response format",
+      "context": "Developer confirmed actual API response formats:\n\nSINGLE ITEM: { success: true, data: { id, invoiceNumber, ... } }\nLIST: { data: [...], meta: { total, limit, offset, hasMore } }\n\nThe frontend api-client.ts does fetchInvoices() -> InvoiceListResponse, then invoices/page.tsx does setInvoices(data.invoices). BUG: the key is data.data not data.invoices. This causes data.invoices === undefined -> setInvoices(undefined) -> invoices.length throws -> error boundary fires ('Something went wrong').\n\nFIX 1 \u2014 Update InvoiceListResponse type in frontend/lib/api-client.ts:\n  FROM: interface InvoiceListResponse { invoices: InvoiceListItem[]; }\n  TO:   interface InvoiceListResponse { data: InvoiceListItem[]; meta: { total: number; limit: number; offset: number; hasMore: boolean; }; }\n\nFIX 2 \u2014 Update invoices/page.tsx:\n  FROM: setInvoices(data.invoices);\n  TO:   setInvoices(data.data);\n\nFIX 3 \u2014 InvoiceListItem: add optional fields actually returned by API: sellerName?, customerName?, customerEmail?, total?, subtotal?, taxAmount?, taxRate?, taxType?, taxCountry?, serviceDescription? (all string|number|null optional). invoiceNumber should be string (e.g. 'INV-002').\n\nFIX 4 \u2014 Check handleResponse in api-client.ts. Single items are wrapped in { success, data }. If apiGet does NOT unwrap this, fetchInvoiceById, fetchDashboardStats etc. are also broken. Add conditional unwrapping: if response body has { success: true, data } shape, return body.data. But lists use { data: [...], meta: {...} } not { success, data }, so unwrap only when body.success === true. Simple guard: if (body && body.success === true && 'data' in body && !('meta' in body)) return body.data;\n\nFiles: frontend/lib/api-client.ts + frontend/app/invoices/page.tsx\nAfter fix: Invoices page should load without error boundary.",
       "deliverables": {
         "code": [
           "backend/src/api/invoices-list.ts"
@@ -314,6 +314,26 @@
         ],
         "tests": [],
         "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SDK-001",
+      "agent": "sdk-core",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Fix SDK TypeScript types and response handling \u2014 missing customerEmail/customerName, broken response unwrapping, wrong InvoiceListResponse shape",
+      "context": "Developer feedback (March 16, 2026) confirmed 3 SDK issues:\n\nISSUE 1 \u2014 Missing required fields in invoice creation types:\nThe API requires customerEmail and customerName but the SDK CreateInvoiceInput type (or equivalent) does not include these fields. Developer had to use 'as any' to pass them. FIX: Add customerEmail: string and customerName: string to the SDK invoice creation input type.\n\nISSUE 2 \u2014 SDK returns full { success, data } wrapper instead of unwrapped data:\nThe raw API returns { success: true, data: { ...invoice } } for single-item responses. The SDK should unwrap this and return just the inner data object, but currently returns the full wrapper. FIX: In the SDK client methods (createInvoice, getInvoice, etc.), after fetching, check if response has { success: true, data } shape and return response.data instead of response.\n\nISSUE 3 \u2014 InvoiceListResponse type does not match actual API:\nSDK types say InvoiceListResponse has { invoices: InvoiceListItem[] }. Actual API returns { data: InvoiceListItem[], meta: { total, limit, offset, hasMore } }. FIX: Update InvoiceListResponse in sdk/ types to: { data: InvoiceListItem[]; meta: { total: number; limit: number; offset: number; hasMore: boolean; } }. Update SDK listInvoices method to return data.data (the array) or the full response depending on SDK design.\n\nFiles: sdk/src/ (check for types.ts, client.ts, invoices.ts or equivalent)\nAfter fix: SDK should work without 'as any' casts and return correctly typed responses.",
+      "deliverables": {
+        "code": [
+          "sdk/src/types.ts",
+          "sdk/src/client.ts"
+        ],
+        "tests": [],
+        "docs": [
+          "sdk/README.md"
+        ]
       },
       "status": "pending"
     }
