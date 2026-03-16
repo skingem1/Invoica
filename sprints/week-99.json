@@ -31,8 +31,8 @@
       "title": "GET /v1/metrics/chains/breakdown — invoice counts and volume by chain",
       "description": "New endpoint: GET /v1/metrics/chains/breakdown. Returns per-chain stats: [{ chain, count, totalAmount, settledCount }] from paymentDetails.network field, sorted by count DESC. Tests: 200-returns-array, 200-has-chain-field, 200-has-settled-count, 200-empty-state, 500-db-error. File: backend/src/routes/metrics.ts (add after /v1/metrics/chains) + tests at backend/src/routes/__tests__/metrics-chain-breakdown.test.ts.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "approved",
+      "sprint": 141
     },
     {
       "id": "SETTLEMENTS-BY-AGENT-SUMMARY-001",
