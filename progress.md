@@ -337,3 +337,15 @@
 - Coverage: rotateKey (6 tests: success, KEY_NOT_FOUND×2, INSERT_FAILED, INVALID_KEY_ID, INVALID_USER_ID), revokeKey (4 tests: success, KEY_NOT_FOUND, KEY_ALREADY_REVOKED, REVOKE_FAILED), listKeys (3 tests: success, empty, INVALID_USER_ID)
 - Issues: None
 - Timestamp: 2026-03-16T17:00:00Z
+
+## Sprint 029 — REP-003: Leaderboard disputeRate + completionRate
+- Status: PASS
+- Branch: sprint-029-rep003-dispute-rates → merged to main
+- Commit: c8b57fe
+- Files modified: backend/src/routes/reputation-leaderboard.ts, backend/src/routes/__tests__/reputation-leaderboard.test.ts
+- Tests: 97/97 suites, 701/701 — ALL PASS (2 new tests)
+- Health check pre: ✅ 97/97 suites, disk 80% free
+- Health check post: ✅ 97/97 suites, disk 80% free
+- Changes: Added disputeRate (invoicesDisputed/total, 4dp) and completionRate (invoicesCompleted/total, 4dp, defaults to 1 when no invoices) to every leaderboard entry
+- Issues: None
+- Timestamp: 2026-03-16T17:15:00Z

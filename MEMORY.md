@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: a896412 on main, pushed to origin (clean)
-- **Tests**: 97/97 suites, 699/699 tests — ALL PASS
+- **Git**: c8b57fe on main, pushed to origin (clean)
+- **Tests**: 97/97 suites, 701/701 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
 - **OpenClaw**: Stable (v2026.3.13, port 18789 WebSocket)
@@ -53,6 +53,7 @@
 32. Sprint 026 — API-KEY-001: api-keys.ts pure function tests — 15 tests (generate, hash, verify, prefix, validate) (ea18678)
 33. Sprint 027 — SETTLE-004: settlement-summary edge cases — 3 tests (JSON string, null paymentDetails, SETTLED+COMPLETED) (ed4901f)
 34. Sprint 028 — API-ROTATE-001: ApiKeyRotationService tests — 13 tests (rotateKey, revokeKey, listKeys) (a896412)
+35. Sprint 029 — REP-003: leaderboard disputeRate + completionRate fields + 2 tests (c8b57fe)
 
 ## Known Issues
 - Redis: not_configured (backend health shows redis: not_configured — non-blocking)
@@ -101,9 +102,12 @@
 ## Week-77 Status — ALL DONE ✅
 - INVOICE-002, INVOICE-003, REP-002, ENFORCE-001, SETTLE-002 — all complete (Sprints 019-023)
 
-## Next Sprint: Sprint 029
-- week-78.json: TASK-VALID-001 ✅, API-KEY-001 ✅, SETTLE-004 ✅, API-ROTATE-001 ✅, 1 remaining (REP-003)
-- Next: REP-003 — enhance GET /v1/reputation/leaderboard with disputeRate + completionRate fields
+## Week-78 Status — ALL DONE ✅
+- TASK-VALID-001, API-KEY-001, SETTLE-004, API-ROTATE-001, REP-003 — all complete (Sprints 025-029)
+
+## Next Sprint: Sprint 030
+- week-78.json fully complete — need to create week-79.json with new tasks
+- Priority candidates: Supabase query optimisation, API route auth hardening, or dashboard analytics endpoint
 
 ## V17 + Solana Migration — COMPLETE
 - All 4 V17 sprints COMPLETE
