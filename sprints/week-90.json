@@ -23,8 +23,8 @@
       "title": "GET /v1/metrics/summary — high-level KPI summary",
       "description": "New endpoint: GET /v1/metrics/summary. Returns { totalInvoices, totalAgents, totalVolumeSettled, avgInvoiceAmount, topAgentId | null }. Reads from Invoice table only. topAgentId = agentId with highest settled volume. Tests: 200-returns-kpis, 200-empty-state-zeroes, 200-top-agent-correct, response-shape-keys, 500-db-error. File: backend/src/routes/metrics.ts (add route) + tests.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 95
     },
     {
       "id": "SETTLEMENT-EXPORT-001",

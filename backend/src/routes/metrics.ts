@@ -109,6 +109,58 @@ router.get('/v1/metrics/agent/:agentId', async (req: Request, res: Response): Pr
 });
 
 /**
+ * GET /v1/metrics/summary
+ * High-level KPI summary: totalInvoices, totalAgents, totalVolumeSettled, avgInvoiceAmount, topAgentId.
+ * Reads from Invoice table only.
+ */
+router.get('/v1/metrics/summary', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const sb = getSb();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('agentId, amount, status');
+
+    if (error) throw error;
+
+    const invoices = data || [];
+    const totalInvoices = invoices.length;
+    const agentSet = new Set<string>();
+    const agentVolume = new Map<string, number>();
+    let totalVolumeSettled = 0;
+    let totalAmount = 0;
+
+    for (const inv of invoices) {
+      const agentId = inv.agentId || 'unknown';
+      agentSet.add(agentId);
+      totalAmount += inv.amount || 0;
+      if (inv.status === 'SETTLED' || inv.status === 'COMPLETED') {
+        totalVolumeSettled += inv.amount || 0;
+        agentVolume.set(agentId, (agentVolume.get(agentId) || 0) + (inv.amount || 0));
+      }
+    }
+
+    let topAgentId: string | null = null;
+    let topVolume = 0;
+    for (const [agentId, vol] of agentVolume.entries()) {
+      if (vol > topVolume) { topVolume = vol; topAgentId = agentId; }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        totalInvoices,
+        totalAgents: agentSet.size,
+        totalVolumeSettled,
+        avgInvoiceAmount: totalInvoices > 0 ? Math.round((totalAmount / totalInvoices) * 100) / 100 : 0,
+        topAgentId,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
+/**
  * GET /v1/metrics/compare
  * Compare invoice and settlement counts across two time periods.
  * Query params: period1Start, period1End, period2Start, period2End (ISO strings)
