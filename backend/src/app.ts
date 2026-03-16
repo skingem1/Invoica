@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import invoiceStatsRoutes from './routes/invoice-stats';
+import invoiceExportRoutes from './routes/invoices-export';
 import invoiceRoutes from './routes/invoices';
 import apiKeyRoutes from './routes/api-keys';
 import webhookRoutes from './routes/webhooks';
@@ -44,6 +45,7 @@ app.use((req, _res, next) => {
 
 app.use(healthRoutes);
 app.use(invoiceStatsRoutes);
+app.use(invoiceExportRoutes);
 app.use(invoiceRoutes);
 app.use(apiKeyRoutes);
 app.use(webhookRoutes);
