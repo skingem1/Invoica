@@ -50,6 +50,47 @@ function mapInvoice(inv: any) {
 }
 
 /**
+ * GET /v1/invoices/search?q=
+ * Search invoices by customer email or name (case-insensitive).
+ * Query param: q (min 2 chars). Returns up to 20 matches.
+ * IMPORTANT: Must be registered BEFORE /v1/invoices/number/:number and /:id
+ * to prevent Express matching "search" as a parameter value.
+ */
+router.get('/v1/invoices/search', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const q = (req.query.q as string | undefined) || '';
+
+    if (q.length < 2) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Search query must be at least 2 characters', code: 'QUERY_TOO_SHORT' },
+      });
+      return;
+    }
+
+    const sb = getSupabase();
+    const term = `%${q}%`;
+
+    const { data, error } = await sb
+      .from('Invoice')
+      .select(SELECT_FIELDS)
+      .or(`customerEmail.ilike.${term},customerName.ilike.${term}`)
+      .order('createdAt', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: (data || []).map(mapInvoice),
+      meta: { query: q, count: (data || []).length },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /v1/invoices/number/:number
  * Lookup invoice by sequential invoice number (e.g. 15).
  * IMPORTANT: This route MUST be registered before /v1/invoices/:id
