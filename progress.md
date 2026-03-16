@@ -1,5 +1,20 @@
 # Invoica Sprint Progress Log
 
+## Sprint 107 — WEBHOOK-BY-EVENT-001
+- Status: PASS | Commit: c222f45 | Tests: 5/5 | Timestamp: 2026-03-16T19:55:00Z
+
+## Sprint 106 — SETTLEMENT-BY-AGENT-001
+- Status: PASS | Commit: cba79e9 | Tests: 5/5 | Timestamp: 2026-03-16T19:50:00Z
+
+## Sprint 105 — METRICS-DAILY-001
+- Status: PASS | Commit: 2e2cc19 | Tests: 5/5 | Timestamp: 2026-03-16T19:45:00Z
+
+## Sprint 104 — AGENT-INVOICE-LIST-001
+- Status: PASS | Commit: 8d4cb4e | Tests: 5/5 | Timestamp: 2026-03-16T19:40:00Z
+
+## Sprint 103 — INVOICE-COUNT-BY-STATUS-001
+- Status: PASS | Commit: 2f45fe0 | Tests: 5/5 | Timestamp: 2026-03-16T19:35:00Z
+
 ## Sprint 102 — HEALTH-SERVICES-001
 - Status: PASS | Commit: 6cbd329 | Tests: 5/5 | Timestamp: 2026-03-16T19:20:00Z
 

@@ -175,11 +175,16 @@
 - REPUTATION-AGENT-STATS-001 ✅ (Sprint 100), METRICS-AGENTS-LEADERBOARD-001 ✅ (Sprint 101)
 - HEALTH-SERVICES-001 ✅ (Sprint 102)
 
-## Current State (2026-03-16 — Sprint 102)
-- **Git**: 6cbd329 on main, pushed to origin (clean)
-- **Tests**: 178/178 suites, 1429/1429 tests — ALL PASS (+25 Sprints 098-102)
-- **New endpoints (Sprints 098-102)**: POST /v1/invoices/:id/remind, GET /v1/ledger/summary/:agentId, GET /v1/reputation/:agentId/stats, GET /v1/metrics/leaderboard, GET /v1/health/services
-- **week-92.json**: not yet created
+## Week-92 Status — ALL DONE ✅
+- INVOICE-COUNT-BY-STATUS-001 ✅ (Sprint 103), AGENT-INVOICE-LIST-001 ✅ (Sprint 104)
+- METRICS-DAILY-001 ✅ (Sprint 105), SETTLEMENT-BY-AGENT-001 ✅ (Sprint 106)
+- WEBHOOK-BY-EVENT-001 ✅ (Sprint 107)
+
+## Current State (2026-03-16 — Sprint 107)
+- **Git**: c222f45 on main, pushed to origin (clean)
+- **Tests**: 188/188 suites, 1479/1479 tests — ALL PASS (+50 Sprints 098-107)
+- **New endpoints (Sprints 103-107)**: GET /v1/invoices/count, GET /v1/agents/:agentId/invoices, GET /v1/metrics/daily, GET /v1/settlements/agent/:agentId, GET /v1/webhooks/by-event/:eventType
+- **week-93.json**: not yet created
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
