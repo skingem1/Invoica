@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 144 — AGENTS-TOP-EARNERS-001
+- Status: PASS | Commit: 2b42051 | Branch: sprint-144-agents-top-earners → main | Tests: 5/5 | Files: agents.ts +36 lines, agents-top-earners.test.ts (new) | Note: GET /v1/agents/top-earners with totalRevenue/invoiceCount/avgRevenue | Timestamp: 2026-03-16T23:20:00Z
+
 ## Sprint 143 — INVOICE-VOID-STATS-001
 - Status: PASS | Commit: b202378 | Branch: sprint-143-invoice-void-stats → main | Tests: 5/5 | Files: invoices.ts +32 lines, invoice-stats-void.test.ts (new), week-100.json (new) | Note: GET /v1/invoices/stats/void — CANCELLED+REFUNDED with last24h/7d | Timestamp: 2026-03-16T23:10:00Z
 
