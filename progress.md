@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 138 — WEBHOOKS-LIST-001
+- Status: PASS | Commit: 8ecc83b | Branch: sprint-138-webhooks-list → main | Tests: 5/5 | Files: webhooks.ts pagination upgrade, webhooks-list.test.ts (new), week-99.json (new) | Note: GET /v1/webhooks now supports ?limit&offset pagination | Timestamp: 2026-03-16T22:20:00Z
+
 ## Sprint 137 — INVOICE-STATS-CURRENCY-001
 - Status: PASS | Commit: 9f8a61f | Branch: sprint-137-invoice-stats-currency → main | Tests: 5/5 | Files: invoices.ts +28 lines, invoice-stats-currency.test.ts (new) | Note: GET /v1/invoices/stats/currency — sorted by totalAmount DESC | Timestamp: 2026-03-16T22:10:00Z
 

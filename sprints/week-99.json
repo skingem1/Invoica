@@ -7,8 +7,8 @@
       "title": "GET /v1/webhooks — list all webhooks with pagination",
       "description": "New endpoint: GET /v1/webhooks. Returns paginated list of webhooks: [{ id, url, events, active, createdAt }]. Accepts ?limit=N (default 20, max 100) and ?offset=N. Returns { data, meta: { total, limit, offset } }. Tests: 200-returns-array, 200-has-meta, 200-respects-limit, 200-empty-state, 500-db-error. File: backend/src/routes/webhooks.ts (add before /:id routes) + tests at backend/src/routes/__tests__/webhooks-list.test.ts.",
       "file": "backend/src/routes/webhooks.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "approved",
+      "sprint": 138
     },
     {
       "id": "INVOICE-SEARCH-ADVANCED-001",
