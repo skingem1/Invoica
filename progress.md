@@ -507,3 +507,16 @@
 - Health check post: ✅ 110/110, 895/895
 - Issues: None
 - Timestamp: 2026-03-16T20:05:00Z
+
+## Sprint 043 — week-82.json + TAX-LOC-001 (location-resolver unit tests)
+- Status: PASS
+- Branch: sprint-043-week82-location-resolver → merged to main
+- Commit: afa1076
+- Files created: sprints/week-82.json, backend/src/services/tax/__tests__/location-resolver.test.ts
+- Files modified: None
+- Tests: 111/111 suites, 916/916 — ALL PASS (21 new tests)
+- Coverage added: getJurisdiction US (direct + case-insensitive + stateCode fallback + DC), EU (DE/FR/case-insensitive/with VAT number/GB), NONE (unknown/empty/undefined); isEUCountry (valid/invalid/case-insensitive/unknown); isUSState (valid/invalid/case-insensitive/DC)
+- Health check pre: ✅ 110/110 suites, 895/895
+- Health check post: ✅ 111/111 suites, 916/916
+- Issues: None
+- Timestamp: 2026-03-16T20:20:00Z
