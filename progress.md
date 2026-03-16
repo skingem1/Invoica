@@ -888,3 +888,13 @@
 - Health check post: 149/149 suites, 1283/1283 tests — ALL PASS
 - Notes: Mocked WebhookRepository class. Covers POST+GET+DELETE functional paths.
 - Timestamp: 2026-03-16T18:00:00Z
+
+## Sprint 076 — INVOICE-PATCH-VALIDATOR-001
+- Status: PASS
+- Branch: sprint-076-invoice-patch-validator-001 → merged to main
+- Commit: eb67e53
+- Files created: backend/src/validators/__tests__/invoice-status-schema.test.ts
+- Files modified: backend/src/validators/invoice-schemas.ts (+updateInvoiceStatusSchema + type)
+- Tests: 7 new tests (4 valid statuses, lowercase rejected, unknown rejected, missing rejected) — PASS
+- Health check post: 150/150 suites, 1290/1290 tests — ALL PASS
+- Timestamp: 2026-03-16T18:10:00Z
