@@ -172,6 +172,34 @@ router.get('/v1/invoices/stats/status', async (_req: Request, res: Response, nex
 });
 
 /**
+ * GET /v1/invoices/stats/currency
+ * Invoice count and amount grouped by currency, sorted by totalAmount DESC.
+ * Registered before /:id.
+ */
+router.get('/v1/invoices/stats/currency', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb.from('Invoice').select('currency, amount');
+    if (error) throw error;
+
+    const currencyMap = new Map<string, { count: number; totalAmount: number }>();
+    for (const row of (data || [])) {
+      const cur = row.currency || 'UNKNOWN';
+      const existing = currencyMap.get(cur) || { count: 0, totalAmount: 0 };
+      existing.count += 1;
+      existing.totalAmount += Number(row.amount) || 0;
+      currencyMap.set(cur, existing);
+    }
+
+    const result = Array.from(currencyMap.entries())
+      .map(([currency, vals]) => ({ currency, ...vals }))
+      .sort((a, b) => b.totalAmount - a.totalAmount);
+
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+/**
  * GET /v1/invoices/overdue
  * Returns PENDING invoices older than 24 hours. Registered before /:id.
  */
