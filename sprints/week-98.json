@@ -7,8 +7,8 @@
       "title": "GET /v1/invoices/export.csv — CSV export of invoices",
       "description": "New endpoint: GET /v1/invoices/export.csv. Returns a CSV file download of invoices. Headers: id,invoiceNumber,status,amount,currency,customerEmail,customerName,createdAt,settledAt. Accepts optional ?status=PENDING|SETTLED|COMPLETED|CANCELLED filter. Sets Content-Type: text/csv, Content-Disposition: attachment; filename=invoices.csv. Tests: 200-returns-csv, 200-has-headers, 200-empty-csv, 200-respects-status-filter, 500-db-error. File: backend/src/routes/invoices.ts (add after /v1/invoices/overdue, before /:id) + tests at backend/src/routes/__tests__/invoice-export.test.ts.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "approved",
+      "sprint": 133
     },
     {
       "id": "AGENTS-COUNT-001",

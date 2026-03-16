@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 133 — INVOICE-EXPORT-001
+- Status: PASS | Commit: f5e9304 | Branch: sprint-133-invoice-export → main | Tests: 5/5 | Files: invoices.ts +30 lines, invoice-export.test.ts (new), week-98.json (new) | Note: GET /v1/invoices/export.csv with optional ?status= filter | Timestamp: 2026-03-16T21:30:00Z
+
 ## Sprint 132 — INVOICE-STATS-STATUS-001
 - Status: PASS | Commit: 9107d8d | Branch: sprint-132-invoice-stats-status → main | Tests: 5/5 | Files: invoices.ts +22 lines, invoice-stats-status.test.ts (new) | Note: GET /v1/invoices/stats/status — distinct endpoint from /count, week-97 now fully complete | Timestamp: 2026-03-16T21:20:00Z
 
