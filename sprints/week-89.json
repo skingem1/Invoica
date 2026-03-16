@@ -31,8 +31,8 @@
       "title": "GET /v1/webhooks/events — list available webhook event types",
       "description": "New read endpoint (no DB call). Returns the list of valid webhook event types that can be subscribed to: [ 'invoice.created', 'invoice.settled', 'invoice.completed', 'settlement.confirmed', 'agent.reputation_changed' ]. Tests: 200-returns-array, 200-has-invoice-events, 200-has-settlement-events, response-shape, registered-before-/:id-param. File: backend/src/routes/webhooks.ts (add GET /v1/webhooks/events before /:id route) + tests.",
       "file": "backend/src/routes/webhooks.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 91
     },
     {
       "id": "METRICS-COMPARE-001",

@@ -30,6 +30,19 @@ router.get('/v1/webhooks', async (_req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err); }
 });
 
+// GET /v1/webhooks/events — list available webhook event types (no DB call)
+// Must be registered before /:id to avoid param capture
+const WEBHOOK_EVENT_TYPES = [
+  'invoice.created',
+  'invoice.settled',
+  'invoice.completed',
+  'settlement.confirmed',
+  'agent.reputation_changed',
+];
+router.get('/v1/webhooks/events', (_req: Request, res: Response) => {
+  res.json({ success: true, data: WEBHOOK_EVENT_TYPES });
+});
+
 // DELETE /v1/webhooks/:id — permanently delete a webhook
 router.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
