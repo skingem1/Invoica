@@ -1,0 +1,46 @@
+{
+  "week": 97,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "INVOICE-BULK-CANCEL-001",
+      "title": "POST /v1/invoices/bulk/cancel — cancel multiple PENDING invoices",
+      "description": "New endpoint: POST /v1/invoices/bulk/cancel. Body: { ids: string[] }. Cancels up to 50 PENDING invoices in one call. Skips invoices not in PENDING status (already settled/cancelled). Returns { cancelled: number, ids: string[], skipped: number }. Validates: ids array required, max 50. Tests: 200-returns-cancelled-count, 200-skips-non-pending, 400-missing-ids, 400-too-many-ids, 500-db-error. File: backend/src/routes/invoices.ts (add after bulk/status) + tests at backend/src/routes/__tests__/invoice-bulk-cancel.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-HOURLY-001",
+      "title": "GET /v1/metrics/hourly — invoice counts by hour for last 24 hours",
+      "description": "New endpoint: GET /v1/metrics/hourly. Returns invoice creation counts grouped by hour for the last 24 hours: [{ hour: '2026-03-16T14:00:00Z', count, amount }], zero-filled for empty hours, sorted chronologically. Tests: 200-returns-24-hours, 200-has-hour-field, 200-has-count-field, 200-zeros-for-empty-hours, 500-db-error. File: backend/src/routes/metrics.ts (add after /v1/metrics/revenue) + tests at backend/src/routes/__tests__/metrics-hourly.test.ts.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENTS-RECENT-001",
+      "title": "GET /v1/settlements/recent — most recent N settlements",
+      "description": "New endpoint: GET /v1/settlements/recent. Returns the most recent SETTLED+COMPLETED invoices sorted by updatedAt DESC. Accepts optional ?limit=N (default 10, max 50). Returns [{ id, invoiceNumber, amount, currency, agentId, settledAt, updatedAt }]. Tests: 200-returns-array, 200-respects-limit, 200-max-limit-50, 200-empty-state, 500-db-error. File: backend/src/routes/settlements.ts (add before /:id) + tests at backend/src/routes/__tests__/settlements-recent.test.ts.",
+      "file": "backend/src/routes/settlements.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "INVOICE-STATS-STATUS-001",
+      "title": "GET /v1/invoices/stats/status — global invoice count breakdown by status",
+      "description": "New endpoint: GET /v1/invoices/stats/status. Returns invoice counts grouped by status plus total: { total, byStatus: { PENDING: N, SETTLED: N, COMPLETED: N, CANCELLED: N, PROCESSING: N } }. Tests: 200-returns-shape, 200-has-total, 200-has-by-status, 200-zero-when-empty, 500-db-error. File: backend/src/routes/invoices.ts (add in stats section, before /:id routes) + tests at backend/src/routes/__tests__/invoice-stats-status.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "AGENT-EARNINGS-001",
+      "title": "GET /v1/agents/:agentId/earnings — weekly earnings for last 8 weeks",
+      "description": "New endpoint: GET /v1/agents/:agentId/earnings. Returns settled invoice amounts grouped by ISO week for the last 8 weeks: [{ week: '2026-W11', amount, count }], zero-filled for empty weeks, sorted chronologically. Only SETTLED+COMPLETED invoices count. Tests: 200-returns-8-weeks, 200-has-week-field, 200-has-amount-field, 200-zero-when-empty, 500-db-error. File: backend/src/routes/agents.ts (add before /:agentId) + tests at backend/src/routes/__tests__/agent-earnings.test.ts.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}

@@ -458,6 +458,41 @@ router.post('/v1/invoices/bulk/status', async (req: Request, res: Response, next
 });
 
 /**
+ * POST /v1/invoices/bulk/cancel
+ * Cancel up to 50 PENDING invoices in one call. Skips non-PENDING.
+ * Returns { cancelled, ids, skipped }.
+ */
+router.post('/v1/invoices/bulk/cancel', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ success: false, error: { message: 'ids must be a non-empty array', code: 'MISSING_IDS' } });
+      return;
+    }
+    if (ids.length > 50) {
+      res.status(400).json({ success: false, error: { message: 'ids array must not exceed 50 items', code: 'TOO_MANY_IDS' } });
+      return;
+    }
+    const sb = getSupabase();
+    const { data: pending, error: fetchErr } = await sb
+      .from('Invoice')
+      .select('id')
+      .in('id', ids)
+      .eq('status', 'PENDING');
+    if (fetchErr) throw fetchErr;
+    const pendingIds = (pending || []).map((r: any) => r.id);
+    if (pendingIds.length > 0) {
+      const { error: updateErr } = await sb
+        .from('Invoice')
+        .update({ status: 'CANCELLED', updatedAt: new Date().toISOString() })
+        .in('id', pendingIds);
+      if (updateErr) throw updateErr;
+    }
+    res.json({ success: true, data: { cancelled: pendingIds.length, ids: pendingIds, skipped: ids.length - pendingIds.length } });
+  } catch (err) { next(err); }
+});
+
+/**
  * PATCH /v1/invoices/:id/status
  * Update invoice status with transition validation.
  * Body: { status: 'PENDING' | 'SETTLED' | 'PROCESSING' | 'COMPLETED' }
