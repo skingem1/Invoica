@@ -7,8 +7,8 @@
  * Configuration for a supported blockchain network
  */
 export interface ChainConfig {
-  /** Numeric chain ID (e.g., 8453 for Base) */
-  id: number;
+  /** Chain ID — numeric for EVM chains (e.g., 8453 for Base), string for non-EVM (e.g., 'solana') */
+  id: number | string;
   /** Human-readable chain name */
   name: string;
   /** RPC endpoint URL for chain communication */

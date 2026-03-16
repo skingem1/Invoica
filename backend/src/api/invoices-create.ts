@@ -21,8 +21,11 @@ const SPAM_DOMAINS = [
 /** EVM-compatible address format (0x + 40 hex chars) */
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
+/** Solana base58 public key format (32–44 chars, no 0/O/I/l) */
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 /** Supported chains for invoice payment */
-const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum'] as const;
+const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum', 'solana'] as const;
 type SupportedChain = typeof SUPPORTED_CHAINS[number];
 
 export const createInvoiceSchema = z.object({
@@ -74,13 +77,19 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
 
   const { amount, currency, customerEmail, customerName, chain, paymentAddress, merchant } = parseResult.data;
 
-  // Validate EVM address format when provided
-  if (paymentAddress && !EVM_ADDRESS_RE.test(paymentAddress)) {
-    res.status(400).json({
-      error: 'Invalid payment address',
-      message: 'Payment address must be a valid EVM address (0x + 40 hex characters)',
-    });
-    return;
+  // Validate address format when provided (chain-aware)
+  if (paymentAddress) {
+    const isEvm = chain !== 'solana';
+    const valid = isEvm ? EVM_ADDRESS_RE.test(paymentAddress) : SOLANA_ADDRESS_RE.test(paymentAddress);
+    if (!valid) {
+      res.status(400).json({
+        error: 'Invalid payment address',
+        message: isEvm
+          ? 'Payment address must be a valid EVM address (0x + 40 hex characters)'
+          : 'Payment address must be a valid Solana public key (base58, 32–44 characters)',
+      });
+      return;
+    }
   }
 
   // Check merchant domain blacklist
