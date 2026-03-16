@@ -11,6 +11,46 @@ function getSb() {
 }
 
 // ─────────────────────────────────────────────
+// GET /v1/agents
+// List distinct agents with invoice counts and settled value.
+// Must be registered before /:agentId to avoid param capture.
+// ─────────────────────────────────────────────
+router.get('/v1/agents', async (req: Request, res: Response): Promise<void> => {
+  const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
+  const offset = parseInt((req.query.offset as string) || '0', 10);
+  const sb = getSb();
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('agentId, amount, status');
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  const agentMap = new Map<string, { agentId: string; invoiceCount: number; totalValueSettled: number }>();
+  for (const row of (data || [])) {
+    const key = row.agentId || 'unknown';
+    if (!agentMap.has(key)) agentMap.set(key, { agentId: key, invoiceCount: 0, totalValueSettled: 0 });
+    const entry = agentMap.get(key)!;
+    entry.invoiceCount += 1;
+    if (row.status === 'SETTLED' || row.status === 'COMPLETED') {
+      entry.totalValueSettled += row.amount || 0;
+    }
+  }
+
+  const agents = Array.from(agentMap.values());
+  const paginated = agents.slice(offset, offset + limit);
+
+  res.json({
+    success: true,
+    data: paginated,
+    meta: { total: agents.length, limit, offset, hasMore: (offset + limit) < agents.length },
+  });
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/agents/:agentId
 // Combined agent profile: reputation + invoice stats
 // ─────────────────────────────────────────────
