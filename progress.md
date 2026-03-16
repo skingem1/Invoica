@@ -672,3 +672,14 @@
 - Health check pre: ✅ all 3 critical services online
 - Health check post: ✅
 - Timestamp: 2026-03-16T16:20:00Z
+
+## Sprint 056 — SERVER-PROXY-001 (proxy/server.ts unit tests)
+- Status: PASS
+- Branch: sprint-056-server-proxy-001 → merged to main
+- Commit: 8a1ed67
+- Files created: backend/src/proxy/__tests__/server.test.ts
+- Tests: 6 new tests — health default/custom path, queue status counts, queue 500 error, 404 shape, 404 message interpolation
+- Approach: Node http.createServer(createApp()) with random port — no supertest needed
+- Fix: haiku agent corrected mock paths (./middleware → ../middleware) and afterAll syntax during test run
+- Infrastructure note: root PM2 backend (305 restarts) stopped and saved to prevent flock race
+- Timestamp: 2026-03-16T16:35:00Z
