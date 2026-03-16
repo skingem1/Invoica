@@ -482,3 +482,16 @@
 - Health check post: ✅ 108/108, 868/868
 - Issues: None
 - Timestamp: 2026-03-16T19:45:00Z
+
+## Sprint 041 — MIDDLEWARE-X402-001 (x402 EVM middleware tests)
+- Status: PASS
+- Branch: sprint-041-x402-middleware-tests → merged to main
+- Commit: 1483bd9
+- Files created: backend/src/middleware/__tests__/x402.test.ts
+- Tests: 109/109 suites, 882/882 — ALL PASS (14 new tests)
+- Coverage added: get402Response structure, 402 on missing header, malformed base64, wrong recipient, insufficient amount, expired/not-yet-valid authorization, invalid EIP-712 signature, success path (next() called, x402Payment attached)
+- Key fix: module-level SELLER_WALLET const requires env set before import; usedNonces Set requires unique nonces per test
+- Health check pre: ✅ 108/108, 868/868
+- Health check post: ✅ 109/109, 882/882
+- Issues: Fixed 2 test bugs during run (env timing + nonce replay)
+- Timestamp: 2026-03-16T19:55:00Z
