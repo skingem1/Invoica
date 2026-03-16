@@ -1,10 +1,5 @@
 import { Request, Response } from 'express';
-import { getInvoiceById, mockGetInvoiceById } from '../invoices-get';
-
-jest.mock('../invoices-get', () => ({
-  ...jest.requireActual('../invoices-get'),
-  mockGetInvoiceById: jest.fn(),
-}));
+import { getInvoiceById } from '../invoices-get';
 
 describe('getInvoiceById', () => {
   let mockRes: Response;
@@ -18,23 +13,18 @@ describe('getInvoiceById', () => {
   });
 
   it('returns 200 with invoice for valid id', async () => {
-    const mockInvoice = {
-      id: 'inv_001',
-      number: 'INV-001',
-      amount: 0,
-      currency: 'USD',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      paidAt: null,
-      metadata: {},
-    };
-    (mockGetInvoiceById as jest.Mock).mockResolvedValue(mockInvoice);
     const mockReq = { params: { id: 'inv_001' } } as unknown as Request;
 
     await getInvoiceById(mockReq, mockRes);
 
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(mockInvoice);
+    const responseBody = (mockRes.json as jest.Mock).mock.calls[0][0];
+    expect(responseBody).toMatchObject({
+      id: 'inv_001',
+      number: 'INV-001',
+      currency: 'USD',
+      status: 'pending',
+    });
   });
 
   it('returns 400 for empty id', async () => {

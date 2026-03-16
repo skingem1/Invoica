@@ -1,6 +1,6 @@
 /**
  * US Nexus Tax Tests
- * 
+ *
  * Comprehensive test suite for US sales tax nexus functionality.
  * Tests jurisdiction detection and tax calculation for nexus states.
  */
@@ -13,7 +13,7 @@ import {
   US_NEXUS_RATES
 } from '../calculator';
 import { getJurisdiction } from '../location-resolver';
-import { TaxJurisdiction, TaxCalculationInput } from '../types';
+import { TaxJurisdiction } from '../types';
 
 describe('US Nexus Tax Calculator', () => {
   describe('US_NEXUS_RATES constant', () => {
@@ -59,9 +59,9 @@ describe('US Nexus Tax Calculator', () => {
       expect(result).toBe(TaxJurisdiction.NONE);
     });
 
-    it('should return EU_VAT for EU countries', () => {
+    it('should return EU jurisdiction for EU countries', () => {
       const result = getJurisdiction({ countryCode: 'DE' });
-      expect(result).toBe(TaxJurisdiction.EU_VAT);
+      expect(result).toBe(TaxJurisdiction.EU);
     });
   });
 
@@ -97,7 +97,7 @@ describe('US Nexus Tax Calculator', () => {
       expect(calculateUSTax({ countryCode: 'US', stateCode: 'NH' })).toBe(0);
     });
 
-    it('should return 0 for lowercase state codes', () => {
+    it('should handle lowercase state codes', () => {
       const rate = calculateUSTax({ countryCode: 'US', stateCode: 'ca' });
       expect(rate).toBe(0.0725);
     });
@@ -151,25 +151,20 @@ describe('US Nexus Tax Calculator', () => {
   });
 
   describe('calculateTax() - Integration', () => {
-    const baseInput: TaxCalculationInput = {
-      amount: 10000, // $100.00 in cents
-      buyerLocation: { countryCode: 'US', stateCode: 'CA' }
-    };
-
     it('should calculate correct tax for California', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US', stateCode: 'CA' }
       });
 
       expect(result.jurisdiction).toBe(TaxJurisdiction.US);
       expect(result.taxRate).toBe(0.0725);
-      expect(result.taxAmount).toBe(725); // 10000 * 0.0725 = 725
+      expect(result.taxAmount).toBe(725);
     });
 
     it('should calculate correct tax for Texas', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US', stateCode: 'TX' }
       });
 
@@ -179,7 +174,7 @@ describe('US Nexus Tax Calculator', () => {
 
     it('should calculate correct tax for New York', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US', stateCode: 'NY' }
       });
 
@@ -189,19 +184,19 @@ describe('US Nexus Tax Calculator', () => {
 
     it('should return 0 tax for non-nexus states', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US', stateCode: 'OR' }
       });
 
       expect(result.jurisdiction).toBe(TaxJurisdiction.US);
       expect(result.taxRate).toBe(0);
       expect(result.taxAmount).toBe(0);
-      expect(result.note).toContain('No nexus');
+      expect(result.invoiceNote).toContain('No nexus');
     });
 
     it('should return 0 tax when no state provided', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US' }
       });
 
@@ -212,40 +207,40 @@ describe('US Nexus Tax Calculator', () => {
 
     it('should include correct note for nexus states', () => {
       const result = calculateTax({
-        ...baseInput,
+        amount: 10000,
         buyerLocation: { countryCode: 'US', stateCode: 'CA' }
       });
 
-      expect(result.note).toBe('Sales tax applied for CA');
+      expect(result.invoiceNote).toBe('Sales tax applied for CA');
     });
 
     it('should handle large amounts correctly', () => {
       const result = calculateTax({
-        amount: 1000000, // $10,000.00
+        amount: 1000000,
         buyerLocation: { countryCode: 'US', stateCode: 'NY' }
       });
 
-      expect(result.taxAmount).toBe(80000); // 1000000 * 0.08 = 80000
+      expect(result.taxAmount).toBe(80000);
     });
 
     it('should round tax amount correctly', () => {
       const result = calculateTax({
-        amount: 10001, // $100.01
+        amount: 10001,
         buyerLocation: { countryCode: 'US', stateCode: 'CA' }
       });
 
-      // 10001 * 0.0725 = 725.0725, should round to 725
+      // 10001 * 0.0725 = 725.0725, Math.round = 725
       expect(result.taxAmount).toBe(725);
     });
 
-    it('should handle invalid amount gracefully', () => {
+    it('should handle zero amount gracefully', () => {
       const result = calculateTax({
         amount: 0,
         buyerLocation: { countryCode: 'US', stateCode: 'CA' }
       });
 
       expect(result.taxAmount).toBe(0);
-      expect(result.note).toBe('Invalid amount');
+      expect(result.invoiceNote).toBe('Invalid amount');
     });
 
     it('should handle negative amount gracefully', () => {
@@ -255,18 +250,11 @@ describe('US Nexus Tax Calculator', () => {
       });
 
       expect(result.taxAmount).toBe(0);
-      expect(result.note).toBe('Invalid amount');
+      expect(result.invoiceNote).toBe('Invalid amount');
     });
   });
 
   describe('BUG-009 Regression Tests', () => {
-    /**
-      * These tests verify the fix for BUG-009:
-      * The bug was that 'US' country code was not matched to TaxJurisdiction.US
-      * because getJurisdiction() was only checking usStates (2-letter codes) 
-      * and not handling the 'US' country code separately.
-      */
-    
     it('should detect US jurisdiction with country code US', () => {
       const jurisdiction = getJurisdiction({ countryCode: 'US', stateCode: 'CA' });
       expect(jurisdiction).toBe(TaxJurisdiction.US);
@@ -275,13 +263,12 @@ describe('US Nexus Tax Calculator', () => {
     it('should calculate US tax after jurisdiction detection', () => {
       const jurisdiction = getJurisdiction({ countryCode: 'US', stateCode: 'TX' });
       expect(jurisdiction).toBe(TaxJurisdiction.US);
-      
+
       const taxRate = calculateUSTax({ countryCode: 'US', stateCode: 'TX' });
       expect(taxRate).toBe(0.0625);
     });
 
     it('should NOT return NONE for US country code', () => {
-      // This was the bug - US was falling through to NONE
       const jurisdiction = getJurisdiction({ countryCode: 'US', stateCode: 'WA' });
       expect(jurisdiction).not.toBe(TaxJurisdiction.NONE);
       expect(jurisdiction).toBe(TaxJurisdiction.US);
@@ -292,9 +279,7 @@ describe('US Nexus Tax Calculator', () => {
         amount: 5000,
         buyerLocation: { countryCode: 'US', stateCode: 'FL' }
       });
-      
-      // Before fix: returned { taxRate: 0, jurisdiction: NONE }
-      // After fix: returns { taxRate: 0.06, jurisdiction: US }
+
       expect(result.jurisdiction).toBe(TaxJurisdiction.US);
       expect(result.taxRate).toBe(0.06);
       expect(result.taxAmount).toBe(300);

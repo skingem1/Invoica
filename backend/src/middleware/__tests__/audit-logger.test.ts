@@ -20,7 +20,7 @@ describe('audit-logger', () => {
 
   describe('auditLogger', () => {
     it('calls next() immediately', () => {
-      const req = { method: 'GET', url: '/test', headers: {} };
+      const req = { method: 'GET', url: '/test', path: '/test', headers: {} };
       const res = { on: jest.fn() };
       const next = jest.fn();
       auditLogger()(req as any, res as any, next);
@@ -29,12 +29,12 @@ describe('audit-logger', () => {
 
     it('writes JSON log on finish event', () => {
       const { EventEmitter } = require('events');
-      const req = { method: 'GET', url: '/test', headers: {} };
+      const req = { method: 'GET', url: '/test', path: '/test', headers: {}, ip: '127.0.0.1' };
       const res = Object.assign(new EventEmitter(), { statusCode: 200 });
       const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
       auditLogger()(req as any, res as any, jest.fn());
       res.emit('finish');
-      expect(JSON.parse(writeSpy.mock.calls[0][0])).toMatchObject({ method: 'GET', url: '/test', statusCode: 200 });
+      expect(JSON.parse(writeSpy.mock.calls[0][0])).toMatchObject({ method: 'GET', path: '/test', statusCode: 200 });
       writeSpy.mockRestore();
     });
   });

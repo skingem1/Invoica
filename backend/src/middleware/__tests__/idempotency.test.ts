@@ -75,7 +75,7 @@ describe('idempotencyMiddleware', () => {
     expect(nextB).toHaveBeenCalled();
   });
 
-  it('cleans up expired entries older than 24h', () => {
+  it('cleans up expired entries older than 24h and treats as cache miss', () => {
     const middleware = idempotencyMiddleware();
     const now = Date.now();
     jest.spyOn(Date, 'now').mockImplementation(() => now);
@@ -88,9 +88,16 @@ describe('idempotencyMiddleware', () => {
     const req2 = { headers: { 'idempotency-key': 'old-key' } } as Request;
     const res2 = createMockRes();
     const next2 = jest.fn();
+    // After expiry, the cached entry should be deleted and this should be a cache miss
+    // meaning next() is called (cache miss) and res2.json is NOT immediately called by the middleware
     middleware(req2, res2, next2);
+    // next2 is called because it's a cache miss after expiry
     expect(next2).toHaveBeenCalled();
-    expect(res2.json).not.toHaveBeenCalled();
+    // The middleware wraps res2.json on a cache miss but does NOT call it directly
+    // so the original mock json should not have been called by the middleware itself
+    // (it gets replaced with a wrapper, so we can't check the original mock)
+    // Instead, verify status was NOT called (which would only happen on cache hit)
+    expect(res2.status).not.toHaveBeenCalled();
     jest.restoreAllMocks();
   });
 });

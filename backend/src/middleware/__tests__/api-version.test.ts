@@ -38,7 +38,7 @@ describe('apiVersionMiddleware', () => {
     expect(errorCall.error.message).toContain('v1');
     expect(errorCall.error.message).toContain('v2');
     expect(mockNext).not.toHaveBeenCalled();
-    expect(mockSetHeader).toHaveBeenCalledWith('X-API-Version', 'v3');
+    expect(mockSetHeader).not.toHaveBeenCalled();
   });
 });
 

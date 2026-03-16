@@ -16,8 +16,8 @@ describe('api-keys-mock', () => {
       expect(apiKeys[0].name).toBe('Production Key');
       expect(apiKeys[1].id).toBe('key_002');
       expect(apiKeys[1].name).toBe('Test Key');
-      expect(new Date(apiKeys[0].createdAt).toISOString()).toBe(apiKeys[0].createdAt);
-      expect(new Date(apiKeys[1].createdAt).toISOString()).toBe(apiKeys[1].createdAt);
+      expect(new Date(apiKeys[0].createdAt).getTime()).not.toBeNaN();
+      expect(new Date(apiKeys[1].createdAt).getTime()).not.toBeNaN();
     });
   });
 

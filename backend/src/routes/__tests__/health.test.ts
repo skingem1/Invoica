@@ -1,15 +1,32 @@
 import request from 'supertest';
 import express from 'express';
+
+jest.mock('../../lib/prisma', () => ({
+  __esModule: true,
+  prisma: {
+    $queryRaw: jest.fn(),
+  },
+  default: {
+    $queryRaw: jest.fn(),
+  },
+}));
+
+jest.mock('../../lib/redis', () => ({
+  __esModule: true,
+  redis: {
+    ping: jest.fn(),
+  },
+  default: {
+    ping: jest.fn(),
+  },
+}));
+
 import router from '../health';
+import { prisma } from '../../lib/prisma';
+import { redis } from '../../lib/redis';
 
 const app = express();
-app.use('/v1', router);
-
-jest.mock('../lib/prisma');
-jest.mock('../lib/redis');
-
-import prisma from '../lib/prisma';
-import redis from '../lib/redis';
+app.use(router);
 
 describe('GET /v1/health', () => {
   const originalEnv = process.env;
@@ -44,23 +61,23 @@ describe('GET /v1/health', () => {
     expect(res.status).toBe(503);
   });
 
-  test('returns redis not_configured when REDIS_URL is not set', async () => {
+  test('returns redis not_configured in services when REDIS_URL is not set', async () => {
     delete process.env.REDIS_URL;
     (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ 1: 1 }]);
 
     const res = await request(app).get('/v1/health');
 
-    expect(res.body.redis).toBe('not_configured');
+    expect(res.body.services.redis).toBe('not_configured');
   });
 
-  test('returns redis ok when REDIS_URL is set and redis.ping resolves', async () => {
+  test('returns redis ok in services when REDIS_URL is set and redis.ping resolves', async () => {
     process.env.REDIS_URL = 'redis://localhost';
     (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ 1: 1 }]);
     (redis.ping as jest.Mock).mockResolvedValue('PONG');
 
     const res = await request(app).get('/v1/health');
 
-    expect(res.body.redis).toBe('ok');
+    expect(res.body.services.redis).toBe('ok');
   });
 
   test('includes version, uptime, and timestamp in response body', async () => {

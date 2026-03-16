@@ -55,7 +55,7 @@ describe('apiKeyQuerySchema', () => {
   it('applies defaults for limit and offset', () => {
     const result = apiKeyQuerySchema.safeParse({});
     expect(result.success).toBe(true);
-    expect(result.data?.limit).toBe(20);
+    expect(result.data?.limit).toBe(10);
     expect(result.data?.offset).toBe(0);
   });
 

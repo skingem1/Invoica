@@ -13,7 +13,7 @@ interface DispatchResult {
   retryable: boolean;
 }
 
-describe('dispatchWebhook response handling', () => {
+describe('dispatch response handling', () => {
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -26,16 +26,35 @@ describe('dispatchWebhook response handling', () => {
     globalThis.fetch = originalFetch;
   });
 
+  const makeEvent = () => ({
+    id: 'evt_1',
+    type: 'invoice.created',
+    data: { test: 'data' },
+    createdAt: new Date().toISOString(),
+  });
+
+  const makeRepo = (url: string) => ({
+    findActive: jest.fn<() => Promise<any[]>>().mockResolvedValue([{
+      id: 'reg_1',
+      url,
+      events: ['invoice.created'],
+      secret: 'mock-secret',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }]),
+  });
+
   it('returns success when fetch returns ok: true, status: 200', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
     });
 
-    const { dispatchWebhook } = await import('../dispatch');
-    const result: DispatchResult = await dispatchWebhook('https://example.com', { test: 'data' });
+    const { dispatch } = await import('../dispatch');
+    const results: DispatchResult[] = await dispatch(makeEvent(), makeRepo('https://example.com') as any);
 
-    expect(result).toEqual({ success: true, statusCode: 200, retryable: false });
+    expect(results[0]).toEqual({ success: true, statusCode: 200, retryable: false });
     expect(signPayload).toHaveBeenCalled();
   });
 
@@ -45,18 +64,18 @@ describe('dispatchWebhook response handling', () => {
       status: 500,
     });
 
-    const { dispatchWebhook } = await import('../dispatch');
-    const result: DispatchResult = await dispatchWebhook('https://example.com', { test: 'data' });
+    const { dispatch } = await import('../dispatch');
+    const results: DispatchResult[] = await dispatch(makeEvent(), makeRepo('https://example.com') as any);
 
-    expect(result).toEqual({ success: false, statusCode: 500, retryable: true });
+    expect(results[0]).toEqual({ success: false, statusCode: 500, retryable: true });
   });
 
   it('returns retryable error when fetch throws an error', async () => {
     (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
 
-    const { dispatchWebhook } = await import('../dispatch');
-    const result: DispatchResult = await dispatchWebhook('https://example.com', { test: 'data' });
+    const { dispatch } = await import('../dispatch');
+    const results: DispatchResult[] = await dispatch(makeEvent(), makeRepo('https://example.com') as any);
 
-    expect(result).toEqual({ success: false, statusCode: 0, retryable: true });
+    expect(results[0]).toEqual({ success: false, statusCode: 0, retryable: true });
   });
 });

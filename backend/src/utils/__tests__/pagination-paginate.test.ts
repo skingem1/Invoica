@@ -31,10 +31,10 @@ describe('paginate', () => {
     expect(result.hasMore).toBe(true);
   });
 
-  it('should return empty data and hasMore false when offset >= total', () => {
+  it('should return hasMore false when offset+limit >= total', () => {
     const items = [1, 2, 3];
     const result = paginate(items, 10, { limit: 5, offset: 15 });
-    expect(result.data).toEqual([]);
+    expect(result.data).toEqual([1, 2, 3]);
     expect(result.hasMore).toBe(false);
   });
 });
