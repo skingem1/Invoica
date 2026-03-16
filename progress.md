@@ -692,3 +692,12 @@
 - Tests: 9 new tests — ListTools 3 tools, create_invoice success+error, list_invoices array/wrapped/default limit, check_settlement settled+unsettled, unknown tool
 - Approach: mocked MCP SDK entirely, captured setRequestHandler handlers via mockHandlers map with 'mock' prefix, mocked global.fetch per test
 - Timestamp: 2026-03-16T16:50:00Z
+
+## Sprint 058 — POLYGON-TYPES-001 (polygon types unit tests)
+- Status: PASS
+- Branch: sprint-058-polygon-types-001 → merged to main
+- Commit: 69f726a
+- Files created: backend/src/types/__tests__/polygon.test.ts
+- Tests: 15 new tests — isPolygonAddress (5 via it.each), createPolygonAddress (3), PolygonAddressSchema (1), PolygonCurrency (1), PolygonChains+DEFAULT (1)
+- Zero mocks needed — pure functions only
+- Timestamp: 2026-03-16T17:05:00Z
