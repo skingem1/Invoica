@@ -651,3 +651,13 @@
 - Health check post: ⚠️ openclaw-gateway restart loop (root PM2 holding port) — FIXED: deleted from root PM2, restarted invoica PM2 copy, port 18789 stable
 - Issues: Root cause of openclaw loop — haiku's pm2 kill+resurrect ran as root, orphaned root-owned process held port. Fix: pm2 delete openclaw-gateway from root, pm2 save, restart invoica's copy.
 - Timestamp: 2026-03-16T15:52:00Z
+
+## Sprint 054 — PROXY-MIDDLEWARE-001 (proxy/middleware.ts unit tests)
+- Status: PASS
+- Branch: sprint-054-proxy-middleware-001 → merged to main
+- Commit: 14a8995
+- Files created: backend/src/proxy/__tests__/middleware.test.ts
+- Tests: 11 new tests — createProxyMiddleware options, changeOrigin default/explicit, onProxyReq header injection, onProxyRes 402 queue+pipe, 200+headers queue, 200 no-headers skip, onError 502/headersSent, createInvoiceRouteHandler next bypass
+- Health check pre: ✅ backend online, openclaw port 18789 stable
+- Health check post: (parallel)
+- Timestamp: 2026-03-16T16:05:00Z
