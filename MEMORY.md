@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 522aee3 on main, pushed to origin (clean)
-- **Tests**: 140/140 suites, 1215/1215 tests — ALL PASS (+16 Sprint 066)
+- **Git**: 7194b10 on main, pushed to origin (clean)
+- **Tests**: 142/142 suites, 1226/1226 tests — ALL PASS (+11 Sprint 067)
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK at /v1/health — DB connected, Redis not_configured
 - **OpenClaw**: Stable (v2026.3.13, port 18789, PID 4026797/4026831, 24s uptime — root PM2 conflict resolved)
@@ -136,11 +136,11 @@
 - DASHBOARD-ACTIVITY-001 ✅ (Sprint 046), UTILS-TASK-VALID-001 ✅ (Sprint 046)
 - WEBHOOK-EVENTS-001 pending, API-ROUTER-001 pending, DASHBOARD-ACTIVITY-001 ✅
 
-## Next Sprint: Sprint 067
-- WEBHOOK-DISPATCH-TYPES-001 + SPAM-TYPES-001 ✅ (Sprint 066) — 16 tests (dispatch.types 9, spam-blacklist 7)
-- MILESTONE: 1215 tests across 140 suites
-- Session 052-066: 15 sprints, +173 tests (1042 → 1215), 16 new test files
-- Next candidates: types/index.ts ChainConfig shape, validators coverage gaps, or feature work
+## Next Sprint: Sprint 068
+- API-KEY-SCHEMAS-002 + CHAIN-CONFIG-TYPES-001 ✅ (Sprint 067) — 11 tests
+- MILESTONE: 1226 tests across 142 suites
+- Session 052-067: 16 sprints, +184 tests (1042 → 1226), 18 new test files
+- Test coverage near saturation. Next: week-84 sprint file creation + feature work (new Reputation API endpoint or similar)
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
