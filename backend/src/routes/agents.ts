@@ -174,6 +174,58 @@ router.get('/v1/agents/:agentId/activity', async (req: Request, res: Response): 
 });
 
 // ─────────────────────────────────────────────
+// GET /v1/agents/:agentId/earnings
+// Weekly earnings for a specific agent for the last 8 weeks.
+// Returns zero-filled weeks sorted chronologically. Must be before /:agentId.
+// ─────────────────────────────────────────────
+router.get('/v1/agents/:agentId/earnings', async (req: Request, res: Response): Promise<void> => {
+  const { agentId } = req.params;
+  const sb = getSb();
+
+  const eightWeeksAgo = new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000);
+
+  const { data, error } = await sb
+    .from('Invoice')
+    .select('amount, createdAt')
+    .eq('agentId', agentId)
+    .in('status', ['SETTLED', 'COMPLETED'])
+    .gte('createdAt', eightWeeksAgo.toISOString());
+
+  if (error) {
+    res.status(500).json({ success: false, error: { message: error.message, code: 'DB_ERROR' } });
+    return;
+  }
+
+  // Build ISO week map for last 8 weeks
+  function getISOWeek(d: Date): string {
+    const thursday = new Date(d);
+    thursday.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+    const year = thursday.getUTCFullYear();
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const week = Math.round(((thursday.getTime() - jan4.getTime()) / 86400000 + (jan4.getUTCDay() + 6) % 7) / 7) + 1;
+    return `${year}-W${String(week).padStart(2, '0')}`;
+  }
+
+  const weekMap = new Map<string, { week: string; amount: number; count: number }>();
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 7 * 24 * 60 * 60 * 1000);
+    const key = getISOWeek(d);
+    if (!weekMap.has(key)) weekMap.set(key, { week: key, amount: 0, count: 0 });
+  }
+
+  for (const row of (data || [])) {
+    const key = getISOWeek(new Date(row.createdAt));
+    if (weekMap.has(key)) {
+      const entry = weekMap.get(key)!;
+      entry.amount += row.amount || 0;
+      entry.count += 1;
+    }
+  }
+
+  res.json({ success: true, data: Array.from(weekMap.values()) });
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/agents/:agentId/settlements/summary
 // Settlement summary for a specific agent.
 // Must be before /:agentId (profile).
