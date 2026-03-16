@@ -7,7 +7,7 @@
       "priority": "high",
       "dependencies": [],
       "description": "Enhance GET /v1/invoices with date range, companyId, chain, and amount range filters",
-      "context": "The current GET /v1/invoices only supports status and customerEmail filters. Live users (AI agents) need to query by company, date range, chain, and amount. This is a pure backend enhancement with no schema changes — all filter data is already stored in the Invoice table.\n\nEDIT: backend/src/routes/invoices.ts\n\nIn the GET /v1/invoices handler (around line 125), add these new query params AFTER the existing status and customerEmail:\n\n  const companyId = req.query.companyId as string | undefined;\n  const chain = req.query.chain as string | undefined;          // filter by paymentDetails.network\n  const fromDate = req.query.from as string | undefined;         // ISO date string\n  const toDate = req.query.to as string | undefined;             // ISO date string\n  const minAmount = req.query.minAmount as string | undefined;   // numeric\n  const maxAmount = req.query.maxAmount as string | undefined;   // numeric\n  const sortBy = (req.query.sortBy as string) || 'createdAt';    // 'createdAt' | 'amount' | 'updatedAt'\n  const sortDir = (req.query.sortDir as string) === 'asc' ? true : false; // ascending default false\n\nAnd add these filters to the Supabase query chain:\n  if (companyId) query = query.eq('companyId', companyId);\n  if (fromDate) query = query.gte('createdAt', fromDate);\n  if (toDate) query = query.lte('createdAt', toDate);\n  if (minAmount) query = query.gte('amount', parseFloat(minAmount));\n  if (maxAmount) query = query.lte('amount', parseFloat(maxAmount));\n\nFor chain filter: chain is stored in paymentDetails.network (JSON field). Supabase supports JSON path filters:\n  if (chain) query = query.contains('paymentDetails', { network: chain.toLowerCase() });\n\nFor sorting: replace the hardcoded .order('createdAt', { ascending: false }) with:\n  const validSortFields = ['createdAt', 'amount', 'updatedAt'];\n  const safeSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';\n  query = query.order(safeSortBy, { ascending: sortDir });\n\nMake sure the file stays under 200 lines total. If needed, extract the filter-building logic into a local helper function buildInvoiceFilters().\n\nCREATE: backend/src/routes/__tests__/invoices-enhanced-filters.test.ts\n\nTests:\n1. GET /v1/invoices with companyId filter — Supabase mock returns 2 invoices\n2. GET /v1/invoices with fromDate filter — verify gte('createdAt') called\n3. GET /v1/invoices with toDate filter — verify lte('createdAt') called\n4. GET /v1/invoices with minAmount filter — verify gte('amount') called\n5. GET /v1/invoices with chain filter — verify contains('paymentDetails') called\n6. GET /v1/invoices with sortBy=amount&sortDir=asc — verify order call\n7. GET /v1/invoices with invalid sortBy — defaults to createdAt\n\nMax 150 lines for tests. Use express supertest + mock @supabase/supabase-js.",
+      "context": "DONE — Sprint 019 (596bf73). buildInvoiceFilters() helper + 7 tests passing.",
       "deliverables": {
         "code": [
           "backend/src/routes/invoices.ts"
@@ -17,7 +17,7 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved"
     },
     {
       "id": "INVOICE-003",

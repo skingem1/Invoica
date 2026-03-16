@@ -216,3 +216,15 @@
 - Tests: 89/89 suites, 622/622 — ALL PASS (no regressions)
 - Tasks queued: INVOICE-002 (filter enhancement), INVOICE-003 (stats endpoint), REP-002 (leaderboard), ENFORCE-001 (enforcement tests), SETTLE-002 (settlement summary)
 - Timestamp: 2026-03-16T14:20:00Z
+
+## Sprint 019 — Invoice Filter Enhancement (INVOICE-002)
+- Status: PASS
+- Branch: sprint-019-invoice-filters → merged to main
+- Commit: 596bf73
+- Files modified: backend/src/routes/invoices.ts (+34 lines: buildInvoiceFilters() helper + new query params + dynamic sort)
+- Files created: backend/src/routes/__tests__/invoices-enhanced-filters.test.ts (7 tests)
+- Tests: 90/90 suites, 629/629 — ALL PASS (7 new tests)
+- Health check pre: ✅ 89/89 suites, disk 80% free
+- Health check post: ✅ 90/90 suites, disk 80% free
+- Issues: Chain mock needed .range() after filters (not before) — fixed by reordering in route handler
+- Timestamp: 2026-03-16T14:35:00Z
