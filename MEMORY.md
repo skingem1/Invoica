@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 7332e08 on main, pushed to origin (clean)
-- **Tests**: 133/133 suites, 1132/1132 tests — ALL PASS (+8 Sprint 060)
+- **Git**: fbb51ce on main, pushed to origin (clean)
+- **Tests**: 134/134 suites, 1143/1143 tests — ALL PASS (+11 Sprint 061)
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK at /v1/health — DB connected, Redis not_configured
 - **OpenClaw**: Stable (v2026.3.13, port 18789, PID 4026797/4026831, 24s uptime — root PM2 conflict resolved)
@@ -136,11 +136,11 @@
 - DASHBOARD-ACTIVITY-001 ✅ (Sprint 046), UTILS-TASK-VALID-001 ✅ (Sprint 046)
 - WEBHOOK-EVENTS-001 pending, API-ROUTER-001 pending, DASHBOARD-ACTIVITY-001 ✅
 
-## Next Sprint: Sprint 052
-- QUEUE-INVOICE-001 ✅ (Sprint 051) — 9 tests
-- MILESTONE: 1042 tests across 125 suites
-- Session 043-051: 9 sprints, +147 tests (895 → 1042), 15 new test files
-- Next candidates: lib/clawrouter-client.ts tests (mock callClawRouter/getCostLog), proxy/ directory, types/ coverage, or feature work (FIX-007 invoices schema, WEBSITE-001 hero widget)
+## Next Sprint: Sprint 062
+- WEBHOOK-REPO-001 ✅ (Sprint 061) — 11 tests (registerSchema 5 + repository 6)
+- MILESTONE: 1143 tests across 134 suites
+- Session 052-061: 10 sprints, +101 tests (1042 → 1143), 10 new test files
+- Next candidates: webhook/dispatcher.ts tests, webhook/events.ts additional coverage, services/webhook/sender.ts, or feature work (FIX-007 invoices schema, WEBSITE-001 hero widget)
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

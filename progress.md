@@ -719,3 +719,13 @@
 - Tests: 8 new tests — skip no token, /start /pricing /docs /help commands, free-text MiniMax reply, empty MiniMax fallback, empty updates no POST
 - Approach: jest.mock('https') + jest.isolateModules per test (fresh module per env) + setImmediate spy to stop poll loop + queueResponse helper for chained https.request mocks
 - Timestamp: 2026-03-16T17:45:00Z
+
+## Sprint 061 — WEBHOOK-REPO-001 (webhook types tests)
+- Status: PASS
+- Branch: sprint-061-webhook-repo-001 → merged to main
+- Commit: fbb51ce
+- Files created: backend/src/services/webhook/__tests__/types.test.ts
+- Tests: 11 new tests — registerSchema (valid, invalid URL, empty events, short secret, long secret) + WebhookRepository (register, findById, findActive, deactivate, listAll, delete)
+- Approach: Zero infra — inline Prisma mock via makePrisma() factory + Zod safeParse assertions
+- Total: 134/134 suites, 1143/1143 tests
+- Timestamp: 2026-03-16T18:00:00Z
