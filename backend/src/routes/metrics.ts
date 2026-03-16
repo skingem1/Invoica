@@ -14,14 +14,24 @@ function getSb() {
  * GET /v1/metrics
  * Agent economy insights: invoice totals, settlements, reputation summary.
  */
-router.get('/v1/metrics', async (_req: Request, res: Response): Promise<void> => {
+router.get('/v1/metrics', async (req: Request, res: Response): Promise<void> => {
   try {
     const sb = getSb();
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    let invoiceQuery: any = sb.from('Invoice').select('status');
+    if (from) invoiceQuery = invoiceQuery.gte('createdAt', from);
+    if (to) invoiceQuery = invoiceQuery.lte('createdAt', to);
+
+    let settlementQuery: any = sb.from('Invoice').select('id').in('status', ['SETTLED', 'COMPLETED']);
+    settlementQuery = settlementQuery.gte('settledAt', from || sevenDaysAgo);
+    if (to) settlementQuery = settlementQuery.lte('settledAt', to);
+
     const [invoiceRes, settlementRes, reputationRes] = await Promise.all([
-      sb.from('Invoice').select('status'),
-      sb.from('Invoice').select('id').in('status', ['SETTLED', 'COMPLETED']).gte('settledAt', sevenDaysAgo),
+      invoiceQuery,
+      settlementQuery,
       sb.from('AgentReputation').select('agentId, score'),
     ]);
 
@@ -53,6 +63,7 @@ router.get('/v1/metrics', async (_req: Request, res: Response): Promise<void> =>
         agents: agents.length,
         avgScore: Math.round(avgScore * 100) / 100,
       },
+      period: { from: from || null, to: to || null },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
