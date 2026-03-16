@@ -410,3 +410,15 @@
 - Coverage added: generateApiKey default param, TypeError for non-boolean isTest, hashApiKey 64-char output, TypeError for empty/non-string, isTestKey TypeError, constants validation
 - Issues: None
 - Timestamp: 2026-03-16T18:30:00Z
+
+## Sprint 035 — graceful-shutdown Coverage Improvement
+- Status: PASS
+- Branch: sprint-035-graceful-shutdown-coverage → merged to main
+- Commit: ab3df0e
+- Files modified: backend/src/utils/__tests__/graceful-shutdown.test.ts (+35 lines, 4 new tests)
+- Tests: 100/100 suites, 765/765 — ALL PASS (4 new tests, total 9 in file)
+- Health check pre: ✅ 100/100 suites
+- Health check post: ✅ 100/100 suites
+- Coverage added: server.close error catch, onShutdown throws catch, custom config acceptance, initiation log message
+- Issues: None
+- Timestamp: 2026-03-16T18:45:00Z
