@@ -1,5 +1,16 @@
 # Invoica Sprint Progress Log
 
+## Sprint 090 — AGENT-PROFILE-001
+- Status: PASS
+- Branch: sprint-090-agent-profile → merged to main
+- Commit: 9f944d9
+- Files created: backend/src/routes/agents.ts, backend/src/routes/__tests__/agents.test.ts
+- Files modified: backend/src/app.ts, sprints/week-89.json
+- Tests: 5/5 new tests — ALL PASS (164 total suites, 1359 total tests)
+- Health check pre: ✅ All services healthy (from Sprint 089 check)
+- Issues: none
+- Timestamp: 2026-03-16T18:10:00Z
+
 ## Sprint 089 — LEDGER-BALANCE-001
 - Status: PASS
 - Branch: sprint-089-ledger-balance → merged to main

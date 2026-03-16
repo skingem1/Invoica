@@ -163,13 +163,14 @@
 ## Week-89 Status — IN PROGRESS
 - INVOICE-DUPLICATE-001 ✅ (Sprint 088)
 - LEDGER-BALANCE-001 ✅ (Sprint 089)
-- AGENT-PROFILE-001 ⏳, WEBHOOK-EVENTS-LIST-001 ⏳, METRICS-COMPARE-001 ⏳
+- AGENT-PROFILE-001 ✅ (Sprint 090)
+- WEBHOOK-EVENTS-LIST-001 ⏳, METRICS-COMPARE-001 ⏳
 
-## Current State (2026-03-16 — Sprint 089)
-- **Git**: 4973763 on main, pushed to origin (clean)
-- **Tests**: 163/163 suites, 1354/1354 tests — ALL PASS (+5 Sprint 089)
-- **New endpoints (Sprints 079-089)**: POST /v1/webhooks/:id/test, PATCH /v1/invoices/:id/metadata, GET /v1/metrics/agent/:agentId, POST /v1/reputation/batch, GET /v1/invoices/search, GET /v1/settlements/stats, GET /v1/metrics?from&to, POST /v1/invoices/:id/duplicate, GET /v1/ledger/:agentId/balance
-- **week-89.json**: 3 tasks remaining
+## Current State (2026-03-16 — Sprint 090)
+- **Git**: 9f944d9 on main, pushed to origin (clean)
+- **Tests**: 164/164 suites, 1359/1359 tests — ALL PASS (+5 Sprint 090)
+- **New endpoints (Sprints 079-090)**: POST /v1/webhooks/:id/test, PATCH /v1/invoices/:id/metadata, GET /v1/metrics/agent/:agentId, POST /v1/reputation/batch, GET /v1/invoices/search, GET /v1/settlements/stats, GET /v1/metrics?from&to, POST /v1/invoices/:id/duplicate, GET /v1/ledger/:agentId/balance, GET /v1/agents/:agentId
+- **week-89.json**: 2 tasks remaining
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
