@@ -1,5 +1,20 @@
 # Invoica Sprint Progress Log
 
+## Sprint 112 — LEDGER-RECENT-001
+- Status: PASS | Commit: bec655b | Tests: 5/5 | Timestamp: 2026-03-16T21:30:00Z
+
+## Sprint 111 — WEBHOOK-RETRY-001 (GET /v1/webhooks/:id)
+- Status: PASS | Commit: 1b600f0 | Tests: 5/5 | Timestamp: 2026-03-16T21:25:00Z
+
+## Sprint 110 — METRICS-REVENUE-001
+- Status: PASS | Commit: ba6f081 | Tests: 5/5 | Timestamp: 2026-03-16T21:20:00Z
+
+## Sprint 109 — AGENT-SETTLEMENTS-SUMMARY-001
+- Status: PASS | Commit: 9113a3f | Tests: 5/5 | Timestamp: 2026-03-16T21:15:00Z
+
+## Sprint 108 — INVOICE-OVERDUE-001
+- Status: PASS | Commit: db954f2 | Tests: 5/5 | Timestamp: 2026-03-16T21:10:00Z
+
 ## Sprint 107 — WEBHOOK-BY-EVENT-001
 - Status: PASS | Commit: c222f45 | Tests: 5/5 | Timestamp: 2026-03-16T19:55:00Z
 

@@ -1,0 +1,46 @@
+{
+  "week": 93,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "INVOICE-OVERDUE-001",
+      "title": "GET /v1/invoices/overdue — list overdue invoices",
+      "description": "New endpoint: GET /v1/invoices/overdue. Returns all PENDING invoices older than 24 hours: { data: Invoice[], meta: { total, cutoffISO } }. cutoffISO = now minus 24h in ISO format. Filter: status === 'PENDING' AND createdAt < cutoff. Tests: 200-returns-array, 200-only-pending, 200-cutoff-in-meta, 200-empty-state, 500-db-error. File: backend/src/routes/invoices.ts (add route before /:id) + tests at backend/src/routes/__tests__/invoice-overdue.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "done",
+      "sprint": 108
+    },
+    {
+      "id": "AGENT-SETTLEMENTS-SUMMARY-001",
+      "title": "GET /v1/agents/:agentId/settlements/summary — settlement summary for agent",
+      "description": "New endpoint: GET /v1/agents/:agentId/settlements/summary. Returns settlement summary for a specific agent: { agentId, totalSettled, totalAmount, avgAmount, currencies: string[] }. Reads SETTLED+COMPLETED invoices for agentId, groups in JS. Returns 200 with zeros if no settlements (no 404). Tests: 200-returns-shape, 200-total-correct, 200-zero-when-empty, 200-currencies-array, 500-db-error. File: backend/src/routes/agents.ts (add route BEFORE /:agentId) + tests at backend/src/routes/__tests__/agent-settlements-summary.test.ts.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "done",
+      "sprint": 109
+    },
+    {
+      "id": "METRICS-REVENUE-001",
+      "title": "GET /v1/metrics/revenue — daily revenue for last 30 days",
+      "description": "New endpoint: GET /v1/metrics/revenue. Returns daily revenue totals for the last 30 days: [{ date: 'YYYY-MM-DD', revenue: number, invoiceCount: number }]. Only counts SETTLED+COMPLETED invoices. Zero-fills days with no activity. Tests: 200-returns-30-days, 200-has-date-field, 200-has-revenue-field, 200-zeros-for-empty-days, 500-db-error. File: backend/src/routes/metrics.ts (add route) + tests at backend/src/routes/__tests__/metrics-revenue.test.ts.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "done",
+      "sprint": 110
+    },
+    {
+      "id": "WEBHOOK-RETRY-001",
+      "title": "GET /v1/webhooks/:id — get single webhook by ID",
+      "description": "New endpoint: GET /v1/webhooks/:id. Returns a single webhook registration by ID: { success: true, data: Webhook }. Returns 404 if not found. Tests: 200-returns-webhook, 200-has-id-field, 200-has-events-array, 404-not-found, 500-db-error. File: backend/src/routes/webhooks.ts (add route after stats/events/by-event, before delete /:id) + tests at backend/src/routes/__tests__/webhook-get-by-id.test.ts.",
+      "file": "backend/src/routes/webhooks.ts",
+      "status": "done",
+      "sprint": 111
+    },
+    {
+      "id": "LEDGER-RECENT-001",
+      "title": "GET /v1/ledger/recent — recent ledger transactions across all agents",
+      "description": "New endpoint: GET /v1/ledger/recent. Returns the most recent ledger-eligible invoices (SETTLED+COMPLETED) across all agents: { data: Invoice[], meta: { total, limit } }. Supports ?limit (default 10, max 50). Sort by updatedAt DESC. Tests: 200-returns-array, 200-respects-limit, 200-max-limit-50, 200-only-settled-completed, 500-db-error. File: backend/src/routes/ledger.ts (add route BEFORE /:agentId routes) + tests at backend/src/routes/__tests__/ledger-recent.test.ts.",
+      "file": "backend/src/routes/ledger.ts",
+      "status": "done",
+      "sprint": 112
+    }
+  ]
+}

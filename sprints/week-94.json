@@ -1,0 +1,46 @@
+{
+  "week": 94,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "INVOICE-TIMELINE-001",
+      "title": "GET /v1/invoices/:id/timeline — invoice status history",
+      "description": "New endpoint: GET /v1/invoices/:id/timeline. Returns a timeline of status events for an invoice: { data: [{ status, timestamp, note }], meta: { invoiceId, currentStatus } }. Derive timeline from invoice fields: createdAt→PENDING, settledAt→SETTLED, completedAt→COMPLETED, and check status for CANCELLED. Returns 404 if invoice not found. Tests: 200-returns-array, 200-has-meta, 200-pending-always-first, 404-not-found, 500-db-error. File: backend/src/routes/invoices.ts (add route — must be before /:id catch) + tests at backend/src/routes/__tests__/invoice-timeline.test.ts.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-TOP-CURRENCIES-001",
+      "title": "GET /v1/metrics/top-currencies — most used payment currencies",
+      "description": "New endpoint: GET /v1/metrics/top-currencies. Returns top currencies by invoice count: [{ currency, invoiceCount, totalAmount }], sorted by invoiceCount DESC. Reads all invoices, groups in JS. Tests: 200-returns-array, 200-sorted-by-count, 200-has-total-amount, 200-empty-state, 500-db-error. File: backend/src/routes/metrics.ts (add route) + tests at backend/src/routes/__tests__/metrics-top-currencies.test.ts.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "AGENT-ACTIVITY-001",
+      "title": "GET /v1/agents/:agentId/activity — recent activity for agent",
+      "description": "New endpoint: GET /v1/agents/:agentId/activity. Returns the 10 most recent invoices for an agent with minimal fields: [{ id, status, amount, currency, createdAt }]. Always returns 200 with empty array if no activity. Supports ?limit (default 10, max 20). Tests: 200-returns-array, 200-limit-respected, 200-empty-when-no-activity, 200-has-required-fields, 500-db-error. File: backend/src/routes/agents.ts (add before /:agentId) + tests at backend/src/routes/__tests__/agent-activity.test.ts.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENTS-PENDING-001",
+      "title": "GET /v1/settlements/pending — invoices awaiting settlement",
+      "description": "New endpoint: GET /v1/settlements/pending. Returns all PROCESSING invoices (awaiting on-chain settlement): { data: Invoice[], meta: { total } }. Returns 200 with empty array if none. Tests: 200-returns-array, 200-only-processing-status, 200-total-correct, 200-empty-state, 500-db-error. File: backend/src/routes/settlements.ts (add before existing routes) + tests at backend/src/routes/__tests__/settlements-pending.test.ts.",
+      "file": "backend/src/routes/settlements.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "HEALTH-METRICS-001",
+      "title": "GET /v1/health/metrics — runtime performance metrics",
+      "description": "New endpoint: GET /v1/health/metrics. Returns basic Node.js runtime metrics: { uptimeSeconds, memoryMB: { rss, heapUsed, heapTotal }, processId, nodeVersion }. No DB call — all from process.uptime() and process.memoryUsage(). Always returns 200. Tests: 200-returns-shape, 200-has-uptime, 200-has-memory, 200-memory-is-number, 200-has-node-version. File: backend/src/routes/health.ts (add route) + tests at backend/src/routes/__tests__/health-metrics.test.ts.",
+      "file": "backend/src/routes/health.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}
