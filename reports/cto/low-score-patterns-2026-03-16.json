@@ -1,0 +1,22 @@
+{
+  "date": "2026-03-16",
+  "totalTasksScored": 4,
+  "agentCount": 1,
+  "flaggedAgents": 1,
+  "agents": [
+    {
+      "agentId": "unknown",
+      "avgScore": 0,
+      "taskCount": 4,
+      "lowScoreCount": 4,
+      "consecutiveLow": 4,
+      "flag": true,
+      "scores": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
