@@ -151,13 +151,13 @@
 
 ## Week-87 Status — IN PROGRESS
 - INVOICE-BY-ID-TESTS-001 ✅ (Sprint 079), ORACLE-SCORES-TESTS-001 ✅ (Sprint 080), WEBHOOK-PING-001 ✅ (Sprint 081)
-- INVOICE-METADATA-001 pending, METRICS-AGENT-001 pending
+- INVOICE-METADATA-001 ✅ (Sprint 082), METRICS-AGENT-001 pending
 
-## Current State (2026-03-16 — Sprint 081)
-- **Git**: 6ac79e6 on main, pushed to origin (clean)
-- **Tests**: 155/155 suites, 1314/1314 tests — ALL PASS
-- **New endpoint**: POST /v1/webhooks/:id/test (ping with 5s timeout, delivered/failed status)
-- **Next priority**: INVOICE-METADATA-001
+## Current State (2026-03-16 — Sprint 082)
+- **Git**: d278ce0 on main, pushed to origin (clean)
+- **Tests**: 156/156 suites, 1319/1319 tests — ALL PASS
+- **New endpoints**: POST /v1/webhooks/:id/test + PATCH /v1/invoices/:id/metadata LIVE
+- **Next priority**: METRICS-AGENT-001
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

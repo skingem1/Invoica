@@ -948,3 +948,14 @@
 - Health check post: 155/155 suites, 1314/1314 tests — ALL PASS
 - Notes: New feature: webhook test ping with 5s timeout, AbortSignal.timeout, delivered/failed/null responseCode
 - Timestamp: 2026-03-16T19:05:00Z
+
+## Sprint 082 — INVOICE-METADATA-001
+- Status: PASS
+- Branch: sprint-082-invoice-metadata-001 → merged to main
+- Commit: d278ce0
+- Files created: backend/src/routes/__tests__/invoice-metadata.test.ts
+- Files modified: backend/src/routes/invoices.ts (+PATCH /v1/invoices/:id/metadata handler)
+- Tests: 5 new tests (200-merge, 400-not-object, 400-array, 400-21-keys, 404) — PASS
+- Health check post: 156/156 suites, 1319/1319 tests — ALL PASS
+- Notes: Merges metadata into existing paymentDetails JSON, max 20 keys validation
+- Timestamp: 2026-03-16T19:15:00Z
