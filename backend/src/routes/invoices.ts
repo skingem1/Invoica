@@ -309,6 +309,39 @@ router.get('/v1/invoices/stats/void', async (_req: Request, res: Response, next:
 });
 
 /**
+ * GET /v1/invoices/stats/aging
+ * Invoice aging report: bucket PENDING invoices by days outstanding.
+ * Buckets: 0_30, 31_60, 61_90, over_90 — each has count + totalAmount.
+ */
+router.get('/v1/invoices/stats/aging', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb.from('Invoice').select('amount, createdAt').eq('status', 'PENDING');
+    if (error) throw error;
+
+    const now = Date.now();
+    const MS_PER_DAY = 24 * 60 * 60 * 1000;
+    const buckets = {
+      '0_30':   { count: 0, totalAmount: 0 },
+      '31_60':  { count: 0, totalAmount: 0 },
+      '61_90':  { count: 0, totalAmount: 0 },
+      'over_90': { count: 0, totalAmount: 0 },
+    };
+
+    for (const row of (data || [])) {
+      const ageDays = (now - new Date(row.createdAt).getTime()) / MS_PER_DAY;
+      const amt = Number(row.amount) || 0;
+      if (ageDays <= 30)       { buckets['0_30'].count++;   buckets['0_30'].totalAmount += amt; }
+      else if (ageDays <= 60)  { buckets['31_60'].count++;  buckets['31_60'].totalAmount += amt; }
+      else if (ageDays <= 90)  { buckets['61_90'].count++;  buckets['61_90'].totalAmount += amt; }
+      else                     { buckets['over_90'].count++; buckets['over_90'].totalAmount += amt; }
+    }
+
+    res.json({ success: true, data: { buckets } });
+  } catch (err) { next(err); }
+});
+
+/**
  * GET /v1/invoices/overdue
  * Returns PENDING invoices older than 24 hours. Registered before /:id.
  */
