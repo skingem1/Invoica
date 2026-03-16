@@ -388,4 +388,40 @@ router.get('/v1/metrics/revenue', async (_req: Request, res: Response): Promise<
   }
 });
 
+/**
+ * GET /v1/metrics/agents/top
+ * Top agents sorted by total settled invoice value DESC.
+ * Optional ?limit=N (default 10, max 50).
+ */
+router.get('/v1/metrics/agents/top', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 50);
+    const sb = getSb();
+
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('agentId, amount, status')
+      .in('status', ['SETTLED', 'COMPLETED']);
+
+    if (error) throw error;
+
+    const agentMap = new Map<string, { agentId: string; settledCount: number; totalSettledAmount: number }>();
+    for (const row of (data || [])) {
+      const key = row.agentId || 'unknown';
+      if (!agentMap.has(key)) agentMap.set(key, { agentId: key, settledCount: 0, totalSettledAmount: 0 });
+      const entry = agentMap.get(key)!;
+      entry.settledCount += 1;
+      entry.totalSettledAmount += row.amount || 0;
+    }
+
+    const sorted = Array.from(agentMap.values())
+      .sort((a, b) => b.totalSettledAmount - a.totalSettledAmount)
+      .slice(0, limit);
+
+    res.json({ success: true, data: sorted });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
 export default router;
