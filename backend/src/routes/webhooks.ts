@@ -44,4 +44,33 @@ router.delete('/v1/webhooks/:id', async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 });
 
+// POST /v1/webhooks/:id/test — send a test ping to the webhook endpoint
+router.post('/v1/webhooks/:id/test', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const webhook = await repo.findById(id);
+    if (!webhook) {
+      res.status(404).json({ success: false, error: { message: 'Webhook not found', code: 'NOT_FOUND' } });
+      return;
+    }
+
+    const start = Date.now();
+    let status: 'delivered' | 'failed' = 'failed';
+    let responseCode: number | null = null;
+
+    try {
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'test.ping', timestamp: new Date().toISOString(), webhookId: id }),
+        signal: AbortSignal.timeout(5000),
+      });
+      responseCode = response.status;
+      if (response.status < 500) status = 'delivered';
+    } catch { /* status stays failed */ }
+
+    res.json({ success: true, data: { status, responseCode, latencyMs: Date.now() - start } });
+  } catch (err) { next(err); }
+});
+
 export default router;
