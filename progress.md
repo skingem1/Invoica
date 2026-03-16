@@ -749,3 +749,15 @@
 - Mocks: jest.mock('express-rate-limit') + jest.mock('redis') — prevents live connections on module load
 - Total: 136/136 suites, 1179/1179 tests
 - Timestamp: 2026-03-16T19:00:00Z
+
+## Sprint 064 — RATE-LIMITER-002
+- Status: PASS
+- Branch: sprint-064-rate-limiter-edge → merged to main
+- Commit: 8fd32f4
+- Files created: backend/src/middleware/__tests__/rate-limiter-edge.test.ts
+- Files modified: none
+- Tests: 8 new tests (non-Bearer auth, socket.remoteAddress, client isolation, auth>apiKey priority, remaining=0, Reset timestamp, window expiry, unknown fallback) — PASS
+- Health check pre: Backend ✅, OpenClaw ✅, DB ✅, Disk ✅
+- Health check post: 137/137 suites, 1187/1187 tests — ALL PASS
+- Issues: none
+- Timestamp: 2026-03-16T00:00:00Z
