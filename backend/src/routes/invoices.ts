@@ -426,6 +426,38 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
 });
 
 /**
+ * POST /v1/invoices/bulk/status
+ * Update status for up to 50 invoices in one call.
+ */
+router.post('/v1/invoices/bulk/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, status } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ success: false, error: { message: 'ids must be a non-empty array', code: 'MISSING_IDS' } });
+      return;
+    }
+    if (ids.length > 50) {
+      res.status(400).json({ success: false, error: { message: 'ids array must not exceed 50 items', code: 'TOO_MANY_IDS' } });
+      return;
+    }
+    const VALID_STATUSES = ['PENDING', 'PROCESSING', 'SETTLED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
+    if (!status || !VALID_STATUSES.includes(status)) {
+      res.status(400).json({ success: false, error: { message: `status must be one of: ${VALID_STATUSES.join(', ')}`, code: 'INVALID_STATUS' } });
+      return;
+    }
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from('Invoice')
+      .update({ status, updatedAt: new Date().toISOString() })
+      .in('id', ids)
+      .select('id');
+    if (error) throw error;
+    const updatedIds = (data || []).map((r: any) => r.id);
+    res.json({ success: true, data: { updated: updatedIds.length, ids: updatedIds } });
+  } catch (err) { next(err); }
+});
+
+/**
  * PATCH /v1/invoices/:id/status
  * Update invoice status with transition validation.
  * Body: { status: 'PENDING' | 'SETTLED' | 'PROCESSING' | 'COMPLETED' }
