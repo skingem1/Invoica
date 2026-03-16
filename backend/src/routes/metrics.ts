@@ -547,4 +547,45 @@ router.get('/v1/metrics/weekly', async (_req: Request, res: Response): Promise<v
   }
 });
 
+/**
+ * GET /v1/metrics/conversion
+ * Invoice conversion rates: created→settled, plus avg time to settle.
+ */
+router.get('/v1/metrics/conversion', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const sb = getSb();
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('status, createdAt, settledAt');
+
+    if (error) throw error;
+
+    const rows = data || [];
+    const total = rows.length;
+    const settled = rows.filter((r: any) => r.status === 'SETTLED' || r.status === 'COMPLETED').length;
+    const cancelled = rows.filter((r: any) => r.status === 'CANCELLED' || r.status === 'REFUNDED').length;
+    const pending = rows.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSING').length;
+
+    const conversionRate = total > 0 ? (settled / total) * 100 : 0;
+
+    // Avg time to settle: only for rows with both createdAt and settledAt
+    const settledWithTime = rows.filter((r: any) =>
+      (r.status === 'SETTLED' || r.status === 'COMPLETED') && r.createdAt && r.settledAt
+    );
+    let avgTimeToSettle = 0;
+    if (settledWithTime.length > 0) {
+      const totalMs = settledWithTime.reduce((sum: number, r: any) =>
+        sum + (new Date(r.settledAt).getTime() - new Date(r.createdAt).getTime()), 0);
+      avgTimeToSettle = Math.round(totalMs / settledWithTime.length / 1000); // seconds
+    }
+
+    res.json({
+      success: true,
+      data: { total, settled, cancelled, pending, conversionRate: Math.round(conversionRate * 100) / 100, avgTimeToSettle },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } });
+  }
+});
+
 export default router;
