@@ -252,3 +252,15 @@
 - Health check post: ✅ 92/92 suites, disk 80% free
 - Issues: None
 - Timestamp: 2026-03-16T15:05:00Z
+
+## Sprint 022 — Reputation Leaderboard (REP-002)
+- Status: PASS
+- Branch: sprint-022-reputation-leaderboard → merged to main
+- Commit: bb5df43
+- Files created: backend/src/routes/reputation-leaderboard.ts (57 lines), backend/src/routes/__tests__/reputation-leaderboard.test.ts (5 tests)
+- Files modified: backend/src/app.ts (+2 lines: import + use reputationLeaderboardRoutes before reputationRoutes)
+- Tests: 93/93 suites, 651/651 — ALL PASS (5 new tests)
+- Health check pre: ✅ 92/92 suites, disk 80% free
+- Health check post: ✅ 93/93 suites, disk 80% free
+- Issues: Fixed same pattern issue as Sprint 019 — moved .limit() after tier filter to maintain mock chain integrity
+- Timestamp: 2026-03-16T15:20:00Z

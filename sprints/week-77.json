@@ -46,7 +46,7 @@
       "priority": "medium",
       "dependencies": [],
       "description": "Add GET /v1/reputation/leaderboard endpoint — top agents ranked by reputation score",
-      "context": "The Reputation API currently only supports GET /v1/reputation/:agentId (single-agent lookup). For the Agent Marketplace (Priority 2 in SOUL.md), we need a leaderboard: the top N agents ranked by score, filterable by tier.\n\nCREATE: backend/src/routes/reputation-leaderboard.ts (max 160 lines)\n\nEndpoint: GET /v1/reputation/leaderboard?tier=gold&limit=20\n\n  import { Router, Request, Response, NextFunction } from 'express';\n  import { createClient } from '@supabase/supabase-js';\n  const router = Router();\n\n  function getSb() {\n    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;\n    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;\n    if (!url || !key) throw new Error('Supabase env vars not set');\n    return createClient(url, key);\n  }\n\n  const VALID_TIERS = ['platinum', 'gold', 'silver', 'bronze', 'unrated'];\n\n  router.get('/v1/reputation/leaderboard', async (req, res, next) => {\n    try {\n      const limit = Math.min(parseInt(req.query.limit as string || '20', 10) || 20, 100);\n      const tier = req.query.tier as string | undefined;\n      const sb = getSb();\n\n      let query = sb\n        .from('AgentReputation')\n        .select('agentId, score, tier, invoicesCompleted, invoicesDisputed, totalValueSettled, lastUpdated')\n        .order('score', { ascending: false })\n        .limit(limit);\n\n      if (tier && VALID_TIERS.includes(tier.toLowerCase())) {\n        query = query.eq('tier', tier.toLowerCase());\n      }\n\n      const { data, error } = await query;\n      if (error) throw error;\n\n      res.json({\n        success: true,\n        data: (data || []).map((agent, idx) => ({\n          rank: idx + 1,\n          agentId: agent.agentId,\n          score: agent.score,\n          tier: agent.tier,\n          invoicesCompleted: agent.invoicesCompleted,\n          invoicesDisputed: agent.invoicesDisputed,\n          totalValueSettled: agent.totalValueSettled,\n          lastUpdated: agent.lastUpdated,\n        })),\n        meta: { total: (data || []).length, limit },\n      });\n    } catch (err) {\n      next(err);\n    }\n  });\n\n  export default router;\n\nEDIT: backend/src/app.ts\nRegister leaderboard route. Import and app.use() near the reputation route.\n\nIMPORTANT: The leaderboard route GET /v1/reputation/leaderboard must be registered BEFORE the existing reputation router's GET /v1/reputation/:agentId route, to prevent Express from matching 'leaderboard' as an agentId. Check app.ts for the existing reputation route import and place this import/use() above it.\n\nCREATE: backend/src/routes/__tests__/reputation-leaderboard.test.ts (max 100 lines)\n\nTests:\n1. GET /v1/reputation/leaderboard — returns sorted list with rank field\n2. GET /v1/reputation/leaderboard?tier=gold — verifies tier filter applied\n3. GET /v1/reputation/leaderboard?tier=INVALID — ignores invalid tier (no filter)\n4. GET /v1/reputation/leaderboard?limit=5 — respects limit param\n5. GET /v1/reputation/leaderboard?limit=200 — caps at 100",
+      "context": "DONE — Sprint 022 (bb5df43). GET /v1/reputation/leaderboard + 5 tests passing.",
       "deliverables": {
         "code": [
           "backend/src/routes/reputation-leaderboard.ts",
@@ -57,7 +57,7 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved"
     },
     {
       "id": "ENFORCE-001",
