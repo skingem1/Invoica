@@ -1,0 +1,46 @@
+{
+  "week": 92,
+  "created": "2026-03-16",
+  "tasks": [
+    {
+      "id": "INVOICE-COUNT-BY-STATUS-001",
+      "title": "GET /v1/invoices/count — invoice counts grouped by status",
+      "description": "New endpoint: GET /v1/invoices/count. Returns invoice counts grouped by status: { total, byStatus: { PENDING, PROCESSING, SETTLED, COMPLETED, CANCELLED, REFUNDED } }. Reads from Invoice table, groups in JS. Tests: 200-returns-total, 200-by-status-correct, 200-zero-counts-included, 200-empty-state, 500-db-error. File: backend/src/routes/invoices.ts (add route before /:id) + tests.",
+      "file": "backend/src/routes/invoices.ts",
+      "status": "done",
+      "sprint": 103
+    },
+    {
+      "id": "AGENT-INVOICE-LIST-001",
+      "title": "GET /v1/agents/:agentId/invoices — list invoices for an agent",
+      "description": "New endpoint: GET /v1/agents/:agentId/invoices. Returns paginated list of invoices for a given agent: { data: Invoice[], meta: { total, limit, offset, hasMore } }. Supports ?limit (default 20, max 100) and ?offset. Returns 200 with empty array if no invoices (no 404). Tests: 200-returns-array, 200-pagination-meta, 200-empty-agent, 200-limit-param, 500-db-error. File: backend/src/routes/agents.ts (add route) + tests.",
+      "file": "backend/src/routes/agents.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "METRICS-DAILY-001",
+      "title": "GET /v1/metrics/daily — invoice counts per day for last 7 days",
+      "description": "New endpoint: GET /v1/metrics/daily. Returns daily invoice counts for the last 7 days: [{ date: 'YYYY-MM-DD', invoiceCount, settlementCount }]. Fills in zeros for days with no activity. Tests: 200-returns-7-days, 200-has-date-field, 200-has-invoice-count, 200-zeros-for-empty-days, 500-db-error. File: backend/src/routes/metrics.ts (add route) + tests.",
+      "file": "backend/src/routes/metrics.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "SETTLEMENT-BY-AGENT-001",
+      "title": "GET /v1/settlements/agent/:agentId — settlements for an agent",
+      "description": "New endpoint: GET /v1/settlements/agent/:agentId. Returns all SETTLED/COMPLETED invoices for a given agent: { data: Settlement[], meta: { total } }. Returns 200 with empty array if no settlements. Tests: 200-returns-array, 200-total-correct, 200-only-settled-statuses, 200-empty-agent, 500-db-error. File: backend/src/routes/settlements.ts (add route before /:id) + tests.",
+      "file": "backend/src/routes/settlements.ts",
+      "status": "pending",
+      "sprint": null
+    },
+    {
+      "id": "WEBHOOK-BY-EVENT-001",
+      "title": "GET /v1/webhooks/by-event/:eventType — webhooks subscribed to an event",
+      "description": "New endpoint: GET /v1/webhooks/by-event/:eventType. Returns all registered webhooks that subscribe to the given event type: { data: Webhook[], meta: { total, eventType } }. Returns 200 with empty array if none found. Tests: 200-returns-array, 200-total-correct, 200-all-have-event, 200-empty-when-no-match, 500-db-error. File: backend/src/routes/webhooks.ts (add route before /:id) + tests.",
+      "file": "backend/src/routes/webhooks.ts",
+      "status": "pending",
+      "sprint": null
+    }
+  ]
+}

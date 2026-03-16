@@ -129,6 +129,27 @@ router.get('/v1/invoices/number/:number', async (req: Request, res: Response, ne
 });
 
 /**
+ * GET /v1/invoices/count
+ * Invoice counts grouped by status. Registered before /:id.
+ */
+router.get('/v1/invoices/count', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb.from('Invoice').select('status');
+    if (error) throw error;
+
+    const ALL_STATUSES = ['PENDING', 'PROCESSING', 'SETTLED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
+    const byStatus: Record<string, number> = {};
+    for (const s of ALL_STATUSES) byStatus[s] = 0;
+    for (const row of (data || [])) {
+      if (row.status in byStatus) byStatus[row.status]++;
+    }
+
+    res.json({ success: true, data: { total: (data || []).length, byStatus } });
+  } catch (err) { next(err); }
+});
+
+/**
  * GET /v1/invoices/:id
  * Lookup invoice by UUID.
  * Registered AFTER /v1/invoices/number/:number to avoid shadowing.
