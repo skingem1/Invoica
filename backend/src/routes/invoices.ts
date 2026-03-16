@@ -379,4 +379,43 @@ router.patch('/v1/invoices/:id/status', async (req: Request, res: Response, next
   }
 });
 
+/**
+ * PATCH /v1/invoices/:id/metadata
+ * Merge additional metadata into invoice paymentDetails.
+ * Body: { metadata: Record<string, unknown> } — max 20 keys
+ */
+router.patch('/v1/invoices/:id/metadata', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { metadata } = req.body;
+
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      res.status(400).json({ success: false, error: { message: 'metadata must be a non-array object', code: 'INVALID_METADATA' } });
+      return;
+    }
+    if (Object.keys(metadata).length > 20) {
+      res.status(400).json({ success: false, error: { message: 'metadata must not exceed 20 keys', code: 'INVALID_METADATA' } });
+      return;
+    }
+
+    const sb = getSupabase();
+    const { data: existing, error: fetchErr } = await sb.from('Invoice').select('id, paymentDetails').eq('id', id).single();
+    if (fetchErr || !existing) {
+      res.status(404).json({ success: false, error: { message: 'Invoice not found', code: 'NOT_FOUND' } });
+      return;
+    }
+
+    const pd = typeof existing.paymentDetails === 'string'
+      ? JSON.parse(existing.paymentDetails)
+      : (existing.paymentDetails || {});
+    const merged = { ...pd, ...metadata };
+
+    const { data, error } = await sb.from('Invoice').update({ paymentDetails: merged, updatedAt: new Date().toISOString() }).eq('id', id).select(SELECT_FIELDS).single();
+    if (error) throw error;
+    res.json({ success: true, data: mapInvoice(data) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
