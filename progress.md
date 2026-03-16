@@ -1003,3 +1003,14 @@
 - Health check post: 160/160 suites, 1339/1339 tests — ALL PASS
 - Notes: Adds avgSettlementTimeMs (createdAt→settledAt diff) as differentiator from /summary. byNetwork uses 'unknown' fallback when paymentDetails.network absent.
 - Timestamp: 2026-03-16T20:05:00Z
+
+## Sprint 087 — METRICS-PERIOD-001
+- Status: PASS
+- Branch: sprint-087-metrics-period-001 → merged to main
+- Commit: 557713d
+- Files created: backend/src/routes/__tests__/metrics-period.test.ts
+- Files modified: backend/src/routes/metrics.ts (added ?from/?to params, period field in response)
+- Tests: 5 new tests (200-from, 200-to, 200-both, 200-no-params, 500-error) — PASS
+- Health check post: 161/161 suites, 1344/1344 tests — ALL PASS
+- Notes: week-88 ALL DONE. Backward compatible: period.from/to null when params absent. Settlement query uses from as sevenDaysAgo fallback.
+- Timestamp: 2026-03-16T20:20:00Z

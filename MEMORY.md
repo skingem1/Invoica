@@ -157,13 +157,15 @@
 - REPUTATION-BATCH-001 ✅ (Sprint 084)
 - TAX-RATES-LIST-001 ✅ superseded (GET /v1/tax/jurisdictions already existed + tested)
 - INVOICE-SEARCH-001 ✅ (Sprint 085)
-- SETTLEMENT-STATS-001 ✅ (Sprint 086), METRICS-PERIOD-001 ⏳
+- SETTLEMENT-STATS-001 ✅ (Sprint 086), METRICS-PERIOD-001 ✅ (Sprint 087)
 
-## Current State (2026-03-16 — Sprint 086)
-- **Git**: f1140c9 on main, pushed to origin (clean)
-- **Tests**: 160/160 suites, 1339/1339 tests — ALL PASS
-- **New endpoints this week**: POST /v1/webhooks/:id/test, PATCH /v1/invoices/:id/metadata, GET /v1/metrics/agent/:agentId, POST /v1/reputation/batch, GET /v1/invoices/search, GET /v1/settlements/stats
-- **week-88.json**: 1 task remaining (METRICS-PERIOD-001)
+## Week-88 Status — ALL DONE ✅
+
+## Current State (2026-03-16 — Sprint 087)
+- **Git**: 557713d on main, pushed to origin (clean)
+- **Tests**: 161/161 suites, 1344/1344 tests — ALL PASS
+- **New endpoints (Sprints 079-087)**: POST /v1/webhooks/:id/test, PATCH /v1/invoices/:id/metadata, GET /v1/metrics/agent/:agentId, POST /v1/reputation/batch, GET /v1/invoices/search, GET /v1/settlements/stats, GET /v1/metrics?from&to
+- **week-88.json**: ALL DONE — need week-89.json next
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)
