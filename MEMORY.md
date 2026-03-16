@@ -1,7 +1,7 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 013cdce on main, pushed to origin (clean)
+- **Git**: 082e92a on main, pushed to origin (clean)
 - **Tests**: 144/144 suites, 1248/1248 tests — ALL PASS (+8 Sprint 069)
 - **New feature**: GET /v1/invoices/export (CSV download) — LIVE in app.ts
 - **TypeScript**: 0 source errors

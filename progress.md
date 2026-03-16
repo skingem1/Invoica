@@ -1,5 +1,8 @@
 # Invoica Sprint Progress Log
 
+## Sprint 127 — SETTLEMENTS-BY-CURRENCY-001
+- Status: PASS | Commit: 082e92a | Branch: sprint-127-settlements-by-currency → main | Tests: 5/5 | Files: settlements.ts +31 lines, settlements-by-currency.test.ts (new) | Timestamp: 2026-03-16T20:50:00Z
+
 ## Sprint 126 — WEBHOOKS-BULK-DELETE-001
 - Status: PASS | Commit: 013cdce | Branch: sprint-126-webhooks-bulk-delete → main | Tests: 5/5 | Files: webhooks.ts +25 lines, webhook-bulk-delete.test.ts (new) | Timestamp: 2026-03-16T20:45:00Z
 
