@@ -10,6 +10,51 @@ function getSupabase() {
 }
 
 // ─────────────────────────────────────────────
+// GET /v1/settlements/timeline
+// Daily settlement activity over a date range.
+// Must be before /:id to avoid param capture.
+// ─────────────────────────────────────────────
+router.get('/v1/settlements/timeline', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sb = getSupabase();
+    const toDate   = req.query.to   ? new Date(req.query.to   as string) : new Date();
+    const fromDate = req.query.from ? new Date(req.query.from as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const { data, error } = await sb
+      .from('Invoice')
+      .select('amount, updatedAt')
+      .in('status', ['SETTLED', 'COMPLETED'])
+      .gte('updatedAt', fromDate.toISOString())
+      .lte('updatedAt', toDate.toISOString());
+
+    if (error) throw error;
+
+    // Build date map from fromDate to toDate
+    const dateMap = new Map<string, { count: number; amount: number }>();
+    const cursor = new Date(fromDate);
+    cursor.setUTCHours(0, 0, 0, 0);
+    const end = new Date(toDate);
+    end.setUTCHours(0, 0, 0, 0);
+    while (cursor <= end) {
+      dateMap.set(cursor.toISOString().slice(0, 10), { count: 0, amount: 0 });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    for (const row of (data || [])) {
+      const key = new Date(row.updatedAt).toISOString().slice(0, 10);
+      if (dateMap.has(key)) {
+        const entry = dateMap.get(key)!;
+        entry.count += 1;
+        entry.amount += Number(row.amount) || 0;
+      }
+    }
+
+    const result = Array.from(dateMap.entries()).map(([date, vals]) => ({ date, ...vals }));
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────
 // GET /v1/settlements/stats
 // Aggregate statistics for SETTLED+COMPLETED invoices.
 // Must be before /:id to avoid param capture.
