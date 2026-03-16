@@ -1,5 +1,25 @@
 # Invoica Sprint Progress Log
 
+## Sprint 092 — METRICS-COMPARE-001
+- Status: PASS
+- Branch: sprint-092-metrics-compare → merged to main
+- Commit: 909158f
+- Files created: backend/src/routes/__tests__/metrics-compare.test.ts
+- Files modified: backend/src/routes/metrics.ts, sprints/week-89.json (ALL DONE)
+- Tests: 5/5 new tests — ALL PASS
+- Issues: none
+- Timestamp: 2026-03-16T18:20:00Z
+
+## Sprint 091 — WEBHOOK-EVENTS-LIST-001
+- Status: PASS
+- Branch: sprint-091-webhook-events-list → merged to main
+- Commit: 9ada57f
+- Files created: backend/src/routes/__tests__/webhook-events-list.test.ts
+- Files modified: backend/src/routes/webhooks.ts, sprints/week-89.json
+- Tests: 5/5 new tests — ALL PASS (fix: mock path ../../../→../../)
+- Issues: jest.mock path was 3 levels deep, corrected to 2
+- Timestamp: 2026-03-16T18:15:00Z
+
 ## Sprint 090 — AGENT-PROFILE-001
 - Status: PASS
 - Branch: sprint-090-agent-profile → merged to main
