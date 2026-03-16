@@ -1,0 +1,100 @@
+{
+  "tasks": [
+    {
+      "id": "INVOICE-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Enhance GET /v1/invoices with date range, companyId, chain, and amount range filters",
+      "context": "The current GET /v1/invoices only supports status and customerEmail filters. Live users (AI agents) need to query by company, date range, chain, and amount. This is a pure backend enhancement with no schema changes — all filter data is already stored in the Invoice table.\n\nEDIT: backend/src/routes/invoices.ts\n\nIn the GET /v1/invoices handler (around line 125), add these new query params AFTER the existing status and customerEmail:\n\n  const companyId = req.query.companyId as string | undefined;\n  const chain = req.query.chain as string | undefined;          // filter by paymentDetails.network\n  const fromDate = req.query.from as string | undefined;         // ISO date string\n  const toDate = req.query.to as string | undefined;             // ISO date string\n  const minAmount = req.query.minAmount as string | undefined;   // numeric\n  const maxAmount = req.query.maxAmount as string | undefined;   // numeric\n  const sortBy = (req.query.sortBy as string) || 'createdAt';    // 'createdAt' | 'amount' | 'updatedAt'\n  const sortDir = (req.query.sortDir as string) === 'asc' ? true : false; // ascending default false\n\nAnd add these filters to the Supabase query chain:\n  if (companyId) query = query.eq('companyId', companyId);\n  if (fromDate) query = query.gte('createdAt', fromDate);\n  if (toDate) query = query.lte('createdAt', toDate);\n  if (minAmount) query = query.gte('amount', parseFloat(minAmount));\n  if (maxAmount) query = query.lte('amount', parseFloat(maxAmount));\n\nFor chain filter: chain is stored in paymentDetails.network (JSON field). Supabase supports JSON path filters:\n  if (chain) query = query.contains('paymentDetails', { network: chain.toLowerCase() });\n\nFor sorting: replace the hardcoded .order('createdAt', { ascending: false }) with:\n  const validSortFields = ['createdAt', 'amount', 'updatedAt'];\n  const safeSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';\n  query = query.order(safeSortBy, { ascending: sortDir });\n\nMake sure the file stays under 200 lines total. If needed, extract the filter-building logic into a local helper function buildInvoiceFilters().\n\nCREATE: backend/src/routes/__tests__/invoices-enhanced-filters.test.ts\n\nTests:\n1. GET /v1/invoices with companyId filter — Supabase mock returns 2 invoices\n2. GET /v1/invoices with fromDate filter — verify gte('createdAt') called\n3. GET /v1/invoices with toDate filter — verify lte('createdAt') called\n4. GET /v1/invoices with minAmount filter — verify gte('amount') called\n5. GET /v1/invoices with chain filter — verify contains('paymentDetails') called\n6. GET /v1/invoices with sortBy=amount&sortDir=asc — verify order call\n7. GET /v1/invoices with invalid sortBy — defaults to createdAt\n\nMax 150 lines for tests. Use express supertest + mock @supabase/supabase-js.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/invoices.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/invoices-enhanced-filters.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "INVOICE-003",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Add GET /v1/invoices/stats endpoint — invoice totals and revenue metrics by company",
+      "context": "AI agents using Invoica need a quick summary view: how many invoices, total revenue, breakdown by status, and average invoice size. This powers dashboard widgets and enables agents to track their earnings autonomously.\n\nCREATE: backend/src/routes/invoice-stats.ts (max 180 lines)\n\nEndpoint: GET /v1/invoices/stats?companyId=XXX\n\nQuery Supabase 'Invoice' table, group by status:\n\nRouter setup:\n  import { Router, Request, Response, NextFunction } from 'express';\n  import { createClient } from '@supabase/supabase-js';\n  const router = Router();\n\n  function getSupabase() {\n    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;\n    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;\n    if (!url || !key) throw new Error('Supabase env vars not set');\n    return createClient(url, key);\n  }\n\n  router.get('/v1/invoices/stats', async (req, res, next) => {\n    try {\n      const companyId = req.query.companyId as string | undefined;\n      const sb = getSupabase();\n\n      let query = sb.from('Invoice').select('status, amount');\n      if (companyId) query = query.eq('companyId', companyId);\n\n      const { data, error } = await query;\n      if (error) throw error;\n\n      const invoices = data || [];\n      const statusCounts: Record<string, number> = {};\n      const statusRevenue: Record<string, number> = {};\n      let totalRevenue = 0;\n\n      for (const inv of invoices) {\n        const amt = parseFloat(inv.amount as string) || 0;\n        statusCounts[inv.status] = (statusCounts[inv.status] || 0) + 1;\n        statusRevenue[inv.status] = (statusRevenue[inv.status] || 0) + amt;\n        if (inv.status === 'COMPLETED' || inv.status === 'SETTLED') totalRevenue += amt;\n      }\n\n      res.json({\n        success: true,\n        data: {\n          total: invoices.length,\n          totalRevenue,\n          averageAmount: invoices.length > 0 ? totalRevenue / invoices.length : 0,\n          byStatus: Object.keys(statusCounts).map(status => ({\n            status,\n            count: statusCounts[status],\n            revenue: statusRevenue[status] || 0,\n          })),\n        },\n      });\n    } catch (err) {\n      next(err);\n    }\n  });\n\n  export default router;\n\nEDIT: backend/src/app.ts\nRegister the new route. Add import and app.use() line near the other route registrations.\n\nCREATE: backend/src/routes/__tests__/invoice-stats.test.ts (max 100 lines)\n\nTests:\n1. GET /v1/invoices/stats — returns totals with empty data (returns zeros)\n2. GET /v1/invoices/stats — with mock data: 3 COMPLETED + 1 PENDING — verify total=4, totalRevenue=sum of COMPLETED/SETTLED\n3. GET /v1/invoices/stats?companyId=co-1 — verifies companyId filter passed to Supabase\n4. GET /v1/invoices/stats — Supabase error returns 500",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/invoice-stats.ts",
+          "backend/src/app.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/invoice-stats.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "REP-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Add GET /v1/reputation/leaderboard endpoint — top agents ranked by reputation score",
+      "context": "The Reputation API currently only supports GET /v1/reputation/:agentId (single-agent lookup). For the Agent Marketplace (Priority 2 in SOUL.md), we need a leaderboard: the top N agents ranked by score, filterable by tier.\n\nCREATE: backend/src/routes/reputation-leaderboard.ts (max 160 lines)\n\nEndpoint: GET /v1/reputation/leaderboard?tier=gold&limit=20\n\n  import { Router, Request, Response, NextFunction } from 'express';\n  import { createClient } from '@supabase/supabase-js';\n  const router = Router();\n\n  function getSb() {\n    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;\n    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;\n    if (!url || !key) throw new Error('Supabase env vars not set');\n    return createClient(url, key);\n  }\n\n  const VALID_TIERS = ['platinum', 'gold', 'silver', 'bronze', 'unrated'];\n\n  router.get('/v1/reputation/leaderboard', async (req, res, next) => {\n    try {\n      const limit = Math.min(parseInt(req.query.limit as string || '20', 10) || 20, 100);\n      const tier = req.query.tier as string | undefined;\n      const sb = getSb();\n\n      let query = sb\n        .from('AgentReputation')\n        .select('agentId, score, tier, invoicesCompleted, invoicesDisputed, totalValueSettled, lastUpdated')\n        .order('score', { ascending: false })\n        .limit(limit);\n\n      if (tier && VALID_TIERS.includes(tier.toLowerCase())) {\n        query = query.eq('tier', tier.toLowerCase());\n      }\n\n      const { data, error } = await query;\n      if (error) throw error;\n\n      res.json({\n        success: true,\n        data: (data || []).map((agent, idx) => ({\n          rank: idx + 1,\n          agentId: agent.agentId,\n          score: agent.score,\n          tier: agent.tier,\n          invoicesCompleted: agent.invoicesCompleted,\n          invoicesDisputed: agent.invoicesDisputed,\n          totalValueSettled: agent.totalValueSettled,\n          lastUpdated: agent.lastUpdated,\n        })),\n        meta: { total: (data || []).length, limit },\n      });\n    } catch (err) {\n      next(err);\n    }\n  });\n\n  export default router;\n\nEDIT: backend/src/app.ts\nRegister leaderboard route. Import and app.use() near the reputation route.\n\nIMPORTANT: The leaderboard route GET /v1/reputation/leaderboard must be registered BEFORE the existing reputation router's GET /v1/reputation/:agentId route, to prevent Express from matching 'leaderboard' as an agentId. Check app.ts for the existing reputation route import and place this import/use() above it.\n\nCREATE: backend/src/routes/__tests__/reputation-leaderboard.test.ts (max 100 lines)\n\nTests:\n1. GET /v1/reputation/leaderboard — returns sorted list with rank field\n2. GET /v1/reputation/leaderboard?tier=gold — verifies tier filter applied\n3. GET /v1/reputation/leaderboard?tier=INVALID — ignores invalid tier (no filter)\n4. GET /v1/reputation/leaderboard?limit=5 — respects limit param\n5. GET /v1/reputation/leaderboard?limit=200 — caps at 100",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/reputation-leaderboard.ts",
+          "backend/src/app.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/reputation-leaderboard.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "ENFORCE-001",
+      "agent": "backend-core",
+      "type": "test",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Add unit tests for ledger/enforcement.ts — hierarchical budget enforcement logic",
+      "context": "The last untested major service is backend/src/services/ledger/enforcement.ts (377 lines). It depends on budget.ts functions (mock using jest.mock('../budget')). This is the budget guard for AI agents — any regression would let agents overspend.\n\nFirst READ enforcement.ts fully to understand all exported functions before writing tests.\n\nCREATE: backend/src/services/ledger/__tests__/enforcement.test.ts (max 200 lines)\n\nMock strategy:\n  jest.mock('../budget', () => ({\n    checkBudget: jest.fn(),\n    getBudget: jest.fn(),\n    createBudgetReservation: jest.fn(),\n    cancelBudgetReservation: jest.fn(),\n    consumeBudgetReservation: jest.fn(),\n  }));\n\nTest targets (read enforcement.ts to find all exports):\n1. checkHierarchicalBudget() — allowed when all levels allow\n2. checkHierarchicalBudget() — denied when department budget exceeded\n3. checkHierarchicalBudget() — denied when team budget exceeded (department OK)\n4. checkHierarchicalBudget() — denied when agent budget exceeded (department+team OK)\n5. checkHierarchicalBudget() with skipLevels — skips specified BudgetLevel\n6. Any other exported functions — read the file and test them\n\nMin: 12 tests. Tests should cover all exported functions.\nMock the `db` argument as an empty object `{} as any` — enforcement.ts passes db to budget.ts functions which are mocked.",
+      "deliverables": {
+        "code": [],
+        "tests": [
+          "backend/src/services/ledger/__tests__/enforcement.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SETTLE-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Add GET /v1/settlements/summary endpoint — settlement totals by chain and status",
+      "context": "The existing GET /v1/settlements route returns individual settlement records. Agents and dashboards need aggregate data: how much has settled on each chain, what's the total volume, and how many settlements are pending vs. confirmed.\n\nCREATE: backend/src/routes/settlement-summary.ts (max 150 lines)\n\nEndpoint: GET /v1/settlements/summary?companyId=XXX\n\n  import { Router, Request, Response, NextFunction } from 'express';\n  import { createClient } from '@supabase/supabase-js';\n  const router = Router();\n\n  function getSb() {\n    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;\n    const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;\n    if (!url || !key) throw new Error('Supabase env vars not set');\n    return createClient(url, key);\n  }\n\n  router.get('/v1/settlements/summary', async (req, res, next) => {\n    try {\n      const companyId = req.query.companyId as string | undefined;\n      const sb = getSb();\n\n      let query = sb\n        .from('Invoice')\n        .select('status, amount, paymentDetails')\n        .in('status', ['SETTLED', 'COMPLETED']);\n\n      if (companyId) query = query.eq('companyId', companyId);\n\n      const { data, error } = await query;\n      if (error) throw error;\n\n      const invoices = data || [];\n      const chainTotals: Record<string, { count: number; totalAmount: number }> = {};\n      let grandTotal = 0;\n      let grandCount = 0;\n\n      for (const inv of invoices) {\n        const pd = inv.paymentDetails\n          ? (typeof inv.paymentDetails === 'string' ? JSON.parse(inv.paymentDetails) : inv.paymentDetails)\n          : {};\n        const chain = pd.network || 'unknown';\n        const amt = parseFloat(inv.amount as string) || 0;\n\n        if (!chainTotals[chain]) chainTotals[chain] = { count: 0, totalAmount: 0 };\n        chainTotals[chain].count++;\n        chainTotals[chain].totalAmount += amt;\n        grandTotal += amt;\n        grandCount++;\n      }\n\n      res.json({\n        success: true,\n        data: {\n          totalSettlements: grandCount,\n          totalVolume: grandTotal,\n          byChain: Object.entries(chainTotals).map(([chain, stats]) => ({\n            chain,\n            count: stats.count,\n            totalAmount: stats.totalAmount,\n          })),\n        },\n      });\n    } catch (err) {\n      next(err);\n    }\n  });\n\n  export default router;\n\nEDIT: backend/src/app.ts\nRegister settlement-summary route near the existing settlements route.\n\nCREATE: backend/src/routes/__tests__/settlement-summary.test.ts (max 80 lines)\n\nTests:\n1. GET /v1/settlements/summary — empty data returns zeros\n2. GET /v1/settlements/summary — multiple chains are grouped correctly\n3. GET /v1/settlements/summary?companyId=co-1 — companyId filter applied",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/settlement-summary.ts",
+          "backend/src/app.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/settlement-summary.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    }
+  ]
+}
