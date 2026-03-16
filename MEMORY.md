@@ -165,15 +165,16 @@
 - AGENT-PROFILE-001 ✅ (Sprint 090), WEBHOOK-EVENTS-LIST-001 ✅ (Sprint 091)
 - METRICS-COMPARE-001 ✅ (Sprint 092)
 
-## Week-90 Status — IN PROGRESS
-- INVOICE-VOID-001 ✅ (Sprint 093)
-- AGENT-LIST-001 ⏳, METRICS-SUMMARY-001 ⏳, SETTLEMENT-EXPORT-001 ⏳, WEBHOOK-STATS-001 ⏳
+## Week-90 Status — ALL DONE ✅
+- INVOICE-VOID-001 ✅ (Sprint 093), AGENT-LIST-001 ✅ (Sprint 094)
+- METRICS-SUMMARY-001 ✅ (Sprint 095), SETTLEMENT-EXPORT-001 ✅ (Sprint 096)
+- WEBHOOK-STATS-001 ✅ (Sprint 097)
 
-## Current State (2026-03-16 — Sprint 093)
-- **Git**: 633af69 on main, pushed to origin (clean)
-- **Tests**: 167/167 suites, 1374/1374 tests — ALL PASS (+5 Sprint 093)
-- **New endpoints (Sprints 079-093)**: ...POST /v1/invoices/:id/duplicate, GET /v1/ledger/:agentId/balance, GET /v1/agents/:agentId, GET /v1/webhooks/events, GET /v1/metrics/compare, POST /v1/invoices/:id/void
-- **week-90.json**: 4 tasks remaining
+## Current State (2026-03-16 — Sprint 097)
+- **Git**: bb6975c on main, pushed to origin (clean)
+- **Tests**: 172/172 suites, 1399/1399 tests — ALL PASS (+25 Sprints 093-097)
+- **New endpoints (Sprints 093-097)**: POST /v1/invoices/:id/void, GET /v1/agents, GET /v1/metrics/summary, GET /v1/settlements/export.csv, GET /v1/webhooks/stats
+- **week-91.json**: not yet created — preparing next
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

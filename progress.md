@@ -1,5 +1,17 @@
 # Invoica Sprint Progress Log
 
+## Sprint 097 — WEBHOOK-STATS-001
+- Status: PASS | Commit: bb6975c | Tests: 5/5 | Timestamp: 2026-03-16T18:50:00Z
+
+## Sprint 096 — SETTLEMENT-EXPORT-001
+- Status: PASS | Commit: aa1efd4 | Tests: 5/5 (fix: move before /:id) | Timestamp: 2026-03-16T18:45:00Z
+
+## Sprint 095 — METRICS-SUMMARY-001
+- Status: PASS | Commit: 47161f8 | Tests: 5/5 | Timestamp: 2026-03-16T18:40:00Z
+
+## Sprint 094 — AGENT-LIST-001
+- Status: PASS | Commit: deea1ed | Tests: 5/5 | Timestamp: 2026-03-16T18:35:00Z
+
 ## Sprint 093 — INVOICE-VOID-001
 - Status: PASS
 - Branch: sprint-093-invoice-void → merged to main
