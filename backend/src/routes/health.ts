@@ -47,6 +47,32 @@ router.get('/v1/health', async (_req: Request, res: Response) => {
   });
 });
 
+router.get('/v1/health/services', async (_req: Request, res: Response) => {
+  const services: {
+    database: 'ok' | 'error';
+    redis: 'ok' | 'error' | 'not_configured';
+  } = {
+    database: 'error',
+    redis: 'not_configured',
+  };
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    services.database = 'ok';
+  } catch { /* stays error */ }
+
+  if (process.env.REDIS_URL) {
+    try {
+      await redis.ping();
+      services.redis = 'ok';
+    } catch {
+      services.redis = 'error';
+    }
+  }
+
+  res.json({ success: true, data: { ...services, uptime: process.uptime() } });
+});
+
 router.get('/v1/health/detailed', async (_req: Request, res: Response) => {
   const services: {
     database: 'ok' | 'error';

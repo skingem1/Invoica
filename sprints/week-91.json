@@ -39,8 +39,8 @@
       "title": "GET /v1/health/services — individual service health checks",
       "description": "New endpoint: GET /v1/health/services. Returns per-service health: { database: 'ok'|'error', redis: 'not_configured'|'ok'|'error', uptime: number }. Tests: 200-returns-services-object, 200-database-field-present, 200-redis-field-present, 200-uptime-is-number, response-shape. File: backend/src/routes/health.ts (add route) + tests.",
       "file": "backend/src/routes/health.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "done",
+      "sprint": 102
     }
   ]
 }
