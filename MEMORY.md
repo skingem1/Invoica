@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 7ffb6bc on main, pushed to origin (clean)
-- **Tests**: 115/115 suites, 942/942 tests — ALL PASS
+- **Git**: d50c69f on main, pushed to origin (clean)
+- **Tests**: 117/117 suites, 959/959 tests — ALL PASS
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK, DB connected — STABLE (HF-006 flock mutex applied, 0 restarts)
 - **OpenClaw**: Stable (v2026.3.13, port 18789 WebSocket)
@@ -130,9 +130,13 @@
 - TAX-LOC-001 ✅ (Sprint 043), EMAIL-WELCOME-001 ✅ (Sprint 044), API-DASH-STATS-001 ✅ (Sprint 044)
 - WEBHOOKS-GET-001 ✅ (Sprint 045), API-KEYS-FULL-001 ✅ (Sprint 045)
 
-## Next Sprint: Sprint 046
-- All week-82 tasks complete
-- Next: create week-83.json — candidates: services/webhook/dispatcher.ts tests, api/payments.ts tests, services/tax/types.test.ts deeper coverage, api/recent-activity.ts tests
+## Week-83 Status — IN PROGRESS
+- DASHBOARD-ACTIVITY-001 ✅ (Sprint 046), UTILS-TASK-VALID-001 ✅ (Sprint 046)
+- WEBHOOK-EVENTS-001 pending, API-ROUTER-001 pending, DASHBOARD-ACTIVITY-001 ✅
+
+## Next Sprint: Sprint 047
+- Continue week-83 tasks: WEBHOOK-EVENTS-001, API-ROUTER-001
+- Note: webhook signature/dispatch/events tests ALREADY existed (17 tests) — week-83 tasks need revision
 
 ## Week-81 Status — ALL DONE ✅
 - ORCH-001 ✅ (Sprint 039), SETTLE-EVM-001 ✅ (Sprint 040), SOLANA-PDA-001 ✅ (Sprint 040)

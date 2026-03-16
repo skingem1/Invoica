@@ -546,3 +546,15 @@
 - Health check post: ✅ 115/115, 942/942
 - Issues: None
 - Timestamp: 2026-03-16T20:50:00Z
+
+## Sprint 046 — week-83.json + DASHBOARD-ACTIVITY-001 + UTILS-TASK-VALID-001
+- Status: PASS
+- Branch: committed directly on main (sprint branch was empty — auto-corrected)
+- Commit: a380e1a (Sprint 046), d50c69f (sprint runner: update FIX-007 root cause)
+- Files created: sprints/week-83.json, backend/src/api/__tests__/dashboard-activity.test.ts, backend/src/utils/__tests__/task-complexity-validator.test.ts
+- Tests: 117/117 suites, 959/959 — ALL PASS (17 new tests)
+- Coverage added: getDashboardActivity (array/4 items/fields/status values/ISO timestamps/failed item); validateTaskComplexity (valid input, context 601 chars, invalid agent/type/priority, non-empty deps, path prefix in errors)
+- Health check pre: ✅ 115/115, 942/942
+- Health check post: ✅ 117/117, 959/959
+- Note: Sprint runner made commit d50c69f (week-76.json FIX-007 + SDK-001) during this sprint — normal autonomous operation
+- Timestamp: 2026-03-16T21:05:00Z
