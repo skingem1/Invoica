@@ -149,7 +149,7 @@ export async function requireX402SolanaPayment(req: Request, res: Response, next
   try {
     const sortedKeys = Object.keys(authorization).sort();
     const canonical: Record<string, unknown> = {};
-    for (const k of sortedKeys) canonical[k] = (authorization as Record<string, unknown>)[k];
+    for (const k of sortedKeys) canonical[k] = (authorization as unknown as Record<string, unknown>)[k];
     const message = new TextEncoder().encode(JSON.stringify(canonical));
     const pubkey = base58Decode(authorization.from);
     const sig = Buffer.from(signature, 'base64');

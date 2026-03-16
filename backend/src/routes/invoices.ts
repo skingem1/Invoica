@@ -3,6 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
 
+/** EVM-compatible address format (0x + 40 hex chars) */
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+/** Solana base58 public key format (32–44 chars, no 0/O/I/l) */
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const SOLANA_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SUPPORTED_CHAINS = ['base', 'polygon', 'arbitrum', 'solana'] as const;
+type SupportedChain = typeof SUPPORTED_CHAINS[number];
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -144,12 +153,23 @@ router.get('/v1/invoices', async (req: Request, res: Response, next: NextFunctio
 
 /**
  * POST /v1/invoices
- * Create a new invoice.
- * Body: { customerEmail, customerName, amount, currency?, companyId?, paymentDetails? }
+ * Create a new invoice. Supports EVM chains (base, polygon, arbitrum) and Solana.
+ * Body: { customerEmail, customerName, amount, currency?, chain?, paymentAddress?,
+ *         programId?, tokenMint?, companyId? }
  */
 router.post('/v1/invoices', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { customerEmail, customerName, amount, currency = 'USD', companyId, paymentDetails } = req.body;
+    const {
+      customerEmail,
+      customerName,
+      amount,
+      currency = 'USD',
+      companyId,
+      chain = 'base',
+      paymentAddress,
+      programId,
+      tokenMint,
+    } = req.body;
 
     if (!customerEmail || typeof customerEmail !== 'string') {
       res.status(400).json({ success: false, error: { message: 'customerEmail is required', code: 'MISSING_FIELD' } });
@@ -162,6 +182,51 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
     if (amount === undefined || amount === null || isNaN(Number(amount)) || Number(amount) <= 0) {
       res.status(400).json({ success: false, error: { message: 'amount must be a positive number', code: 'INVALID_AMOUNT' } });
       return;
+    }
+    if (!SUPPORTED_CHAINS.includes(chain as SupportedChain)) {
+      res.status(400).json({ success: false, error: { message: `chain must be one of: ${SUPPORTED_CHAINS.join(', ')}`, code: 'INVALID_CHAIN' } });
+      return;
+    }
+
+    // Chain-aware address validation
+    if (paymentAddress) {
+      const isSolana = chain === 'solana';
+      const valid = isSolana ? SOLANA_ADDRESS_RE.test(paymentAddress) : EVM_ADDRESS_RE.test(paymentAddress);
+      if (!valid) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message: isSolana
+              ? 'Payment address must be a valid Solana public key (base58, 32–44 characters)'
+              : 'Payment address must be a valid EVM address (0x + 40 hex characters)',
+            code: 'INVALID_ADDRESS',
+          },
+        });
+        return;
+      }
+    }
+
+    // Solana-specific field validation
+    if (chain === 'solana') {
+      if (programId && programId !== SOLANA_TOKEN_PROGRAM) {
+        res.status(400).json({ success: false, error: { message: `Solana programId must be the SPL Token Program: ${SOLANA_TOKEN_PROGRAM}`, code: 'INVALID_PROGRAM_ID' } });
+        return;
+      }
+      if (tokenMint && tokenMint !== SOLANA_USDC_MINT) {
+        res.status(400).json({ success: false, error: { message: `Only USDC is supported. tokenMint must be: ${SOLANA_USDC_MINT}`, code: 'INVALID_TOKEN_MINT' } });
+        return;
+      }
+    } else if (programId || tokenMint) {
+      res.status(400).json({ success: false, error: { message: 'programId and tokenMint are only valid for Solana chain invoices', code: 'INVALID_PARAMS' } });
+      return;
+    }
+
+    // Build paymentDetails with chain context
+    const paymentDetails: Record<string, string> = { chain };
+    if (paymentAddress) paymentDetails.paymentAddress = paymentAddress;
+    if (chain === 'solana') {
+      paymentDetails.programId = programId || SOLANA_TOKEN_PROGRAM;
+      paymentDetails.tokenMint = tokenMint || SOLANA_USDC_MINT;
     }
 
     const sb = getSupabase();
@@ -185,7 +250,7 @@ router.post('/v1/invoices', async (req: Request, res: Response, next: NextFuncti
       customerEmail,
       customerName,
       companyId: companyId || null,
-      paymentDetails: paymentDetails || null,
+      paymentDetails,
       createdAt: now,
       updatedAt: now,
     };
