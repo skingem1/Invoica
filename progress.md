@@ -661,3 +661,14 @@
 - Health check pre: ✅ backend online, openclaw port 18789 stable
 - Health check post: (parallel)
 - Timestamp: 2026-03-16T16:05:00Z
+
+## Sprint 055 — PROXY-HEADERS-002 (proxy/headers.ts comprehensive tests)
+- Status: PASS
+- Branch: sprint-055-proxy-headers-002 → merged to main
+- Commit: 5c4ee5d
+- Files modified: backend/src/proxy/__tests__/headers.test.ts (5 → 15 tests, +10 net new)
+- Tests: 15 total — extractInvoiceHeaders (5), tryExtractInvoiceHeaders (3 — first coverage), hasInvoiceHeaders (6 via it.each), getSupportedHeaders (1)
+- Fix applied: non-Zod error test used Proxy `get` trap (not `has`) to trigger TypeError in extractInvoiceHeaders
+- Health check pre: ✅ all 3 critical services online
+- Health check post: ✅
+- Timestamp: 2026-03-16T16:20:00Z

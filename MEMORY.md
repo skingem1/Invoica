@@ -1,8 +1,8 @@
 # Invoica Project State
 
 ## Current State (2026-03-16)
-- **Git**: 14a8995 on main, pushed to origin (clean)
-- **Tests**: 128/128 suites, 1074/1074 tests — ALL PASS (+11 Sprint 054)
+- **Git**: 5c4ee5d on main, pushed to origin (clean)
+- **Tests**: 128/128 suites, 1084/1084 tests — ALL PASS (+10 net Sprint 055, replaced 5-test file with 15)
 - **TypeScript**: 0 source errors
 - **Backend**: Running on Hetzner (port 3001), health OK at /v1/health — DB connected, Redis not_configured
 - **OpenClaw**: Stable (v2026.3.13, port 18789, PID 4026797/4026831, 24s uptime — root PM2 conflict resolved)
