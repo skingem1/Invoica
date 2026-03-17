@@ -6,6 +6,11 @@ import * as https from 'https';
 import * as http from 'http';
 import 'dotenv/config';
 
+// ClawRouter v2.0 — MANDATORY SINGLE GATEWAY (Exec Protocol §17)
+import { routeCall, type ClawRouterV2Request } from './lib/clawrouter-v2';
+// CTO Approval Gate — every autonomous sprint reviewed before execution (Exec Protocol)
+import { requestCTOApproval, type SprintProposal, type CTOApprovalResult } from './lib/cto-approval-gate';
+
 // ===== x402 LLM Client (agent wallets spend USDC for each LLM call) =====
 // Lazy import — falls back to direct MiniMax API if x402 endpoint is unavailable
 let _x402CodeCall: ((agent: string, sys: string, user: string) => Promise<string>) | null = null;
@@ -73,88 +78,52 @@ function log(color: string, msg: string) {
   console.log(`${color}${msg}${c.reset}`);
 }
 
-// ===== MiniMax API Client (direct HTTP, no SDK) =====
+// ===== ClawRouter v2.0 — MANDATORY SINGLE GATEWAY (Exec Protocol §17) =====
+// ALL LLM calls route through routeCall() from clawrouter-v2.ts.
+// Direct API calls to MiniMax, Anthropic, or OpenAI are Sev-1 violations.
 
+// Track ClawRouter metrics for sprint JSON (§17.6)
+let _invoicaLlmCallsRouted = 0;
+let _invoicaDirectApiViolations = 0;
+
+/**
+ * Unified LLM call — routes through ClawRouter v2.0 gateway.
+ * Returns MiniMaxResponse format for backward compatibility.
+ */
 async function callMiniMax(
-  model: string,
+  _model: string,
   systemPrompt: string,
   userPrompt: string
 ): Promise<MiniMaxResponse> {
-  const apiKey = process.env.MINIMAX_API_KEY;
+  _invoicaLlmCallsRouted++;
 
-  if (!apiKey) {
-    throw new Error('MINIMAX_API_KEY must be set in .env');
-  }
-
-  const body = JSON.stringify({
-    model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.3,
-    max_tokens: 16000,
+  const result = await routeCall({
+    task_type: 'invoica_code_gen',
+    tier_class: 'text',
+    complexity: 'exec',  // T2.5 — cloud execution tier (equivalent to MiniMax M2.5)
+    context_tokens: Math.ceil((systemPrompt.length + userPrompt.length) / 4),
+    constitutional_flag: false,
+    agent_id: 'invoica-orchestrator',
+    payload: {
+      system: systemPrompt,
+      prompt: userPrompt,
+      max_tokens: 16000,
+    },
   });
 
-  return new Promise((resolve, reject) => {
-    const url = new URL('https://api.minimax.io/v1/chat/completions');
+  // Return in MiniMaxResponse format for backward compatibility
+  return {
+    choices: [{ message: { content: result.content } }],
+    usage: { total_tokens: result.input_tokens + result.output_tokens },
+  };
+}
 
-    const req = https.request(
-      {
-        hostname: url.hostname,
-        path: url.pathname + url.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Length': Buffer.byteLength(body),
-        },
-      },
-      (res) => {
-        let data = '';
-        res.on('data', (chunk: string) => (data += chunk));
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(
-                new Error(
-                  `MiniMax API error: ${parsed.error.message || JSON.stringify(parsed.error)}`
-                )
-              );
-              return;
-            }
-            if (
-              parsed.base_resp?.status_code !== 0 &&
-              parsed.base_resp?.status_code !== undefined
-            ) {
-              reject(
-                new Error(
-                  `MiniMax API error: ${parsed.base_resp?.status_msg || data}`
-                )
-              );
-              return;
-            }
-            resolve(parsed);
-          } catch (e) {
-            reject(
-              new Error(
-                `Failed to parse MiniMax response: ${data.substring(0, 500)}`
-              )
-            );
-          }
-        });
-      }
-    );
-
-    req.on('error', reject);
-    req.setTimeout(300000, () => {
-      req.destroy();
-      reject(new Error('MiniMax API request timed out (300s)'));
-    });
-    req.write(body);
-    req.end();
-  });
+/** Get sprint-level ClawRouter metrics for §17.6 sprint JSON fields */
+function getInvoicaClawRouterMetrics() {
+  return {
+    llm_calls_routed: _invoicaLlmCallsRouted,
+    direct_api_violations: _invoicaDirectApiViolations,
+  };
 }
 // ===== Agent =====
 
@@ -223,29 +192,14 @@ IMPORTANT:
     const walletAgent = walletMap[agentWalletName] || 'code';
     const x402Available = process.env.X402_SELLER_WALLET && process.env.INFERENCE_API_URL !== 'disabled';
 
-    if (x402Available) {
-      try {
-        log(c.gray, `  -> Routing via x402 (wallet: ${walletAgent}, model: MiniMax-M2.5)...`);
-        const x402 = await getX402Client();
-        output = await x402(walletAgent, this.systemPrompt, userPrompt);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        log(c.green, `  -> x402 response in ${elapsed}s [${walletAgent} wallet spent 0.001 USDC]`);
-      } catch (x402Err: any) {
-        log(c.yellow, `  -> x402 failed (${x402Err.message.slice(0, 80)}) — falling back to direct MiniMax API`);
-        // Fall through to direct API below
-        const response = await callMiniMax(model, this.systemPrompt, userPrompt);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        const tokens = response.usage?.total_tokens || 'unknown';
-        log(c.gray, `  -> Direct MiniMax response in ${elapsed}s (${tokens} tokens)`);
-        output = response.choices?.[0]?.message?.content || '';
-      }
-    } else {
-      // x402 not configured — use direct MiniMax API
-      log(c.gray, `  -> Sending to MiniMax directly (model: ${model})...`);
+    // ClawRouter v2.0 — ALL calls route through the mandatory gateway (§17)
+    // x402 billing is handled by ClawRouter's CEO wallet integration
+    log(c.gray, `  -> Routing via ClawRouter v2.0 (agent: ${walletAgent})...`);
+    {
       const response = await callMiniMax(model, this.systemPrompt, userPrompt);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       const tokens = response.usage?.total_tokens || 'unknown';
-      log(c.gray, `  -> Response received in ${elapsed}s (${tokens} tokens)`);
+      log(c.gray, `  -> ClawRouter response in ${elapsed}s (${tokens} tokens)`);
       output = response.choices?.[0]?.message?.content || '';
     }
 
@@ -584,6 +538,61 @@ class Orchestrator {
   async run() {
     log(`${c.bold}${c.blue}`, '\nStarting Orchestration (auto mode)');
     log(c.gray, `Reject -> retry | Approve -> next | Unreachable -> prompt\n`);
+
+    // ── CTO APPROVAL GATE — Exec Protocol §17 ──────────────────────────────
+    // Every autonomous sprint must be approved by the CTO agent before execution.
+    // Human-submitted sprints (source: 'human') are auto-approved.
+    // Prevents the swarm from inventing its own work outside the execution plan.
+    {
+      const sprintRaw = JSON.parse(readFileSync(this.sprintFile, 'utf-8'));
+      const sprintId = this.sprintFile.replace(/.*\//, '').replace('.json', '');
+      const sprintSource: 'autonomous_loop' | 'human' | 'cto_backlog' =
+        sprintRaw.source || 'autonomous_loop';
+
+      const proposal: SprintProposal = {
+        sprint_id: sprintId,
+        title: sprintRaw.theme || sprintRaw.name || sprintRaw.title || sprintId,
+        description: sprintRaw.goal || sprintRaw.description || '',
+        tasks: this.tasks.map(t => `${t.id}: ${t.context || t.type}`),
+        estimated_complexity: sprintRaw.estimated_complexity || 'medium',
+        source: sprintSource,
+      };
+
+      log(c.blue, `\n--- CTO Approval Gate ---`);
+      log(c.gray, `  Sprint: ${proposal.sprint_id} — "${proposal.title}"`);
+      log(c.gray, `  Source: ${proposal.source} (${proposal.tasks.length} tasks)`);
+
+      const ctoResult: CTOApprovalResult = await requestCTOApproval(
+        proposal,
+        process.cwd(),
+        'invoica'
+      );
+
+      if (!ctoResult.approved) {
+        log(c.red, `  ✘ CTO REJECTED: ${ctoResult.reason}`);
+        log(c.red, `    Plan reference: ${ctoResult.plan_reference}`);
+        log(c.red, `    Confidence: ${ctoResult.cto_confidence}%`);
+        log(c.yellow, `  Sprint ${sprintId} will NOT execute. Saving rejection to sprint file.`);
+
+        // Write rejection to sprint file so the loop doesn't retry
+        try {
+          sprintRaw.cto_gate = {
+            approved: false,
+            reason: ctoResult.reason,
+            plan_reference: ctoResult.plan_reference,
+            confidence: ctoResult.cto_confidence,
+            timestamp: ctoResult.timestamp,
+          };
+          writeFileSync(this.sprintFile, JSON.stringify(sprintRaw, null, 2));
+        } catch { /* non-critical */ }
+
+        return; // Exit without executing any tasks
+      }
+
+      log(c.green, `  ✓ CTO APPROVED: ${ctoResult.reason}`);
+      log(c.gray, `    Plan reference: ${ctoResult.plan_reference} (confidence: ${ctoResult.cto_confidence}%)`);
+    }
+    // ── End CTO Gate ────────────────────────────────────────────────────────
 
     let tasksExecuted = 0;
     let paused = false;
