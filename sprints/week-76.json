@@ -279,7 +279,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved",
+      "promoted_to": "week-97"
     },
     {
       "id": "WEBSITE-001",
@@ -372,7 +373,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved",
+      "promoted_to": "week-97"
     },
     {
       "id": "SPRINT-GUARD-001",
@@ -389,7 +391,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "approved",
+      "promoted_to": "week-97"
     }
   ]
 }

@@ -41,6 +41,59 @@
       "file": "backend/src/routes/agents.ts",
       "status": "pending",
       "sprint": null
+    },
+    {
+      "id": "FIX-008",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix ClawRouter — switch agents from deepseek/deepseek-chat to anthropic/claude-haiku-4-5 and add direct Anthropic API fallback when OpenClaw gateway returns non-200",
+      "context": "The OpenClaw gateway (v2026.3.13, port 18789) returns 404 on POST /v1/chat/completions. This breaks all CEO/CTO agent calls in orchestrate-agents-v2.ts which currently route through ClawRouter using model 'deepseek/deepseek-chat'. Sprint-runner has been completing 0/N tasks every cycle since at least 2026-03-18.\n\nThe Kognai project already has this fix implemented in ~/kognai/scripts/lib/clawrouter-v2.ts (lines 249-297 and 424-432). The fix has two parts:\n\nPART 1 — Update backend/src/lib/clawrouter-client.ts:\nAdd a callAnthropicDirect() helper function (same as Kognai clawrouter-v2.ts lines 256-297).\nAdd fallback logic in callClawRouter(): if response.status !== 200 AND ANTHROPIC_API_KEY is set AND model starts with 'anthropic/', call callAnthropicDirect() instead of throwing.\n\ncallAnthropicDirect implementation:\n- URL: https://api.anthropic.com/v1/messages\n- Headers: 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01'\n- Body: { model, max_tokens, messages: userMsgs } with system as top-level field\n- Parse response: json.content[0].text for content, json.usage for tokens\n- Return ClawRouterResult-compatible shape\n\nFallback in callClawRouter() after the non-200 check:\n  const anthropicKey = process.env.ANTHROPIC_API_KEY || '';\n  if (anthropicKey && model.startsWith('anthropic/')) {\n    console.warn(`[ClawRouter] Gateway ${response.status} — falling back to direct Anthropic API`);\n    return callAnthropicDirect(model.replace('anthropic/', ''), messages, maxTokens);\n  }\n  throw new Error(...);\n\nPART 2 — Update scripts/orchestrate-agents-v2.ts:\nFind all occurrences of model: 'deepseek/deepseek-chat' passed to callClawRouter() (lines approx 474, 673, 895, 1007) and change to 'anthropic/claude-haiku-4-5'.\nAlso update routing decision at line ~1322 where provider 'cloud-post' returns 'anthropic/claude-haiku-4.5' — ensure model string matches exactly: 'anthropic/claude-haiku-4-5' (with dash not dot before version).\n\nVERIFICATION after change:\n- Restart backend PM2 process\n- Run a single sprint-runner cycle: pm2 restart sprint-runner\n- Check logs: pm2 logs sprint-runner --lines 40 --no-color\n- Confirm: '[ClawRouter] Gateway 404 — falling back to direct Anthropic API' OR direct 200 response\n- Confirm: Done: N/M tasks where N > 0\n\nREFERENCE: Kognai fix is at ~/kognai/scripts/lib/clawrouter-v2.ts lines 249-297 (callAnthropicDirect) and 424-432 (fallback trigger). Use it as the exact template.",
+      "deliverables": {
+        "code": [
+          "backend/src/lib/clawrouter-client.ts",
+          "scripts/orchestrate-agents-v2.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "SPRINT-GUARD-001",
+      "agent": "backend-core",
+      "type": "maintenance",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Add MAX_PENDING_SPRINT_TASKS guard to run-ceo-review.ts to prevent autonomous sprint queue bloat",
+      "context": "PROBLEM: run-ceo-review.ts (cron_restart: 0 */2 * * *) generated 99 sprint files with 53 pending tasks autonomously. The sprint queue grew from ~22 → 53 pending tasks across week-85 through week-100, burying product tasks (week-76) 47 tasks deep. This depletes API credits on swarm-generated tasks instead of product work.\n\nFIX: Add a pending-task count check at the TOP of the main() function in scripts/run-ceo-review.ts. If total pending tasks across all week-*.json files exceeds MAX_PENDING_SPRINT_TASKS (default 10), log a warning and exit early WITHOUT triggering a new sprint.\n\nIMPLEMENTATION:\n\n1. Read scripts/run-ceo-review.ts lines 433-465 first (the main() function header + early-exit checks)\n\n2. Add a new helper function ABOVE main():\n\n```typescript\nfunction countPendingSprintTasks(): number {\n  const sprintDir = path.join(ROOT, 'sprints');\n  try {\n    const files = fs.readdirSync(sprintDir).filter(f => /^week-\\d+\\.json$/.test(f));\n    let total = 0;\n    for (const f of files) {\n      try {\n        const raw = fs.readFileSync(path.join(sprintDir, f), 'utf8');\n        const parsed = JSON.parse(raw);\n        const tasks = Array.isArray(parsed) ? parsed : (parsed.tasks ?? []);\n        total += (tasks as { status?: string }[]).filter(t => t.status === 'pending').length;\n      } catch { /* skip malformed files */ }\n    }\n    return total;\n  } catch { return 0; }\n}\n```\n\n3. In main(), after the LOCK_FILE check (around line 447) and BEFORE the state load, add:\n\n```typescript\n  // Sprint queue guard — don't generate new sprints if too many tasks are already pending\n  const MAX_PENDING = parseInt(process.env.MAX_PENDING_SPRINT_TASKS ?? '10', 10);\n  const currentPending = countPendingSprintTasks();\n  if (currentPending >= MAX_PENDING && !FORCE) {\n    console.log(`[ceo-review] Sprint queue guard: ${currentPending} pending tasks >= ${MAX_PENDING} max — skipping sprint generation`);\n    fs.unlinkSync(LOCK_FILE); // release lock before exit\n    return;\n  }\n```\n\nThe FORCE flag (--force CLI arg) bypasses the guard for manual overrides.\n\nAFTER WRITING:\n  Run npx tsc --noEmit 2>&1 | grep -v node_modules and confirm 0 new TypeScript errors.\n  Do NOT restart ceo-review — it will pick up the change via git-autodeploy on next trigger.",
+      "deliverables": {
+        "code": [
+          "scripts/run-ceo-review.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FIX-007",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix Invoices page crash — frontend reads wrong keys from actual API response format",
+      "context": "Developer confirmed actual API response formats:\n\nSINGLE ITEM: { success: true, data: { id, invoiceNumber, ... } }\nLIST: { data: [...], meta: { total, limit, offset, hasMore } }\n\nThe frontend api-client.ts does fetchInvoices() -> InvoiceListResponse, then invoices/page.tsx does setInvoices(data.invoices). BUG: the key is data.data not data.invoices. This causes data.invoices === undefined -> setInvoices(undefined) -> invoices.length throws -> error boundary fires ('Something went wrong').\n\nFIX 1 — Update InvoiceListResponse type in frontend/lib/api-client.ts:\n  FROM: interface InvoiceListResponse { invoices: InvoiceListItem[]; }\n  TO:   interface InvoiceListResponse { data: InvoiceListItem[]; meta: { total: number; limit: number; offset: number; hasMore: boolean; }; }\n\nFIX 2 — Update invoices/page.tsx:\n  FROM: setInvoices(data.invoices);\n  TO:   setInvoices(data.data);\n\nFIX 3 — InvoiceListItem: add optional fields actually returned by API: sellerName?, customerName?, customerEmail?, total?, subtotal?, taxAmount?, taxRate?, taxType?, taxCountry?, serviceDescription? (all string|number|null optional). invoiceNumber should be string (e.g. 'INV-002').\n\nFIX 4 — Check handleResponse in api-client.ts. Single items are wrapped in { success, data }. If apiGet does NOT unwrap this, fetchInvoiceById, fetchDashboardStats etc. are also broken. Add conditional unwrapping: if response body has { success: true, data } shape, return body.data. But lists use { data: [...], meta: {...} } not { success, data }, so unwrap only when body.success === true. Simple guard: if (body && body.success === true && 'data' in body && !('meta' in body)) return body.data;\n\nFiles: frontend/lib/api-client.ts + frontend/app/invoices/page.tsx\nAfter fix: Invoices page should load without error boundary.",
+      "deliverables": {
+        "code": [
+          "frontend/lib/api-client.ts",
+          "frontend/app/invoices/page.tsx"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
     }
   ]
 }
