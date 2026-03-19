@@ -357,6 +357,24 @@
       "status": "pending"
     },
     {
+      "id": "FIX-008",
+      "agent": "backend-core",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix ClawRouter — switch agents from deepseek/deepseek-chat to anthropic/claude-haiku-4-5 and add direct Anthropic API fallback when OpenClaw gateway returns non-200",
+      "context": "The OpenClaw gateway (v2026.3.13, port 18789) returns 404 on POST /v1/chat/completions. This breaks all CEO/CTO agent calls in orchestrate-agents-v2.ts which currently route through ClawRouter using model 'deepseek/deepseek-chat'. Sprint-runner has been completing 0/N tasks every cycle since at least 2026-03-18.\n\nThe Kognai project already has this fix implemented in ~/kognai/scripts/lib/clawrouter-v2.ts (lines 249-297 and 424-432). The fix has two parts:\n\nPART 1 — Update backend/src/lib/clawrouter-client.ts:\nAdd a callAnthropicDirect() helper function (same as Kognai clawrouter-v2.ts lines 256-297).\nAdd fallback logic in callClawRouter(): if response.status !== 200 AND ANTHROPIC_API_KEY is set AND model starts with 'anthropic/', call callAnthropicDirect() instead of throwing.\n\ncallAnthropicDirect implementation:\n- URL: https://api.anthropic.com/v1/messages\n- Headers: 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01'\n- Body: { model, max_tokens, messages: userMsgs } with system as top-level field\n- Parse response: json.content[0].text for content, json.usage for tokens\n- Return ClawRouterResult-compatible shape\n\nFallback in callClawRouter() after the non-200 check:\n  const anthropicKey = process.env.ANTHROPIC_API_KEY || '';\n  if (anthropicKey && model.startsWith('anthropic/')) {\n    console.warn(`[ClawRouter] Gateway ${response.status} — falling back to direct Anthropic API`);\n    return callAnthropicDirect(model.replace('anthropic/', ''), messages, maxTokens);\n  }\n  throw new Error(...);\n\nPART 2 — Update scripts/orchestrate-agents-v2.ts:\nFind all occurrences of model: 'deepseek/deepseek-chat' passed to callClawRouter() (lines approx 474, 673, 895, 1007) and change to 'anthropic/claude-haiku-4-5'.\nAlso update routing decision at line ~1322 where provider 'cloud-post' returns 'anthropic/claude-haiku-4.5' — ensure model string matches exactly: 'anthropic/claude-haiku-4-5' (with dash not dot before version).\n\nVERIFICATION after change:\n- Restart backend PM2 process\n- Run a single sprint-runner cycle: pm2 restart sprint-runner\n- Check logs: pm2 logs sprint-runner --lines 40 --no-color\n- Confirm: '[ClawRouter] Gateway 404 — falling back to direct Anthropic API' OR direct 200 response\n- Confirm: Done: N/M tasks where N > 0\n\nREFERENCE: Kognai fix is at ~/kognai/scripts/lib/clawrouter-v2.ts lines 249-297 (callAnthropicDirect) and 424-432 (fallback trigger). Use it as the exact template.",
+      "deliverables": {
+        "code": [
+          "backend/src/lib/clawrouter-client.ts",
+          "scripts/orchestrate-agents-v2.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
       "id": "SPRINT-GUARD-001",
       "agent": "backend-core",
       "type": "maintenance",
