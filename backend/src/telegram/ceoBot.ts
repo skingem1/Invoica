@@ -818,7 +818,7 @@ async function callClaudeWithTools(userId: number, userMessage: string, onToolCa
   // Haiku is ~20x cheaper and handles most CEO bot interactions perfectly
   const STRATEGIC_RE = /sprint|report|plan|strateg|roadmap|create|write|analyz|decision|deploy|architect|design|review|propos|investor|budget|hire|fire|pivot/i;
   const useHaiku = !STRATEGIC_RE.test(userMessage) && history.length <= 6;
-  const selectedModel = useHaiku ? 'claude-haiku-3-5' : 'claude-sonnet-4-5';
+  const selectedModel = useHaiku ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6';
   const selectedMaxTokens = useHaiku ? 1024 : 4096;
   console.log(`[CeoBot] model=${selectedModel} history=${history.length} haiku=${useHaiku}`);
 
