@@ -1,0 +1,101 @@
+{
+  "week": 101,
+  "created": "2026-03-19",
+  "notes": "Week-101: Reputation Score MVP, dashboard data refresh, CTO tech debt, invoice PDF export, agent leaderboard. Sprints 138-154 all confirmed done on server (week-99 + auto-sprints). These are the next highest-value product tasks.",
+  "tasks": [
+    {
+      "id": "REPUTATION-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Build Reputation Score MVP — GET /v1/reputation/:agentId returns computed reputation score based on payment history",
+      "context": "Reputation Scoring API is Priority 1 in the product roadmap (SOUL.md). This is the MVP endpoint that computes a score from existing invoice data — no new schema needed.\n\nSCORE FORMULA (0–100, rounded to 1 decimal):\n  - On-time settlement rate (40 pts): SETTLED+COMPLETED invoices / total invoices (excluding CANCELLED)\n  - Volume score (20 pts): min(totalInvoices / 50, 1) * 20 — grows to full score at 50 invoices\n  - Recency score (20 pts): if any invoice in last 30 days → full 20pts; else proportional decay\n  - Average settlement speed (20 pts): if median days to settle <= 3 → full 20pts; <=7 → 15pts; <=14 → 10pts; else 5pts\n\nRESPONSE shape:\n  {\n    agentId: string;\n    score: number;          // 0–100\n    tier: 'bronze' | 'silver' | 'gold' | 'platinum';  // <40, <70, <85, >=85\n    breakdown: {\n      settlementRate: number;   // 0–40\n      volumeScore: number;      // 0–20\n      recencyScore: number;     // 0–20\n      speedScore: number;       // 0–20\n    };\n    stats: {\n      totalInvoices: number;\n      settledCount: number;\n      cancelledCount: number;\n      pendingCount: number;\n      medianDaysToSettle: number | null;\n    };\n    computedAt: string;  // ISO timestamp\n  }\n\nIf agentId not found (0 invoices): return 404 { error: 'Agent not found' }.\n\nFILE: backend/src/routes/reputation.ts (new file, max 120 lines)\n  - Router: express.Router()\n  - GET /:agentId — query invoices from Prisma, compute score, return JSON\n  - Register in backend/src/index.ts as: app.use('/v1/reputation', reputationRouter)\n  - Check if reputation route is already registered in index.ts first\n\nTESTS: backend/src/routes/__tests__/reputation.test.ts\n  - 200-returns-score-shape\n  - 200-has-tier-field\n  - 200-has-breakdown\n  - 200-score-between-0-and-100\n  - 404-unknown-agent\n  - 500-db-error\n\nAFTER WRITING: npx tsc --noEmit 2>&1 | grep -v node_modules — confirm 0 new errors.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/reputation.ts",
+          "backend/src/index.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/reputation.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "DASHBOARD-REFRESH-001",
+      "agent": "frontend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["FIX-007"],
+      "description": "Update dashboard frontend to consume new analytics endpoints — peak hours, invoice aging, payment lag, growth metrics",
+      "context": "The swarm has built 17 new analytics endpoints (sprints 138-154) but the dashboard frontend still shows basic stats from the original launch. This task connects the dashboard to the new data.\n\nNEW ENDPOINTS TO WIRE (confirmed built in sprints 143-154):\n  - GET /v1/metrics/peak-hours → { hour, count }[] — 24hr bar chart\n  - GET /v1/invoices/stats/aging → aging buckets (0-7d, 7-30d, 30d+)\n  - GET /v1/invoices/stats/payment-lag → { medianDays, avgDays, p90Days }\n  - GET /v1/metrics/growth → { week, count, amount }[] weekly growth\n  - GET /v1/invoices/stats/void → void rate stats\n\nTARGET FILE: frontend/app/dashboard/page.tsx (or wherever the main dashboard is)\n\nBEFORE WRITING:\n  1. Read frontend/app/dashboard/page.tsx to understand current structure\n  2. Read frontend/lib/api-client.ts to see existing API call patterns\n\nADD to api-client.ts (after existing fetch functions):\n  - fetchPeakHours(): Promise<{ hour: number; count: number }[]>\n  - fetchInvoiceAging(): Promise<{ bucket: string; count: number; totalAmount: number }[]>\n  - fetchPaymentLag(): Promise<{ medianDays: number; avgDays: number; p90Days: number }>\n  - fetchGrowthMetrics(): Promise<{ week: string; count: number; amount: number }[]>\n\nADD to dashboard page — 2 new stat cards (keep it minimal, don't redesign):\n  Card 1 — 'Payment Speed': show medianDays from payment-lag (e.g. 'Avg 2.4 days to settle')\n  Card 2 — 'Peak Hour': show top hour from peak-hours (e.g. 'Peak: 14:00 UTC')\n\nDo NOT add charts — just stat cards. Max 60 new lines across both files.\nAfter: run npx tsc --noEmit in frontend/ dir.",
+      "deliverables": {
+        "code": [
+          "frontend/app/dashboard/page.tsx",
+          "frontend/lib/api-client.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FIX-009",
+      "agent": "frontend-core",
+      "type": "refactor",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "Split large frontend files — api-keys page and any other files over 300 lines (CTO-20260215-006)",
+      "context": "CTO flagged: frontend files are growing beyond the 200-line one-file-per-call architecture limit. Priority target: api-keys page.\n\nSTEP 1 — Find large files:\n  Run: find frontend/app -name '*.tsx' -o -name '*.ts' | xargs wc -l | sort -rn | head -10\n  List files over 250 lines.\n\nSTEP 2 — For api-keys page (frontend/app/api-keys/page.tsx or similar):\n  Read the file. Split into:\n  - page.tsx (the page component — data fetching + layout, max 100 lines)\n  - components/ApiKeyList.tsx (the table/list component)\n  - components/CreateApiKeyModal.tsx (the creation form/modal if it exists)\n  Keep all existing functionality — this is purely structural refactoring.\n\nSTEP 3 — Check if other dashboard pages exceed 300 lines and apply same split pattern.\n\nRULE: Do NOT change any logic, just extract components. Each extracted component gets its own file under the page's directory (e.g., frontend/app/api-keys/components/).\n\nAFTER: Run npx tsc --noEmit in frontend/ — 0 new errors. Verify UI still works by checking imports.",
+      "deliverables": {
+        "code": [
+          "frontend/app/api-keys/page.tsx"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "INVOICE-PDF-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": [],
+      "description": "GET /v1/invoices/:id/pdf — generate and return a PDF invoice for download",
+      "context": "User-facing feature: agents and their customers need to download PDF invoices for accounting.\n\nIMPLEMENTATION:\n  Use the 'pdfkit' npm package (check if already installed: grep pdfkit backend/package.json).\n  If not installed: add to dependencies — but DO NOT run npm install; add to package.json manually and note that the server will install on next deploy.\n\nFILE: backend/src/routes/invoices.ts — add after existing routes:\n  GET /:id/pdf\n  1. Fetch invoice by id from Prisma (include customer, seller info)\n  2. If not found: return 404\n  3. Generate PDF with pdfkit:\n     - Header: 'INVOICE' title + Invoica branding\n     - Invoice details: invoiceNumber, date, dueDate, status\n     - Seller info: agentId / sellerName\n     - Customer info: customerName, customerEmail\n     - Line items: serviceDescription, subtotal, tax (if any), total\n     - Payment details: paymentAddress, chain, txHash (if settled)\n     - Footer: 'Generated by Invoica — invoica.ai'\n  4. Set headers: Content-Type: application/pdf, Content-Disposition: attachment; filename='INV-xxx.pdf'\n  5. Pipe PDF stream to response\n\nKEEP IT SIMPLE: flat single-page PDF, no complex layout. Max 80 lines for the route handler.\n\nTEST FILE: backend/src/routes/__tests__/invoice-pdf.test.ts\n  - 200-returns-pdf-content-type\n  - 200-returns-content-disposition\n  - 404-not-found\n  - 500-db-error\n\nAFTER: npx tsc --noEmit — 0 new errors.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/invoices.ts",
+          "backend/package.json"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/invoice-pdf.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "AGENT-LEADERBOARD-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": ["REPUTATION-001"],
+      "description": "GET /v1/agents/leaderboard — top agents ranked by total settled revenue with reputation scores",
+      "context": "Foundation endpoint for the Agent Marketplace (Priority 2 in roadmap). Surfaces top-performing agents ranked by revenue.\n\nRESPONSE shape:\n  {\n    agents: [\n      {\n        rank: number;\n        agentId: string;\n        totalRevenue: number;      // sum of SETTLED+COMPLETED invoice amounts\n        invoiceCount: number;\n        settlementRate: number;    // 0–1\n        reputationScore: number;   // 0–100 (same computation as REPUTATION-001)\n        reputationTier: string;    // bronze/silver/gold/platinum\n      }\n    ];\n    total: number;                  // total number of agents\n    computedAt: string;\n  }\n\nQUERY PARAMS:\n  ?limit=N (default 10, max 50)\n  ?tier=gold|platinum (optional filter by reputation tier)\n\nIMPLEMENTATION:\n  FILE: backend/src/routes/agents.ts — add GET /leaderboard before /:agentId routes\n  1. Query: GROUP BY agentId, SUM amount WHERE status IN [SETTLED, COMPLETED], ORDER BY totalRevenue DESC, LIMIT N\n  2. For each agent, compute reputation score inline (reuse same formula as REPUTATION-001 — extract to a shared helper if possible)\n  3. Return ranked array\n\nNOTE: If REPUTATION-001 is not yet merged, implement the score computation inline (don't create a dependency blocker). The inline formula is described in REPUTATION-001 context above.\n\nTESTS: backend/src/routes/__tests__/agent-leaderboard.test.ts\n  - 200-returns-agents-array\n  - 200-has-rank-field\n  - 200-has-reputation-score\n  - 200-respects-limit\n  - 200-empty-when-no-agents\n  - 500-db-error\n\nAFTER: npx tsc --noEmit — 0 new errors.",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/agents.ts"
+        ],
+        "tests": [
+          "backend/src/routes/__tests__/agent-leaderboard.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    }
+  ]
+}
