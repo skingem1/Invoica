@@ -1,14 +1,31 @@
 {
   "week": 102,
   "created": "2026-03-19",
-  "notes": "URGENT — Synthesis hackathon (synthesis.md). Building ends March 22. Invoica is a natural fit for 'Agents that pay' track. Repo is already public. CMO evaluates → CEO decides → CEO registers + plans submission autonomously.",
+  "notes": "URGENT — Synthesis hackathon (synthesis.md). Building ends March 22. Invoica is a natural fit for 'Agents that pay' track. Repo is already public. CMO evaluates → CEO decides → CEO registers + plans submission autonomously.\n\nFIX-011 runs first to unblock the synthesis tasks (and all week-101 tasks that write to reports/).",
   "tasks": [
+    {
+      "id": "FIX-011",
+      "agent": "devops",
+      "type": "bugfix",
+      "priority": "critical",
+      "dependencies": [],
+      "description": "Fix orchestrate-agents-v2.ts pre-flight checks to allow report creation tasks and support reports/ paths",
+      "context": "SYMPTOM: Tasks with type 'bizdev', 'maintenance', or 'refactor' that CREATE NEW report files in reports/ are being skipped with 'deliverable files do not exist in repo'. Examples: SYNTHESIS-CMO-EVAL-001, FIX-010, CMO-001 all fail this check.\n\nROOT CAUSE 1 — Line ~1527 in scripts/orchestrate-agents-v2.ts:\n  Current: `if (task.type !== 'feature' && (task as any).type !== 'docs') {`\n  This means: if type is 'bizdev' or 'maintenance', ALL deliverable files must exist pre-flight.\n  But for new report files (reports/*.md), the file doesn't exist yet — that's the whole point.\n\nROOT CAUSE 2 — VALID_PATH_PREFIXES array (around line ~1540):\n  'reports/' is NOT in the array: ['backend/', 'frontend/', 'agents/', 'scripts/', ...]\n  This means any file under reports/ fails path validation.\n\nFIX (two changes in scripts/orchestrate-agents-v2.ts):\n\n  CHANGE 1 — Add 'reports/' to VALID_PATH_PREFIXES:\n  Find the VALID_PATH_PREFIXES array (const VALID_PATH_PREFIXES = [...]).\n  Add 'reports/' to the array, e.g. after 'infrastructure/':\n    OLD: ..., 'infrastructure/',\n    NEW: ..., 'infrastructure/', 'reports/',\n\n  CHANGE 2 — Skip existence check for report/doc output files:\n  Find line: `const missing = deliverables.filter(f => !existsSync(f));`\n  Replace with: `const missing = deliverables.filter(f => !existsSync(f) && !f.startsWith('reports/') && !f.startsWith('docs/'));`\n  This allows tasks of ANY type to create new files under reports/ or docs/ without failing pre-flight.\n\nNOTE: Do NOT change the check logic for code/tests files — those should still require existence for bugfix/refactor/maintenance tasks.\n\nAFTER MAKING CHANGES:\n  Run: cd /home/invoica/apps/Invoica && /home/invoica/apps/Invoica/node_modules/.bin/tsc --project scripts/tsconfig.json --noEmit --skipLibCheck 2>&1 | grep error | head -5\n  If tsconfig doesn't exist for scripts, run: node_modules/.bin/tsc --noEmit --skipLibCheck 2>&1 | grep error | head -5\n  Expect 0 new errors from this change.\n\n  Then: git add scripts/orchestrate-agents-v2.ts && git commit -m 'fix: orchestrate-agents-v2 pre-flight — allow reports/ paths and new report file creation' && git push\n\nAFTER COMMIT: confirm changes pushed successfully.",
+      "deliverables": {
+        "code": [
+          "scripts/orchestrate-agents-v2.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
     {
       "id": "SYNTHESIS-CMO-EVAL-001",
       "agent": "research-writer",
       "type": "bizdev",
       "priority": "critical",
-      "dependencies": [],
+      "dependencies": ["FIX-011"],
       "description": "Evaluate Synthesis hackathon opportunity and write a memo to the CEO recommending participation or not",
       "context": "The Synthesis (synthesis.md) is an online builder event running March 4–25, 2026. Building ends March 22. It is described as 'the first builder event you can enter without a body' — AI agents can participate autonomously.\n\nFOUR TRACKS:\n  1. Agents that pay — transparent agent spending mechanisms ← PERFECT FIT for Invoica\n  2. Agents that trust — decentralized identity and verification\n  3. Agents that cooperate — trustless deal-making infrastructure\n  4. Agents that keep secrets — privacy-preserving agent interactions\n\nINVOICA FIT ANALYSIS (CMO to assess):\n  - Invoica IS 'agents that pay': x402 invoice middleware, on-chain USDC settlement, autonomous billing\n  - Repo is already public at github.com/skingem1/Invoica — open source requirement met\n  - Existing live demo: backend API + dashboard at app.invoica.ai\n  - On-chain artifacts: Base Mainnet settlement txns (score points with judges per skill.md)\n  - Agent-native: built entirely by 18 AI agents with zero human code\n\nCOMPETITIVE CONTEXT:\n  - This is a niche event (AI/agent builders, Ethereum-aligned) — natural early-adopter audience for Invoica\n  - Winning or placing = credibility signal for the free beta period\n  - Exposure to Ethereum/Base ecosystem developers who are exactly Invoica's ICP\n\nDELIVERABLE: Write memo to CEO at reports/cmo/synthesis-eval-2026-03-19.md\n  Structure:\n  - Opportunity summary (2–3 sentences)\n  - Track fit score (1–10) with reasoning\n  - Submission angle: what to pitch (e.g. 'Invoica = payment infrastructure for the agent economy, live on Base')\n  - Risks or concerns (e.g. deadline, open source, team size)\n  - Recommendation: PARTICIPATE or SKIP with 1 sentence rationale\n  Max 400 words. This memo goes straight to CEO for the go/no-go decision.\n\nAFTER WRITING: confirm file written at reports/cmo/synthesis-eval-2026-03-19.md",
       "deliverables": {

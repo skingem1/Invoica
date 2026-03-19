@@ -134,6 +134,40 @@
       "status": "pending"
     },
     {
+      "id": "FIX-012",
+      "agent": "devops",
+      "type": "bugfix",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Fix CEO bot wallet alert spam — reduce reminder frequency from 4h to 24h",
+      "context": "SYMPTOM: Tarek receives 5+ Telegram wallet low-balance alerts per day per wallet, all showing $0.00 balance. All agent wallets are unfunded (no active USDC spending yet). The alerts are technically accurate but spammy — ALERT_REMINDER_MS is set to 4h so each of 5 wallets fires 6 times/day = 30 alerts/day.\n\nFILE: backend/src/telegram/ceoBot.ts\n\nFIX: Change ALERT_REMINDER_MS from 4h to 24h:\n  Find line: `const ALERT_REMINDER_MS = 4 * 60 * 60 * 1000; // re-alert every 4h (was 30min)`\n  Replace with: `const ALERT_REMINDER_MS = 24 * 60 * 60 * 1000; // re-alert every 24h`\n\nAFTER CHANGE:\n  git add backend/src/telegram/ceoBot.ts && git commit -m 'fix: reduce wallet alert spam from every 4h to every 24h' && git push\n\nNOTE: git-autodeploy only restarts ceo-ai-bot when run-ceo-bot.ts changes, NOT when ceoBot.ts changes (FIX-013 will fix this). After pushing, the devops agent should also update scripts/git-autodeploy.sh to watch ceoBot.ts (see FIX-013 context). If FIX-013 is a separate task, the devops agent here should just make the code change and push — the autodeploy fix will be a follow-up.",
+      "deliverables": {
+        "code": [
+          "backend/src/telegram/ceoBot.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "FIX-013",
+      "agent": "devops",
+      "type": "bugfix",
+      "priority": "medium",
+      "dependencies": ["FIX-012"],
+      "description": "Fix git-autodeploy.sh to restart ceo-ai-bot when ceoBot.ts changes (not just run-ceo-bot.ts)",
+      "context": "SYMPTOM: Changes to backend/src/telegram/ceoBot.ts (the main bot logic) are never picked up by git-autodeploy. The autodeploy only restarts ceo-ai-bot when scripts/run-ceo-bot.ts changes. This caused the haiku model fix to sit undeployed for 3+ days until manual restart.\n\nFILE: scripts/git-autodeploy.sh\n\nFIX: Update the ceo-ai-bot restart condition to also trigger on ceoBot.ts changes.\n\nFind this block:\n  # CEO AI bot (standalone process — replaces the old telegram-bot PM2 entry)\n  if echo \"$CHANGED\" | grep -q \"^scripts/run-ceo-bot\\.ts$\"; then\n    echo \"[$TIMESTAMP] [AutoDeploy] run-ceo-bot.ts changed → restarting ceo-ai-bot\"\n    pm2 restart ceo-ai-bot\n    echo \"[$TIMESTAMP] [AutoDeploy] ceo-ai-bot restarted\"\n  fi\n\nReplace with:\n  # CEO AI bot — restart when entry point OR main bot logic changes\n  if echo \"$CHANGED\" | grep -qE \"^scripts/run-ceo-bot\\.ts$|^backend/src/telegram/ceoBot\\.ts$\"; then\n    echo \"[$TIMESTAMP] [AutoDeploy] ceo-ai-bot source changed → restarting ceo-ai-bot\"\n    pm2 restart ceo-ai-bot\n    echo \"[$TIMESTAMP] [AutoDeploy] ceo-ai-bot restarted\"\n  fi\n\nAFTER CHANGE:\n  git add scripts/git-autodeploy.sh && git commit -m 'fix: git-autodeploy — restart ceo-ai-bot on ceoBot.ts changes too' && git push",
+      "deliverables": {
+        "code": [
+          "scripts/git-autodeploy.sh"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
       "id": "HEALTH-MONITOR-001",
       "agent": "backend-core",
       "type": "maintenance",
