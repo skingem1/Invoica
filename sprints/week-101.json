@@ -1,7 +1,7 @@
 {
   "week": 101,
   "created": "2026-03-19",
-  "notes": "Week-101: Reputation Score MVP, dashboard data refresh, CTO tech debt, invoice PDF export, agent leaderboard. Sprints 138-154 all confirmed done on server (week-99 + auto-sprints). These are the next highest-value product tasks.",
+  "notes": "Week-101: Reputation Score MVP, dashboard data refresh, CTO tech debt, invoice PDF export, agent leaderboard, health monitoring. Sprints 138-154 all confirmed done on server (week-99 + auto-sprints). These are the next highest-value product tasks.",
   "tasks": [
     {
       "id": "REPUTATION-001",
@@ -93,6 +93,24 @@
         "tests": [
           "backend/src/routes/__tests__/agent-leaderboard.test.ts"
         ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "HEALTH-MONITOR-001",
+      "agent": "backend-core",
+      "type": "maintenance",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Build site health monitor — daily script that checks invoica.ai and app.invoica.ai for HTTP errors, JS failures, and API smoke tests, writes JSON report, triggers CTO alert on failure",
+      "context": "There is no frontend/site health monitoring. A Vercel deploy error or JS crash could silently break onboarding for days during the free beta. This task creates a lightweight health monitor.\n\nFILE: scripts/run-health-check.ts (new file, max 150 lines)\n\nCHECKS TO PERFORM:\n  1. Landing page: GET https://invoica.ai — expect HTTP 200, body contains 'Invoica' (anti-blank-page check)\n  2. App dashboard: GET https://app.invoica.ai — expect HTTP 200, body contains '<html'\n  3. Backend API smoke tests (3 endpoints):\n     - GET https://api.invoica.ai/health (or /v1/health if /health not registered) — expect 200\n     - GET https://api.invoica.ai/v1/invoices — expect 200 or 401 (NOT 500)\n     - GET https://api.invoica.ai/v1/agents/leaderboard — expect 200 or 404 (NOT 500)\n  4. Response time check: each request must complete in < 5000ms\n\nIMPLEMENTATION:\n  - Use node's built-in https.get (no extra deps) — or fetch if Node 18+\n  - For each check, record: url, status, ok (bool), responseMs, error (string|null)\n  - Overall: healthScore = (passing checks / total checks) * 100\n  - Write report to /home/invoica/memory/health-check-latest.json AND reports/health/YYYY-MM-DD.json\n\nREPORT SHAPE:\n  {\n    checkedAt: string;   // ISO\n    healthScore: number; // 0–100\n    allOk: boolean;\n    checks: [\n      { name: string; url: string; status: number|null; ok: boolean; responseMs: number; error: string|null }\n    ];\n  }\n\nALERT LOGIC:\n  If allOk === false AND process.env.TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set:\n    Send a Telegram message via the bot: '⚠️ Invoica health check FAILED: [list failed checks]'\n    Use the existing ceo-ai-bot credentials (check scripts/ for how Telegram is called elsewhere)\n\nPM2 REGISTRATION:\n  In ecosystem.config.js — add to Invoica section:\n    {\n      name: 'health-monitor',\n      script: 'npx ts-node scripts/run-health-check.ts',\n      cron_restart: '0 8 * * *',  // daily at 08:00 UTC\n      autorestart: false,\n      watch: false,\n    }\n\nCTO INTEGRATION:\n  The CTO daily scan (scripts/run-cto-daily-scan.ts) should read /home/invoica/memory/health-check-latest.json.\n  If the file is <24h old and allOk === false, the CTO should include a 'Health Monitor Alert' section in its daily report and propose a fix sprint.\n  Check if run-cto-daily-scan.ts already reads from /home/invoica/memory/ — if so, add a health check read there.\n  If not, add a SEPARATE step at the END of run-cto-daily-scan.ts: read health-check-latest.json and append findings to the CTO report.\n\nAFTER WRITING: npx tsc --noEmit 2>&1 | grep -v node_modules — 0 new errors.",
+      "deliverables": {
+        "code": [
+          "scripts/run-health-check.ts",
+          "ecosystem.config.js"
+        ],
+        "tests": [],
         "docs": []
       },
       "status": "pending"
