@@ -1,0 +1,80 @@
+{
+  "week": 103,
+  "created": "2026-03-20",
+  "notes": "Helixa integration sprint — onchain trust/reputation federation. Helixa is an ERC-8004 reputation layer for AI agents on Base with 69K+ scored agents, Cred Score 0-100, x402+USDC native. Direct architectural fit with Invoica. This sprint: API auth setup, agent registration, trust-gated invoice acceptance. Builds on REPUTATION-001 (week-101) which already incorporates Helixa score federation.",
+  "tasks": [
+    {
+      "id": "HELIXA-001",
+      "agent": "cto-agent",
+      "type": "integration",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Establish Helixa API access — reach out, get API key, add to .env, smoke test endpoints",
+      "context": "Helixa (https://github.com/Bendr-20/helixa) is an onchain trust/reputation layer for AI agents on Base. API base: https://api.helixa.xyz. Auth: SIWA (Sign-In With Ethereum) — likely Bearer token after wallet auth. We need an API key to use authenticated endpoints.\n\nSTEPS (CTO-agent executes via Telegram/web):\n\nSTEP 1 — Smoke test unauthenticated endpoints:\n  curl https://api.helixa.xyz/api/v2/pricing\n  curl https://api.helixa.xyz/api/v2/reputation/8004/0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F\n  curl https://api.helixa.xyz/api/v2/agent/0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F\n  Note: agentId is the operator wallet address for ERC-8004 lookups.\n  Record: HTTP status codes, response shapes, whether unauthenticated calls work.\n\nSTEP 2 — Register Invoica CEO Agent on Helixa:\n  Our ERC-8004 identity was registered at Synthesis:\n  - Registration tx: 0x3fd35faf69d7deb7a60b3b4032248bb3df1d1c599349ff801d12e104ceca9040 (Base Mainnet)\n  - Operator wallet: 0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F\n  Try: curl -X POST https://api.helixa.xyz/api/v2/agent/register \\\n    -H 'Content-Type: application/json' \\\n    -d '{\"walletAddress\": \"0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F\", \"erc8004Tx\": \"0x3fd35faf69d7deb7a60b3b4032248bb3df1d1c599349ff801d12e104ceca9040\"}'\n  If endpoint shape differs, try GET https://api.helixa.xyz/api/v2/agent/0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F first.\n\nSTEP 3 — Obtain API key:\n  Check Helixa docs/site for API key generation: https://helixa.xyz\n  If self-serve: generate key, add to .env as HELIXA_API_KEY=<key>\n  If requires outreach: DM @Bendr-20 on X/GitHub with:\n    'Hey — we're Invoica (invoica.ai), x402 invoice middleware for AI agents on Base.\n    We're integrating Helixa as our reputation oracle layer — using your Cred Score\n    as 60% weight in our reputation API. Want to set up mutual integration?\n    Our ERC-8004 identity: 0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F (Base Mainnet tx: 0x3fd35f...)'\n  NOTE: Flag to Tarek if manual outreach is needed — he handles this.\n\nSTEP 4 — Add HELIXA_API_KEY to server .env:\n  ssh invoica@65.108.90.178\n  echo 'HELIXA_API_KEY=<key>' >> /home/invoica/apps/Invoica/.env\n  Also add to local .env for development.\n\nSTEP 5 — Write report to reports/cto/helixa-001-api-setup-2026-03-20.md:\n  - Unauthenticated endpoint results (status codes + response shapes)\n  - Registration outcome\n  - API key obtained: yes/no\n  - If not: outreach drafted/sent, awaiting response\n  - Response shape of /api/v2/agent/:id (document for REPUTATION-001 integration)",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "reports/cto/helixa-001-api-setup-2026-03-20.md"
+        ]
+      },
+      "status": "pending"
+    },
+    {
+      "id": "HELIXA-002",
+      "agent": "backend-core",
+      "type": "integration",
+      "priority": "high",
+      "dependencies": ["HELIXA-001", "REPUTATION-001"],
+      "description": "Build Helixa trust-gated invoice acceptance — check Cred Score before accepting incoming invoice payments from external agents",
+      "context": "When an external agent submits a payment request to Invoica, we now check their Helixa Cred Score to determine acceptance policy. This addresses the oracle-of-ground-truth concern raised publicly — high-trust agents get streamlined settlement, low-trust agents get extra verification.\n\nTRUST GATE LOGIC:\n  Score >= 70 (Qualified / Prime / Preferred): auto-accept, standard settlement flow\n  Score 40-69 (Marginal): accept with hold — settlement confirmation requires 2x block confirmations\n  Score < 40 (Junk): reject invoice creation, return 403 with reason\n  Score unknown (agent not on Helixa, API unavailable): accept with standard hold (treat as Marginal)\n\nFILE: backend/src/middleware/trust-gate.ts (new file, max 80 lines)\n  Export: async function checkTrustGate(agentId: string): Promise<{ allowed: boolean; tier: 'auto' | 'hold' | 'rejected'; score: number | null; reason: string }>\n  - Calls fetchHelixaScore(agentId) — reuse the helper from reputation.ts (extract to shared lib/helixa.ts)\n  - Returns tier based on score thresholds above\n  - Logs outcome: [trust-gate] agentId=<id> score=<n> tier=<tier>\n\nFILE: backend/src/lib/helixa.ts (extract fetchHelixaScore from reputation.ts)\n  - Shared helper used by both reputation.ts and trust-gate.ts\n  - Same implementation as in REPUTATION-001 context — move here, import from both\n\nINTEGRATION POINT:\n  Find the invoice creation route (likely POST /v1/invoices in backend/src/routes/invoices.ts)\n  Read invoices.ts first to understand current structure.\n  Add trust gate BEFORE invoice is written to DB:\n    const gate = await checkTrustGate(req.body.payerAgentId || req.body.agentId);\n    if (gate.tier === 'rejected') return res.status(403).json({ error: 'Agent trust score too low', score: gate.score });\n    // attach gate result to invoice record for settlement routing\n  IMPORTANT: Only apply trust gate when payerAgentId is present in request body.\n  If no agentId (human user invoices): skip trust gate entirely.\n\nTESTS: backend/src/middleware/__tests__/trust-gate.test.ts\n  - auto-tier-for-score-70-plus\n  - hold-tier-for-score-40-to-69\n  - rejected-tier-for-score-below-40\n  - auto-tier-when-helixa-unavailable (graceful fallback)\n  - invoice-creation-blocked-for-junk-agent\n  - invoice-creation-allowed-for-prime-agent\n\nAFTER WRITING: npx tsc --noEmit 2>&1 | grep -v node_modules — 0 new errors.",
+      "deliverables": {
+        "code": [
+          "backend/src/middleware/trust-gate.ts",
+          "backend/src/lib/helixa.ts",
+          "backend/src/routes/invoices.ts"
+        ],
+        "tests": [
+          "backend/src/middleware/__tests__/trust-gate.test.ts"
+        ],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "HELIXA-003",
+      "agent": "frontend-core",
+      "type": "feature",
+      "priority": "medium",
+      "dependencies": ["REPUTATION-001", "HELIXA-001"],
+      "description": "Add Helixa Cred Score badge to agent profile pages and invoice detail view in dashboard",
+      "context": "Surface the federated reputation score visually. Agents and their counterparties should see the Cred Score on the dashboard.\n\nBEFORE WRITING: Read the following files to understand current structure:\n  - frontend/app/dashboard/page.tsx\n  - frontend/components/ (look for any existing agent card/badge components)\n\nCOMPONENT: frontend/components/CredScoreBadge.tsx (new file, max 60 lines)\n  Props: { score: number | null; tier: string; sources: string[] }\n  Renders:\n    - Score number (large, bold)\n    - Tier label with color: bronze=#CD7F32, silver=#C0C0C0, gold=#FFD700, platinum=#E5E4E2\n    - Small 'H' icon or 'Helixa' label if sources includes 'helixa'\n    - Tooltip: 'Federated score: Helixa (60%) + Invoica payment history (40%)'\n    - If score is null: show '—' with tooltip 'Score unavailable'\n\nINTEGRATION POINTS:\n  1. Invoice detail page: fetch GET /v1/reputation/:agentId when viewing an invoice, show badge next to payer agent ID\n  2. Dashboard agent list (if exists): show badge in each row\n  Keep changes minimal — add badge only, don't redesign.\n\nAFTER: npx tsc --noEmit in frontend/ — 0 new errors.",
+      "deliverables": {
+        "code": [
+          "frontend/components/CredScoreBadge.tsx",
+          "frontend/app/dashboard/page.tsx"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "HELIXA-004",
+      "agent": "cmo-agent",
+      "type": "content",
+      "priority": "medium",
+      "dependencies": ["HELIXA-001"],
+      "description": "Draft @invoica_ai Twitter thread announcing Helixa integration — trust-gated settlements, federated reputation",
+      "context": "Context: @JMasterHamster raised a sharp challenge on March 20 2026 about Invoica's settlement oracle problem. Helixa integration is the direct answer. CMO drafts the announcement thread.\n\nTHREAD STRUCTURE (3-4 tweets):\n\nTweet 1 — The problem framing:\n  Reference @JMasterHamster's oracle question. Acknowledge it's the right question.\n  'Who's the oracle of ground truth when your indexer fails?' Great question @JMasterHamster.\n  Our answer: the oracle IS the chain. But trust starts before settlement.\n\nTweet 2 — The solution:\n  Invoica is integrating @helixa_xyz as our reputation oracle.\n  Helixa Cred Score (60%) + Invoica payment history (40%) = federated trust score.\n  High-trust agents: auto-accept. Marginal: hold. Junk: rejected.\n  69K+ agents already scored. Cold-start solved.\n\nTweet 3 — The technical detail:\n  Our /v1/reputation/:agentId endpoint now returns a federated score.\n  Source breakdown visible in API response.\n  Both use x402 + USDC on Base. Trust is now portable across the agent economy.\n\nTweet 4 (optional) — CTA:\n  Invoica CEO Agent ERC-8004 identity: [basescan tx link]\n  Register your agent. Get scored. Start earning.\n  invoica.ai\n\nRULES:\n  - Only reference LIVE features (reputation endpoint will be live when REPUTATION-001 ships)\n  - Do not post until REPUTATION-001 is deployed — queue this for after REPUTATION-001 merges\n  - Each tweet max 280 chars\n  - No emoji overuse — max 1-2 per tweet\n  - Technically precise, not hype\n\nOUTPUT: Write draft to reports/cmo/helixa-integration-thread-draft-2026-03-20.md",
+      "deliverables": {
+        "code": [],
+        "tests": [],
+        "docs": [
+          "reports/cmo/helixa-integration-thread-draft-2026-03-20.md"
+        ]
+      },
+      "status": "pending"
+    }
+  ]
+}
