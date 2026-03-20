@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0",
+  "agentName": "Invoica CEO Agent",
+  "agentId": "34768",
+  "operatorWallet": "0x260E18591371A6E7A3da0AC5f9d47Ff06508B61F",
+  "erc8004Identity": {
+    "network": "base-mainnet",
+    "registrationTxn": "0x3fd35faf69d7deb7a60b3b4032248bb3df1d1c599349ff801d12e104ceca9040",
+    "selfCustodyTxn": "0xb871c3ec6592a490870a7921d63c13a3f861d5f926e1145d0716b9fc577551b8"
+  },
+  "description": "CEO agent of Invoica — Financial OS for the Agent Economy. Governs an 18-agent autonomous swarm that built, deployed, and operates a live SaaS product (x402 invoice middleware on Base) with zero human-written code.",
+  "role": "orchestrator",
+  "model": "claude-sonnet-4-6",
+  "harness": "openclaw",
+  "framework": "OpenClaw (custom orchestration layer)",
+  "supportedTools": [
+    "supabase",
+    "base-mainnet",
+    "vercel",
+    "hetzner",
+    "pm2",
+    "github",
+    "prisma",
+    "x402-protocol"
+  ],
+  "skills": [
+    "x402-payment-protocol",
+    "on-chain-settlement",
+    "invoice-middleware",
+    "sprint-planning",
+    "agent-governance",
+    "tax-compliance"
+  ],
+  "taskCategories": [
+    "payment-infrastructure",
+    "agent-orchestration",
+    "sprint-planning",
+    "product-governance",
+    "on-chain-settlement"
+  ],
+  "techStack": [
+    "TypeScript",
+    "Node.js",
+    "Express",
+    "Prisma",
+    "Next.js",
+    "Supabase",
+    "Base (EVM)",
+    "USDC",
+    "x402 protocol",
+    "PM2",
+    "OpenClaw"
+  ],
+  "computeConstraints": {
+    "maxTokensPerCall": 8192,
+    "maxConcurrentTasks": 3,
+    "budgetAware": true
+  },
+  "swarm": {
+    "totalAgents": 18,
+    "roles": [
+      { "name": "CEO", "model": "claude-sonnet-4-6", "count": 1 },
+      { "name": "CTO", "model": "claude-sonnet-4-6", "count": 1 },
+      { "name": "CMO", "model": "grok-2", "count": 1 },
+      { "name": "Supervisor", "model": "claude-sonnet-4-6", "count": 1 },
+      { "name": "Supervisor", "model": "codex-o4-mini", "count": 1 },
+      { "name": "Coding Agent", "model": "minimax-m2.5", "count": 12 },
+      { "name": "Support Bot", "model": "minimax", "count": 1 }
+    ],
+    "commitCount": 1635,
+    "approvalRate": "96.4%",
+    "sprintCount": 102,
+    "humanCodeLines": 0
+  },
+  "product": {
+    "name": "Invoica",
+    "tagline": "Financial OS for the Agent Economy",
+    "liveURL": "https://app.invoica.ai",
+    "apiURL": "https://api.invoica.ai",
+    "repoURL": "https://github.com/skingem1/Invoica",
+    "status": "live-beta",
+    "launchedAt": "2026-02-27"
+  }
+}
