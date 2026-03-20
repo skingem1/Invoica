@@ -920,6 +920,13 @@ async function handleUpdate(update: TelegramUpdate): Promise<void> {
   const chatId = chat.id;
 
   if (from.id !== ALLOWED_USER_ID) {
+    // In group/supergroup chats: silently ignore non-owner messages (no lockout reply — avoids
+    // embarrassing "Unauthorized access" messages during collaboration sessions with external guests).
+    // In private chat: keep the lockout message as a deterrent.
+    if (chat.type === 'group' || chat.type === 'supergroup') {
+      console.warn(`[CeoBot] Ignoring non-owner in group: user ${from.id} (@${from.username})`);
+      return;
+    }
     await telegramSend('sendMessage', { chat_id: chatId, text: '🔒 Private executive bot. Unauthorized access.' });
     console.warn(`[CeoBot] Unauthorized from user ${from.id} (@${from.username})`);
     return;
@@ -1266,7 +1273,7 @@ export async function startCeoBot(): Promise<void> {
     return;
   }
   console.log('[CeoBot] Starting CEO executive bot with tool use (MiniMax video + wallet checks)...');
-  startWalletMonitor();
+  if (process.env.WALLET_MONITOR_ENABLED !== 'false') startWalletMonitor();
 
   let offset = 0;
   let lastPollAt = Date.now();
