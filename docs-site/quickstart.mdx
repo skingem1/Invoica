@@ -42,10 +42,13 @@ const client = new InvoicaClient({
 
 ## 4. Create Your First Invoice
 
-```typescript
+<CodeGroup>
+
+```typescript EVM (Base / Polygon / Arbitrum)
 const invoice = await client.invoices.create({
   amount: 1000,        // Amount in cents ($10.00)
   currency: 'USD',
+  chain: 'base',       // 'base' | 'polygon' | 'arbitrum'
   description: 'AI Agent API Usage - February 2026',
   buyer: {
     companyName: 'Acme AI Corp',
@@ -55,7 +58,7 @@ const invoice = await client.invoices.create({
   seller: {
     name: 'My AI Platform',
     address: '456 Tech Blvd, Austin, TX 78701',
-    wallet: '0x1234...abcd',
+    wallet: '0x1234...abcd',  // EVM address
   },
 });
 
@@ -63,6 +66,28 @@ console.log(`Invoice created: ${invoice.id}`);
 console.log(`Status: ${invoice.status}`);
 console.log(`Total: $${(invoice.total / 100).toFixed(2)}`);
 ```
+
+```typescript Solana
+const invoice = await client.invoices.create({
+  amount: 1000,        // Amount in cents ($10.00)
+  currency: 'USD',
+  chain: 'solana',
+  description: 'AI Agent API Usage - February 2026',
+  buyer: {
+    companyName: 'Acme AI Corp',
+    email: 'billing@acme-ai.com',
+  },
+  seller: {
+    name: 'My AI Platform',
+    wallet: 'YourSolanaWalletAddressBase58Here',  // Base58 address
+  },
+});
+
+console.log(`Invoice created: ${invoice.id}`);
+console.log(`Status: ${invoice.status}`);
+```
+
+</CodeGroup>
 
 ## 5. Check Invoice Status
 
@@ -73,15 +98,16 @@ console.log(`Invoice ${status.invoiceNumber}: ${status.status}`);
 
 ## Using cURL
 
-You can also interact with the API directly:
+<CodeGroup>
 
-```bash
+```bash EVM (Base)
 curl -X POST https://api.invoica.ai/api/invoices \
   -H "Authorization: Bearer inv_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 1000,
     "currency": "USD",
+    "chain": "base",
     "description": "AI Agent API Usage",
     "buyer": {
       "companyName": "Acme AI Corp",
@@ -93,6 +119,28 @@ curl -X POST https://api.invoica.ai/api/invoices \
     }
   }'
 ```
+
+```bash Solana
+curl -X POST https://api.invoica.ai/api/invoices \
+  -H "Authorization: Bearer inv_your_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 1000,
+    "currency": "USD",
+    "chain": "solana",
+    "description": "AI Agent API Usage",
+    "buyer": {
+      "companyName": "Acme AI Corp",
+      "email": "billing@acme-ai.com"
+    },
+    "seller": {
+      "name": "My AI Platform",
+      "wallet": "YourSolanaWalletAddressBase58Here"
+    }
+  }'
+```
+
+</CodeGroup>
 
 ## Next Steps
 

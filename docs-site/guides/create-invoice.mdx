@@ -25,10 +25,15 @@ const client = new InvoicaClient({
 
 ## Step 2: Create an Invoice
 
-```typescript
+Invoica supports four chains. Set the `chain` field to route settlement detection correctly.
+
+<CodeGroup>
+
+```typescript Base (default)
 const invoice = await client.invoices.create({
   amount: 5000,        // $50.00 in cents
   currency: 'USD',
+  chain: 'base',       // default if omitted
   description: 'GPT-4 API calls - Agent Alpha - February 2026',
   buyer: {
     companyName: 'Acme AI Corp',
@@ -44,6 +49,50 @@ const invoice = await client.invoices.create({
   },
 });
 ```
+
+```typescript Solana
+const invoice = await client.invoices.create({
+  amount: 5000,        // $50.00 in cents
+  currency: 'USD',
+  chain: 'solana',
+  description: 'GPT-4 API calls - Agent Alpha - February 2026',
+  buyer: {
+    companyName: 'Acme AI Corp',
+    email: 'billing@acme-ai.com',
+  },
+  seller: {
+    name: 'My AI Platform',
+    // Base58-encoded Solana wallet address
+    wallet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  },
+});
+```
+
+```typescript Polygon / Arbitrum
+const invoice = await client.invoices.create({
+  amount: 5000,
+  currency: 'USD',
+  chain: 'polygon',    // or 'arbitrum'
+  description: 'GPT-4 API calls - Agent Alpha - February 2026',
+  buyer: {
+    companyName: 'Acme AI Corp',
+    email: 'billing@acme-ai.com',
+  },
+  seller: {
+    name: 'My AI Platform',
+    wallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18',
+  },
+});
+```
+
+</CodeGroup>
+
+| `chain` value | Network | Settlement token |
+|---------------|---------|-----------------|
+| `base` | Base Mainnet (default) | USDC |
+| `polygon` | Polygon Mainnet | USDC |
+| `arbitrum` | Arbitrum One | USDC |
+| `solana` | Solana Mainnet | USDC (SPL) |
 
 ### Response
 
