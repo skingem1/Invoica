@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { calculateTax } from '../services/tax/calculator';
+import { checkTrustGate } from '../middleware/trust-gate';
 
 const router = Router();
 
@@ -591,6 +592,15 @@ router.get('/v1/invoices', async (req: Request, res: Response, next: NextFunctio
  */
 router.post('/v1/invoices', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // ── Helixa trust gate ─────────────────────────────────────────
+    if (req.body.payerAgentId || req.body.agentId) {
+      const gate = await checkTrustGate(req.body.payerAgentId || req.body.agentId);
+      if (gate.tier === 'rejected') {
+        res.status(403).json({ error: 'Agent trust score too low', score: gate.score, reason: gate.reason });
+        return;
+      }
+      (req as any)._trustGate = gate;
+    }
     const {
       customerEmail,
       customerName,
