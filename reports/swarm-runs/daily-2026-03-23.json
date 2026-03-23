@@ -1,0 +1,49 @@
+[
+  {
+    "run_id": "2a9c9bc7-92f8-4e34-8c46-16e8c68fbaa7",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/week-103.json",
+    "started_at": "2026-03-23T23:30:03.008Z",
+    "finished_at": "2026-03-23T23:36:12.839Z",
+    "duration_seconds": 370,
+    "git_branch": "main",
+    "git_head_before": "ca5c5527",
+    "git_head_after": "ca5c5527",
+    "daily_plan_loaded": null,
+    "pending_cto_proposals": 0,
+    "wallet": "Wallet: $0.0000 / $0 budget (N/A%) | 0 cloud calls this month",
+    "summary": {
+      "total_tasks": 4,
+      "done": 3,
+      "rejected": 1,
+      "skipped": 0,
+      "human_pending": 0,
+      "approval_rate": 0.09090909090909091,
+      "total_tokens": 75503
+    },
+    "tasks": [
+      {
+        "task_id": "HELIXA-003",
+        "title": "HELIXA-003",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "rejected",
+        "attempts": 5,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 26303,
+        "duration_seconds": 367,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "Task rejected due to destructive rewrite of dashboard page and failure to follow task requirements. The CredScoreBadge component was created but not properly integrated, and the dashboard was unnecessarily modified with incomplete implementation."
+        },
+        "error": null,
+        "rejection_reason": "Task rejected due to destructive rewrite of dashboard page and failure to follow task requirements. The CredScoreBadge component was created but not properly integrated, and the dashboard was unnecessarily modified with incomplete implementation."
+      }
+    ]
+  }
+]
