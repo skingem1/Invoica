@@ -6,6 +6,7 @@
 import { getChain, isEvmChain } from '../../lib/chain-registry';
 import { EvmSettlementDetector, SettlementMatch } from './evm-detector';
 import { SolanaSettlementDetector } from './solana-detector';
+import { detectSapEscrowSettlement } from './sap-escrow-bridge';
 
 /**
  * Check for USDC payments to a recipient on any supported chain.
@@ -59,4 +60,8 @@ export async function verifyPayment(
 
   const detector = new SolanaSettlementDetector(chain);
   return detector.verifyTransfer(txId, recipientAddress, expectedAmountUsdc);
+}
+
+export async function detectSapSettlement(txSignature: string, rpcUrl: string) {
+  return detectSapEscrowSettlement(txSignature, rpcUrl);
 }

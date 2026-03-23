@@ -107,7 +107,7 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending",
+      "status": "done",
       "code": [
         "backend/src/services/settlement/sap-escrow-bridge.ts"
       ],
@@ -178,9 +178,11 @@
       "deliverables": {
         "code": [],
         "tests": [],
-        "docs": []
+        "docs": [
+          "reports/cmo/sap-integration-thread.md"
+        ]
       },
-      "status": "pending",
+      "status": "done",
       "docs": [],
       "output": {
         "files": [
