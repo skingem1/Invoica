@@ -5,7 +5,7 @@
     {
       "id": "TAX-LOC-001",
       "title": "location-resolver unit tests",
-      "description": "Unit tests for backend/src/services/tax/location-resolver.ts — getJurisdiction (US/EU/NONE paths, case-insensitive, stateCode fallback, empty/missing countryCode), isEUCountry, isUSState.",
+      "description": "Unit tests for backend/src/services/tax/location-resolver.ts \u2014 getJurisdiction (US/EU/NONE paths, case-insensitive, stateCode fallback, empty/missing countryCode), isEUCountry, isUSState.",
       "file": "backend/src/services/tax/__tests__/location-resolver.test.ts",
       "status": "done",
       "sprint": "043"
@@ -13,34 +13,38 @@
     {
       "id": "EMAIL-WELCOME-001",
       "title": "welcome-email unit tests",
-      "description": "Unit tests for backend/src/services/email/welcome-email.ts — SMTP not configured path (no-op), nodemailer mock for send success, send failure (non-throwing).",
+      "description": "Unit tests for backend/src/services/email/welcome-email.ts \u2014 SMTP not configured path (no-op), nodemailer mock for send success, send failure (non-throwing).",
       "file": "backend/src/services/email/__tests__/welcome-email.test.ts",
-      "status": "pending",
-      "sprint": "044"
+      "status": "blocked",
+      "sprint": "044",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "API-DASH-STATS-001",
       "title": "dashboard-stats handler unit tests",
-      "description": "Unit tests for backend/src/api/dashboard-stats.ts — getDashboardStats returns expected shape: totalInvoices, pending, settled, revenue, failedSettlements.",
+      "description": "Unit tests for backend/src/api/dashboard-stats.ts \u2014 getDashboardStats returns expected shape: totalInvoices, pending, settled, revenue, failedSettlements.",
       "file": "backend/src/api/__tests__/dashboard-stats.test.ts",
-      "status": "pending",
-      "sprint": "044"
+      "status": "blocked",
+      "sprint": "044",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "WEBHOOKS-GET-001",
       "title": "webhooks-get handler unit tests",
-      "description": "Unit tests for backend/src/api/webhooks-get.ts — invalid id (400), not found (404), found (200 with registration object). Mock WebhookRepository.",
+      "description": "Unit tests for backend/src/api/webhooks-get.ts \u2014 invalid id (400), not found (404), found (200 with registration object). Mock WebhookRepository.",
       "file": "backend/src/api/__tests__/webhooks-get.test.ts",
-      "status": "pending",
-      "sprint": "045"
+      "status": "blocked",
+      "sprint": "045",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "API-KEYS-FULL-001",
       "title": "api-keys full handler unit tests",
-      "description": "Unit tests for backend/src/api/api-keys.ts — list keys, create key (welcome email integration), revoke key, error paths. Mock SupabaseApiKeyRepository and sendWelcomeEmail.",
+      "description": "Unit tests for backend/src/api/api-keys.ts \u2014 list keys, create key (welcome email integration), revoke key, error paths. Mock SupabaseApiKeyRepository and sendWelcomeEmail.",
       "file": "backend/src/api/__tests__/api-keys-full.test.ts",
-      "status": "pending",
-      "sprint": "045"
+      "status": "blocked",
+      "sprint": "045",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

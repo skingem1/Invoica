@@ -4,43 +4,48 @@
   "tasks": [
     {
       "id": "REPUTATION-BATCH-001",
-      "title": "POST /v1/reputation/batch — batch agent reputation lookup",
+      "title": "POST /v1/reputation/batch \u2014 batch agent reputation lookup",
       "description": "New endpoint: POST /v1/reputation/batch accepts { agentIds: string[] } (max 50). Returns array of { agentId, score, tier } for each found agent. Missing agents are omitted (no 404). Validation: agentIds must be an array, max 50 items. Tests: 200-found-multiple, 200-empty-when-none, 400-missing-agentIds, 400-exceeds-50, 500-db-error. File: backend/src/routes/reputation.ts (add route) + backend/src/routes/__tests__/reputation-batch.test.ts",
       "file": "backend/src/routes/reputation.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "TAX-RATES-LIST-001",
-      "title": "GET /v1/tax/rates — list supported country tax rates",
-      "description": "New read endpoint returning all supported tax rates by country. Response: { countries: [{ code, name, vatRate, type: 'EU_VAT'|'US_NEXUS'|'OTHER' }] }. No DB call — pure in-memory lookup from the EU_VAT_RATES and US_NEXUS_RATES constants already in tax service. Tests: 200 returns array, has EU countries, has US states, response shape. File: backend/src/routes/tax.ts (add GET /v1/tax/rates) + tests.",
+      "title": "GET /v1/tax/rates \u2014 list supported country tax rates",
+      "description": "New read endpoint returning all supported tax rates by country. Response: { countries: [{ code, name, vatRate, type: 'EU_VAT'|'US_NEXUS'|'OTHER' }] }. No DB call \u2014 pure in-memory lookup from the EU_VAT_RATES and US_NEXUS_RATES constants already in tax service. Tests: 200 returns array, has EU countries, has US states, response shape. File: backend/src/routes/tax.ts (add GET /v1/tax/rates) + tests.",
       "file": "backend/src/routes/tax.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "INVOICE-SEARCH-001",
-      "title": "GET /v1/invoices/search?q= — search invoices by customer",
+      "title": "GET /v1/invoices/search?q= \u2014 search invoices by customer",
       "description": "Add GET /v1/invoices/search?q= endpoint. Searches customerEmail and customerName fields (case-insensitive ILIKE). Returns up to 20 matching invoices with standard invoice shape. Validation: q must be at least 2 chars. Tests: 200-matches-email, 200-matches-name, 400-short-query, 200-empty-when-no-match, 500-db-error. File: backend/src/routes/invoices.ts (add GET /v1/invoices/search) + tests.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SETTLEMENT-STATS-001",
-      "title": "GET /v1/settlements/stats — settlement volume statistics",
+      "title": "GET /v1/settlements/stats \u2014 settlement volume statistics",
       "description": "New endpoint: GET /v1/settlements/stats. Returns: { total: number, totalValue: number, byNetwork: Record<string, { count, value }>, avgSettlementTimeMs: number | null }. Reads from Invoice table where status IN (SETTLED, COMPLETED). Tests: 200-with-data, 200-empty, byNetwork-groups, avgSettlementTime-null-without-timestamps, 500-db-error. File: backend/src/routes/settlement-summary.ts (add route) or new file + app.ts registration.",
       "file": "backend/src/routes/settlement-summary.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "METRICS-PERIOD-001",
       "title": "GET /v1/metrics with from/to time-range filtering",
       "description": "Extend GET /v1/metrics to accept optional ?from= and ?to= ISO date query params. Filters invoice and settlement counts to the given period. Tests: 200-with-from, 200-with-to, 200-with-both, 200-without-params-still-works, 500-db-error. File: backend/src/routes/metrics.ts (modify existing route) + new test file.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

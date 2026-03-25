@@ -23,8 +23,9 @@
       "title": "GET /v1/invoices/export endpoint (CSV)",
       "description": "Add CSV export for invoices. GET /v1/invoices/export?status=completed&chain=base returns CSV with columns: id, amount, currency, status, chain, createdAt. Use auth middleware. Max 80 lines. File: backend/src/api/invoices-export.ts + route registration in router.ts + tests.",
       "file": "backend/src/api/invoices-export.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "REP-HISTORY-001",

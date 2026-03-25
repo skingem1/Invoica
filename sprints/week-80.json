@@ -6,8 +6,8 @@
       "type": "test",
       "priority": "high",
       "dependencies": [],
-      "description": "Unit tests for apiKeyAuth middleware — extractKey helper, requireApiKey 401 paths, success path, expiry check",
-      "context": "backend/src/middleware/apiKeyAuth.ts exports requireApiKey (Express middleware) and AuthedRequest interface.\n\nCREATE: backend/src/middleware/__tests__/apiKeyAuth.test.ts (max 150 lines)\n\nMock: jest.mock('@supabase/supabase-js', ...), jest.mock('bcrypt', ...)\n\nTests:\n1. No Authorization + no X-Api-Key → 401 UNAUTHORIZED\n2. Bearer key without sk_ prefix → 401\n3. X-Api-Key without sk_ prefix → 401\n4. Valid sk_ prefix, Supabase returns error → 401\n5. Valid sk_ prefix, Supabase returns empty rows → 401\n6. Valid sk_ prefix, rows found, bcrypt doesn't match → 401\n7. Valid prefix, bcrypt matches, no expiry → next() called, companyId/apiKeyId attached\n8. Valid prefix, bcrypt matches, future expiresAt → next() called (not expired)\n9. Valid prefix, bcrypt matches, past expiresAt → 401 KEY_EXPIRED\n10. Bearer takes priority over X-Api-Key when both present\n11. X-Api-Key used when no Authorization header\n12. Whitespace in key value is trimmed (key with spaces still has prefix check done on trimmed value)",
+      "description": "Unit tests for apiKeyAuth middleware \u2014 extractKey helper, requireApiKey 401 paths, success path, expiry check",
+      "context": "backend/src/middleware/apiKeyAuth.ts exports requireApiKey (Express middleware) and AuthedRequest interface.\n\nCREATE: backend/src/middleware/__tests__/apiKeyAuth.test.ts (max 150 lines)\n\nMock: jest.mock('@supabase/supabase-js', ...), jest.mock('bcrypt', ...)\n\nTests:\n1. No Authorization + no X-Api-Key \u2192 401 UNAUTHORIZED\n2. Bearer key without sk_ prefix \u2192 401\n3. X-Api-Key without sk_ prefix \u2192 401\n4. Valid sk_ prefix, Supabase returns error \u2192 401\n5. Valid sk_ prefix, Supabase returns empty rows \u2192 401\n6. Valid sk_ prefix, rows found, bcrypt doesn't match \u2192 401\n7. Valid prefix, bcrypt matches, no expiry \u2192 next() called, companyId/apiKeyId attached\n8. Valid prefix, bcrypt matches, future expiresAt \u2192 next() called (not expired)\n9. Valid prefix, bcrypt matches, past expiresAt \u2192 401 KEY_EXPIRED\n10. Bearer takes priority over X-Api-Key when both present\n11. X-Api-Key used when no Authorization header\n12. Whitespace in key value is trimmed (key with spaces still has prefix check done on trimmed value)",
       "deliverables": {
         "code": [],
         "tests": [
@@ -23,8 +23,8 @@
       "type": "test",
       "priority": "high",
       "dependencies": [],
-      "description": "Unit tests for lib/errors.ts — AppError base class + all 5 subclasses",
-      "context": "backend/src/lib/errors.ts exports AppError, ValidationError, NotFoundError, InvoiceNotFoundError, UnauthorizedError, ForbiddenError.\n\nCREATE: backend/src/lib/__tests__/errors.test.ts (max 80 lines)\n\nTests (zero mocks needed):\n1. AppError — statusCode stored correctly\n2. AppError — message stored correctly\n3. AppError — code stored correctly\n4. AppError — isOperational is true\n5. AppError — instanceof Error\n6. AppError — name is 'AppError'\n7. ValidationError — statusCode is 400, code is VALIDATION_ERROR\n8. NotFoundError — statusCode is 404, default message 'Not found'\n9. NotFoundError — custom message overrides default\n10. InvoiceNotFoundError — statusCode is 404, code is INVOICE_NOT_FOUND\n11. UnauthorizedError — statusCode is 401, code is UNAUTHORIZED\n12. ForbiddenError — statusCode is 403, code is FORBIDDEN",
+      "description": "Unit tests for lib/errors.ts \u2014 AppError base class + all 5 subclasses",
+      "context": "backend/src/lib/errors.ts exports AppError, ValidationError, NotFoundError, InvoiceNotFoundError, UnauthorizedError, ForbiddenError.\n\nCREATE: backend/src/lib/__tests__/errors.test.ts (max 80 lines)\n\nTests (zero mocks needed):\n1. AppError \u2014 statusCode stored correctly\n2. AppError \u2014 message stored correctly\n3. AppError \u2014 code stored correctly\n4. AppError \u2014 isOperational is true\n5. AppError \u2014 instanceof Error\n6. AppError \u2014 name is 'AppError'\n7. ValidationError \u2014 statusCode is 400, code is VALIDATION_ERROR\n8. NotFoundError \u2014 statusCode is 404, default message 'Not found'\n9. NotFoundError \u2014 custom message overrides default\n10. InvoiceNotFoundError \u2014 statusCode is 404, code is INVOICE_NOT_FOUND\n11. UnauthorizedError \u2014 statusCode is 401, code is UNAUTHORIZED\n12. ForbiddenError \u2014 statusCode is 403, code is FORBIDDEN",
       "deliverables": {
         "code": [],
         "tests": [
@@ -40,7 +40,7 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for lib/chain-registry.ts — CHAINS data, getChain(), getSupportedChains(), isEvmChain(), isSolanaChain()",
+      "description": "Unit tests for lib/chain-registry.ts \u2014 CHAINS data, getChain(), getSupportedChains(), isEvmChain(), isSolanaChain()",
       "context": "backend/src/lib/chain-registry.ts exports CHAINS record plus 4 pure functions.\n\nCREATE: backend/src/lib/__tests__/chain-registry.test.ts (max 100 lines)\n\nTests (zero mocks):\n1. getSupportedChains() returns array containing 'base', 'polygon', 'solana'\n2. getSupportedChains() length is 3\n3. getChain('base') returns object with id: 'base'\n4. getChain('polygon') chainId is 137\n5. getChain('solana') type is 'solana'\n6. getChain('unknown') throws error with 'Unsupported chain' message\n7. isEvmChain('base') returns true\n8. isEvmChain('polygon') returns true\n9. isEvmChain('solana') returns false\n10. isSolanaChain('solana') returns true\n11. isSolanaChain('base') returns false\n12. All chains have usdcDecimals of 6",
       "deliverables": {
         "code": [],
@@ -57,8 +57,8 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for lib/chain-validator.ts — validateChainCompatibility() all branches",
-      "context": "backend/src/lib/chain-validator.ts exports validateChainCompatibility(chainId, address) returning {valid, error?}.\n\nCREATE: backend/src/lib/__tests__/chain-validator.test.ts (max 100 lines)\n\nTests (zero mocks — uses real chain-registry):\n1. Empty chainId → valid: false, error contains 'Chain ID is required'\n2. Empty address → valid: false, error contains 'Address is required'\n3. Unsupported chain → valid: false, error contains 'Unsupported chain'\n4. Valid EVM chain + valid 0x address → valid: true\n5. Valid EVM chain + address missing 0x → valid: false (invalid format)\n6. Valid EVM chain + too-short address → valid: false\n7. Solana chain + valid base58 address → valid: true\n8. Whitespace in inputs is trimmed before validation\n9. Chain ID with surrounding whitespace → still validates correctly",
+      "description": "Unit tests for lib/chain-validator.ts \u2014 validateChainCompatibility() all branches",
+      "context": "backend/src/lib/chain-validator.ts exports validateChainCompatibility(chainId, address) returning {valid, error?}.\n\nCREATE: backend/src/lib/__tests__/chain-validator.test.ts (max 100 lines)\n\nTests (zero mocks \u2014 uses real chain-registry):\n1. Empty chainId \u2192 valid: false, error contains 'Chain ID is required'\n2. Empty address \u2192 valid: false, error contains 'Address is required'\n3. Unsupported chain \u2192 valid: false, error contains 'Unsupported chain'\n4. Valid EVM chain + valid 0x address \u2192 valid: true\n5. Valid EVM chain + address missing 0x \u2192 valid: false (invalid format)\n6. Valid EVM chain + too-short address \u2192 valid: false\n7. Solana chain + valid base58 address \u2192 valid: true\n8. Whitespace in inputs is trimmed before validation\n9. Chain ID with surrounding whitespace \u2192 still validates correctly",
       "deliverables": {
         "code": [],
         "tests": [
@@ -74,7 +74,7 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for api/invoices-list.ts — list invoices handler, filter params, Supabase query construction",
+      "description": "Unit tests for api/invoices-list.ts \u2014 list invoices handler, filter params, Supabase query construction",
       "context": "backend/src/api/invoices-list.ts exports the GET /v1/invoices handler.\n\nCREATE: backend/src/api/__tests__/invoices-list.test.ts (max 150 lines)\n\nMock @supabase/supabase-js. Test filter permutations and error handling.",
       "deliverables": {
         "code": [],
@@ -83,7 +83,8 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

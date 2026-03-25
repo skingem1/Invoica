@@ -4,43 +4,48 @@
   "tasks": [
     {
       "id": "INVOICE-BULK-STATUS-001",
-      "title": "POST /v1/invoices/bulk/status — update status for multiple invoices",
+      "title": "POST /v1/invoices/bulk/status \u2014 update status for multiple invoices",
       "description": "New endpoint: POST /v1/invoices/bulk/status. Body: { ids: string[], status: string }. Updates status for up to 50 invoices in one call. Returns { updated: number, ids: string[] }. Validates: ids array required (max 50), status must be valid. Tests: 200-returns-updated-count, 200-validates-ids-array, 400-missing-ids, 400-ids-too-many, 500-db-error. File: backend/src/routes/invoices.ts (add POST route before /:id routes) + tests at backend/src/routes/__tests__/invoice-bulk-status.test.ts.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "METRICS-CHAIN-001",
-      "title": "GET /v1/metrics/chains — invoice counts by blockchain",
+      "title": "GET /v1/metrics/chains \u2014 invoice counts by blockchain",
       "description": "New endpoint: GET /v1/metrics/chains. Returns invoice counts grouped by chain: [{ chain, invoiceCount, totalAmount }], sorted by invoiceCount DESC. Reads paymentDetails.chain field. Tests: 200-returns-array, 200-sorted-by-count, 200-has-total-amount, 200-empty-state, 500-db-error. File: backend/src/routes/metrics.ts (add route) + tests at backend/src/routes/__tests__/metrics-chains.test.ts.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "AGENT-REPUTATION-HISTORY-001",
-      "title": "GET /v1/agents/:agentId/reputation — agent reputation with tier info",
+      "title": "GET /v1/agents/:agentId/reputation \u2014 agent reputation with tier info",
       "description": "New endpoint: GET /v1/agents/:agentId/reputation. Returns the full AgentReputation record for an agent: { agentId, score, tier, disputeRate, completionRate, updatedAt }. Returns 404 if no reputation record found. Tests: 200-returns-shape, 200-has-score, 200-has-tier, 404-not-found, 500-db-error. File: backend/src/routes/agents.ts (add before /:agentId) + tests at backend/src/routes/__tests__/agent-reputation.test.ts.",
       "file": "backend/src/routes/agents.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SETTLEMENTS-VOLUME-001",
-      "title": "GET /v1/settlements/volume — settlement volume over time periods",
+      "title": "GET /v1/settlements/volume \u2014 settlement volume over time periods",
       "description": "New endpoint: GET /v1/settlements/volume. Returns settlement volume for last 7d, 30d, and all-time: { last7d: { count, amount }, last30d: { count, amount }, allTime: { count, amount } }. Only counts SETTLED+COMPLETED invoices. Tests: 200-returns-shape, 200-has-last7d, 200-has-last30d, 200-zero-when-empty, 500-db-error. File: backend/src/routes/settlements.ts (add before /:id) + tests at backend/src/routes/__tests__/settlements-volume.test.ts.",
       "file": "backend/src/routes/settlements.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "WEBHOOKS-UPDATE-001",
-      "title": "PUT /v1/webhooks/:id — update webhook URL or events",
+      "title": "PUT /v1/webhooks/:id \u2014 update webhook URL or events",
       "description": "New endpoint: PUT /v1/webhooks/:id. Body: { url?: string, events?: string[] }. At least one field required. Updates the webhook registration. Returns 404 if not found, 400 if no fields provided. Tests: 200-updates-url, 200-updates-events, 400-no-fields, 404-not-found, 500-db-error. File: backend/src/routes/webhooks.ts (add before DELETE /:id) + tests at backend/src/routes/__tests__/webhook-update.test.ts. Also add update(id, fields) to WebhookRepository mock.",
       "file": "backend/src/routes/webhooks.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

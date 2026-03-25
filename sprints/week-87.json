@@ -7,40 +7,45 @@
       "title": "GET /v1/invoices/:id functional tests",
       "description": "Functional tests for GET /v1/invoices/:id (UUID lookup). Tests: 200 found with full response shape, 404 not found, response includes all invoice fields (id, status, amount, currency, paymentDetails, settledAt, completedAt, createdAt). File: backend/src/routes/__tests__/invoice-by-id.test.ts",
       "file": "backend/src/routes/__tests__/invoice-by-id.test.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "ORACLE-SCORES-TESTS-001",
       "title": "GET /x402/oracle/scores functional tests",
       "description": "Functional tests for bulk agent score lookup. Tests: 200 returns array of scores, agentId filter applied, empty array on no agents, response shape (agentId, score, tier). File: backend/src/routes/__tests__/oracle-scores.test.ts",
       "file": "backend/src/routes/__tests__/oracle-scores.test.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "WEBHOOK-PING-001",
-      "title": "POST /v1/webhooks/:id/test — webhook test ping",
+      "title": "POST /v1/webhooks/:id/test \u2014 webhook test ping",
       "description": "New endpoint: POST /v1/webhooks/:id/test sends a test HTTP POST to the registered webhook URL with a test payload { event: 'test.ping', timestamp }. Returns { success, status: 'delivered'|'failed', responseCode, latencyMs }. If webhook not found: 404. Uses fetch with 5s timeout. File: backend/src/routes/webhooks.ts (add route) + tests. Max 40 new lines.",
       "file": "backend/src/routes/webhooks.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "INVOICE-METADATA-001",
-      "title": "PATCH /v1/invoices/:id/metadata — update invoice metadata",
+      "title": "PATCH /v1/invoices/:id/metadata \u2014 update invoice metadata",
       "description": "Add PATCH /v1/invoices/:id/metadata endpoint. Body: { metadata: Record<string, unknown> }. Merges with existing paymentDetails. Returns updated invoice. Validation: metadata must be an object, max 20 keys. Tests: 200 success, 400 invalid metadata, 404 not found. File: backend/src/routes/invoices.ts (add route) + tests.",
       "file": "backend/src/routes/invoices.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "METRICS-AGENT-001",
-      "title": "GET /v1/metrics/agent/:agentId — per-agent metrics",
+      "title": "GET /v1/metrics/agent/:agentId \u2014 per-agent metrics",
       "description": "Per-agent metrics endpoint. Returns: { agentId, invoices: { total, byStatus }, totalValueSettled, reputation: { score, tier } | null }. File: backend/src/routes/metrics.ts (add second route) + app.ts registration + 4 tests. Max 50 new lines.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

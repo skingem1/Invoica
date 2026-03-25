@@ -298,7 +298,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "WEBSITE-002",
@@ -318,7 +319,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SDK-001",
@@ -338,7 +340,8 @@
           "sdk/README.md"
         ]
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SOL-007",
@@ -358,7 +361,8 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "FIX-008",

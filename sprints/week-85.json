@@ -5,42 +5,47 @@
     {
       "id": "INVOICE-STATUS-TESTS-001",
       "title": "PATCH /v1/invoices/:id/status functional tests",
-      "description": "Functional tests for the existing PATCH /v1/invoices/:id/status route. Tests: 400 invalid status value, 400 invalid status transition (e.g. COMPLETED→PENDING), 404 invoice not found, 200 success PENDING→PROCESSING, 200 sets settledAt on SETTLED, 200 sets completedAt on COMPLETED, 200 response shape (success+data), 500 on DB error. File: backend/src/routes/__tests__/invoice-status.test.ts",
+      "description": "Functional tests for the existing PATCH /v1/invoices/:id/status route. Tests: 400 invalid status value, 400 invalid status transition (e.g. COMPLETED\u2192PENDING), 404 invoice not found, 200 success PENDING\u2192PROCESSING, 200 sets settledAt on SETTLED, 200 sets completedAt on COMPLETED, 200 response shape (success+data), 500 on DB error. File: backend/src/routes/__tests__/invoice-status.test.ts",
       "file": "backend/src/routes/__tests__/invoice-status.test.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "WEBHOOK-TESTS-002",
       "title": "DELETE /v1/webhooks/:id + functional webhook CRUD tests",
       "description": "Functional tests for POST /v1/webhooks (register), GET /v1/webhooks (list), DELETE /v1/webhooks/:id. Tests: 201 register success, 400 missing url, 200 list webhooks, 200 delete existing, 404 delete non-existent, response shape. File: backend/src/routes/__tests__/webhooks-crud.test.ts",
       "file": "backend/src/routes/__tests__/webhooks-crud.test.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "METRICS-001",
       "title": "GET /v1/metrics endpoint",
       "description": "Basic metrics endpoint for agent economy insights. Returns: { invoices: { total, byStatus: {PENDING, PROCESSING, SETTLED, COMPLETED} }, settlements: { total, last7Days }, reputation: { agents: N, avgScore } }. File: backend/src/routes/metrics.ts + app.ts registration + 5 tests. Max 80 lines.",
       "file": "backend/src/routes/metrics.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "INVOICE-PATCH-VALIDATOR-001",
       "title": "Zod schema for PATCH /v1/invoices/:id/status body",
       "description": "Add Zod validator for the status patch body in validators/invoice-schemas.ts. Schema: z.object({ status: z.enum(['PENDING', 'PROCESSING', 'SETTLED', 'COMPLETED']) }). Export as updateInvoiceStatusSchema. Tests: valid statuses accepted, invalid status rejected, missing status rejected. File: backend/src/validators/invoice-schemas.ts + validators/__tests__/invoice-status-schema.test.ts",
       "file": "backend/src/validators/invoice-schemas.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SETTLEMENT-FILTER-001",
       "title": "GET /v1/settlements filter by agentId + date range",
       "description": "Enhance GET /v1/settlements to support ?agentId=&from=&to= query params. Already has basic listing. Add filter logic and 4 tests: agentId filter, date range filter, combined filter, empty result. File: backend/src/routes/settlements.ts (update) + routes/__tests__/settlements-filters.test.ts",
       "file": "backend/src/routes/settlements.ts",
-      "status": "pending",
-      "sprint": null
+      "status": "blocked",
+      "sprint": null,
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }

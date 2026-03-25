@@ -6,8 +6,8 @@
       "type": "test",
       "priority": "high",
       "dependencies": [],
-      "description": "Unit tests for services/orchestrator.ts — Orchestrator class: normalizeAgentName, processTaskResult, validateTaskQuality, validateTask, rejection cascade prevention, resetAgentState",
-      "context": "backend/src/services/orchestrator.ts exports Orchestrator class extending EventEmitter.\n\nCREATE: backend/src/services/__tests__/orchestrator.test.ts (max 200 lines)\n\nMock: pass mock redis object to constructor. jest.mock('../utils/logger') optional but simplify output.\n\nKey tests:\n1. normalizeAgentName — kebab to camelCase\n2. normalizeAgentName — camelCase to kebab\n3. normalizeAgentName — single word unchanged\n4. processTaskResult — emits 'taskResult' event for 'completed' status\n5. processTaskResult — emits 'taskResult' event for 'rejected' status\n6. processTaskResult — first rejection increments failure count to 1, agent not paused\n7. processTaskResult — second rejection triggers pause, emits 'agentPaused'\n8. processTaskResult — success after failures resets consecutiveFailures to 0\n9. validateTaskQuality — null content → passed: false\n10. validateTaskQuality — valid content, active agent → passed: true\n11. validateTaskQuality — paused agent → passed: false with pause message\n12. validateTask — missing agentName → returns false\n13. validateTask — redis.exists returns 1 → returns true\n14. validateTask — redis.exists returns 0 → returns false\n15. getAgentRejectionState — returns undefined for unknown agent\n16. resetAgentState — removes agent state\n\nMin: 14 tests.",
+      "description": "Unit tests for services/orchestrator.ts \u2014 Orchestrator class: normalizeAgentName, processTaskResult, validateTaskQuality, validateTask, rejection cascade prevention, resetAgentState",
+      "context": "backend/src/services/orchestrator.ts exports Orchestrator class extending EventEmitter.\n\nCREATE: backend/src/services/__tests__/orchestrator.test.ts (max 200 lines)\n\nMock: pass mock redis object to constructor. jest.mock('../utils/logger') optional but simplify output.\n\nKey tests:\n1. normalizeAgentName \u2014 kebab to camelCase\n2. normalizeAgentName \u2014 camelCase to kebab\n3. normalizeAgentName \u2014 single word unchanged\n4. processTaskResult \u2014 emits 'taskResult' event for 'completed' status\n5. processTaskResult \u2014 emits 'taskResult' event for 'rejected' status\n6. processTaskResult \u2014 first rejection increments failure count to 1, agent not paused\n7. processTaskResult \u2014 second rejection triggers pause, emits 'agentPaused'\n8. processTaskResult \u2014 success after failures resets consecutiveFailures to 0\n9. validateTaskQuality \u2014 null content \u2192 passed: false\n10. validateTaskQuality \u2014 valid content, active agent \u2192 passed: true\n11. validateTaskQuality \u2014 paused agent \u2192 passed: false with pause message\n12. validateTask \u2014 missing agentName \u2192 returns false\n13. validateTask \u2014 redis.exists returns 1 \u2192 returns true\n14. validateTask \u2014 redis.exists returns 0 \u2192 returns false\n15. getAgentRejectionState \u2014 returns undefined for unknown agent\n16. resetAgentState \u2014 removes agent state\n\nMin: 14 tests.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -23,8 +23,8 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for services/settlement/evm-detector.ts — EVM on-chain settlement detection pure functions",
-      "context": "backend/src/services/settlement/evm-detector.ts — EVM settlement detection. Mock axios/viem. Test isSettled(), getSettlementTx(), error paths.\n\nCREATE: backend/src/services/settlement/__tests__/evm-detector.test.ts (max 150 lines)\n\nMin: 8 tests.",
+      "description": "Unit tests for services/settlement/evm-detector.ts \u2014 EVM on-chain settlement detection pure functions",
+      "context": "backend/src/services/settlement/evm-detector.ts \u2014 EVM settlement detection. Mock axios/viem. Test isSettled(), getSettlementTx(), error paths.\n\nCREATE: backend/src/services/settlement/__tests__/evm-detector.test.ts (max 150 lines)\n\nMin: 8 tests.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -32,7 +32,8 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "MIDDLEWARE-X402-001",
@@ -40,8 +41,8 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for middleware/x402.ts — EVM x402 payment middleware request/response paths",
-      "context": "backend/src/middleware/x402.ts (194 lines) — EVM payment verification middleware. Mock viem. Test payment-required 402 response, valid payment success, invalid signature 401.\n\nCREATE: backend/src/middleware/__tests__/x402.test.ts (max 150 lines)\n\nMin: 8 tests.",
+      "description": "Unit tests for middleware/x402.ts \u2014 EVM x402 payment middleware request/response paths",
+      "context": "backend/src/middleware/x402.ts (194 lines) \u2014 EVM payment verification middleware. Mock viem. Test payment-required 402 response, valid payment success, invalid signature 401.\n\nCREATE: backend/src/middleware/__tests__/x402.test.ts (max 150 lines)\n\nMin: 8 tests.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -49,7 +50,8 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "SOLANA-PDA-001",
@@ -57,8 +59,8 @@
       "type": "test",
       "priority": "low",
       "dependencies": [],
-      "description": "Unit tests for services/settlement/solana-pda.ts — Solana PDA derivation pure functions",
-      "context": "backend/src/services/settlement/solana-pda.ts (67 lines) — pure PDA math, no external deps.\n\nCREATE: backend/src/services/settlement/__tests__/solana-pda.test.ts (max 100 lines)\n\nMin: 6 tests.",
+      "description": "Unit tests for services/settlement/solana-pda.ts \u2014 Solana PDA derivation pure functions",
+      "context": "backend/src/services/settlement/solana-pda.ts (67 lines) \u2014 pure PDA math, no external deps.\n\nCREATE: backend/src/services/settlement/__tests__/solana-pda.test.ts (max 100 lines)\n\nMin: 6 tests.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -66,7 +68,8 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     },
     {
       "id": "TAX-VAT-001",
@@ -74,8 +77,8 @@
       "type": "test",
       "priority": "medium",
       "dependencies": [],
-      "description": "Unit tests for services/tax/vat-validator.ts — VAT format validation pure functions (mock VIES API and Redis)",
-      "context": "backend/src/services/tax/vat-validator.ts (346 lines) — VIES API + Redis. Focus on pure validation functions: isValidVatFormat(), getVatCountryCode().\n\nCREATE: backend/src/services/tax/__tests__/vat-validator.test.ts (max 150 lines)\n\nMin: 10 tests.",
+      "description": "Unit tests for services/tax/vat-validator.ts \u2014 VAT format validation pure functions (mock VIES API and Redis)",
+      "context": "backend/src/services/tax/vat-validator.ts (346 lines) \u2014 VIES API + Redis. Focus on pure validation functions: isValidVatFormat(), getVatCountryCode().\n\nCREATE: backend/src/services/tax/__tests__/vat-validator.test.ts (max 150 lines)\n\nMin: 10 tests.",
       "deliverables": {
         "code": [],
         "tests": [
@@ -83,7 +86,8 @@
         ],
         "docs": []
       },
-      "status": "pending"
+      "status": "blocked",
+      "_blockedReason": "Mass block 2026-03-25: zombie tasks from old sprint running destructively via sprint runner. Review before unblocking."
     }
   ]
 }
