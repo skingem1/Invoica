@@ -89,5 +89,122 @@
         "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: File contains invalid markdown syntax with TypeScript code fence at the beginning, making it unparseable. Content is incomplete (cuts off mid-sentence) and doesn't meet the 600-word requirement."
       }
     ]
+  },
+  {
+    "run_id": "5f4ee24d-bd67-4003-a877-b7332579b205",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/week-105.json",
+    "started_at": "2026-03-25T11:00:03.690Z",
+    "finished_at": "2026-03-25T11:13:08.983Z",
+    "duration_seconds": 785,
+    "git_branch": "main",
+    "git_head_before": "89bbb1dd",
+    "git_head_after": "89bbb1dd",
+    "daily_plan_loaded": null,
+    "pending_cto_proposals": 0,
+    "wallet": "Wallet: $0.0000 / $0 budget (N/A%) | 0 cloud calls this month",
+    "summary": {
+      "total_tasks": 4,
+      "done": 2,
+      "rejected": 0,
+      "skipped": 0,
+      "human_pending": 0,
+      "approval_rate": 0.16666666666666666,
+      "total_tokens": 45342
+    },
+    "tasks": [
+      {
+        "task_id": "ACQUIRE-002",
+        "title": "ACQUIRE-002",
+        "type": "content",
+        "task_target": "cloud-code",
+        "status": "done",
+        "attempts": 1,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 1163,
+        "duration_seconds": 43,
+        "files_written": [
+          "reports/bizdev/messari-one-pager.md"
+        ],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "APPROVED",
+          "score": 0,
+          "summary": "Supervisor unavailable: "
+        },
+        "error": null,
+        "rejection_reason": null
+      },
+      {
+        "task_id": "ACQUIRE-001",
+        "title": "ACQUIRE-001",
+        "type": "content",
+        "task_target": "cloud-code",
+        "status": "done",
+        "attempts": 1,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 1433,
+        "duration_seconds": 43,
+        "files_written": [
+          "reports/bizdev/messari-outreach-email.md"
+        ],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "APPROVED",
+          "score": 0,
+          "summary": "Supervisor unavailable: "
+        },
+        "error": null,
+        "rejection_reason": null
+      },
+      {
+        "task_id": "ACQUIRE-003",
+        "title": "ACQUIRE-003",
+        "type": "content",
+        "task_target": "cloud-code",
+        "status": "suspended",
+        "attempts": 5,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 7790,
+        "duration_seconds": 310,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 0,
+          "summary": "Task completely failed - generated file is empty with invalid TypeScript syntax instead of required Markdown content"
+        },
+        "error": null,
+        "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: Task completely failed - generated file is empty with invalid TypeScript syntax instead of required Markdown content"
+      },
+      {
+        "task_id": "ACQUIRE-004",
+        "title": "ACQUIRE-004",
+        "type": "content",
+        "task_target": "cloud-code",
+        "status": "suspended",
+        "attempts": 5,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 15979,
+        "duration_seconds": 782,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "Critical file format error - markdown file contains TypeScript code fence syntax which is invalid for .md files"
+        },
+        "error": null,
+        "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: Critical file format error - markdown file contains TypeScript code fence syntax which is invalid for .md files"
+      }
+    ]
   }
 ]
