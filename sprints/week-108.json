@@ -1,0 +1,41 @@
+{
+  "week": 108,
+  "created": "2026-03-26",
+  "notes": "PACT × x402 integration. Wires optional PACT mandate verification (inline HMAC-SHA256, no npm import) into invoice SETTLED transitions. PACT-001 creates the lib file; PACT-002 does three surgical edits to invoices.ts. invoices.ts is 1077 lines — PACT-002 must use surgical find-replace, NOT rewrite the whole file.",
+  "tasks": [
+    {
+      "id": "PACT-001",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Create PACT mandate verification lib — inline HMAC-SHA256, no npm import",
+      "context": "BACKGROUND:\n@godman-protocols/pact is NOT on npm — it is a local package that does not exist on the server. Do NOT import it. Instead, create a self-contained lib file that inlines the minimal PACT v0.2 HMAC-SHA256 verification logic.\n\nPACT is a trust protocol for AI agent-to-agent delegation. A 'mandate' is a signed JSON object one agent gives to another authorising it to take actions up to a spending cap. The Invoica integration: when a paying agent calls PATCH /v1/invoices/:id/status to settle an invoice, it may optionally include an X-Pact-Mandate header with a signed mandate JSON. The lib verifies the signature and checks the spending cap.\n\nTASK: Create the file backend/src/lib/pact-verify.ts with EXACTLY the content below. Do not add or change anything.\n\n---\nFILE: backend/src/lib/pact-verify.ts\n---\n/**\n * pact-verify.ts — Inline PACT v0.2 mandate verification\n * Does NOT import @godman-protocols/pact (not on npm — server cannot install it).\n * Inlines the minimal HMAC-SHA256 subset needed for invoice payment gating.\n *\n * Usage: verifyPactMandate(header, amountUsdc) → { allowed: boolean; reason?: string }\n * Env:   PACT_SIGNING_SECRET — shared secret between grantor agent and Invoica\n */\nimport * as crypto from 'crypto';\n\nconst PACT_SIGNING_SECRET = process.env.PACT_SIGNING_SECRET || '';\n\ninterface MandateScope {\n  actions?: string[];\n  resources?: string[];\n  maxPaymentUsdc?: number;\n  description?: string;\n}\n\ninterface PactMandate {\n  id: string;\n  grantor: string;\n  grantee: string;\n  scope: MandateScope;\n  expiresAt?: string;\n  issuedAt: string;\n  signature: string;\n}\n\nfunction hmacSha256(data: string, secret: string): string {\n  return crypto.createHmac('sha256', secret).update(data).digest('hex');\n}\n\nfunction mandateSignature(m: PactMandate): string {\n  const signable = JSON.stringify({\n    id: m.id,\n    grantor: m.grantor,\n    grantee: m.grantee,\n    scope: m.scope,\n    expiresAt: m.expiresAt,\n    issuedAt: m.issuedAt,\n  });\n  return hmacSha256(signable, PACT_SIGNING_SECRET);\n}\n\n/**\n * Verify a PACT mandate from an X-Pact-Mandate request header.\n * Returns { allowed: true } if no header (mandate is optional — backward compatible).\n * Returns { allowed: false, reason } if mandate is present but invalid.\n */\nexport function verifyPactMandate(\n  mandateHeader: string | undefined,\n  amountUsdc: number\n): { allowed: boolean; reason?: string } {\n  if (!mandateHeader) return { allowed: true };\n  if (!PACT_SIGNING_SECRET) {\n    console.warn('[pact-verify] PACT_SIGNING_SECRET not set — skipping check');\n    return { allowed: true };\n  }\n  let mandate: PactMandate;\n  try {\n    mandate = JSON.parse(mandateHeader) as PactMandate;\n  } catch {\n    return { allowed: false, reason: 'Invalid mandate JSON' };\n  }\n  if (mandate.expiresAt && new Date(mandate.expiresAt) < new Date()) {\n    return { allowed: false, reason: 'Mandate expired' };\n  }\n  const expected = mandateSignature(mandate);\n  if (expected !== mandate.signature) {\n    return { allowed: false, reason: 'Invalid mandate signature' };\n  }\n  const cap = mandate.scope?.maxPaymentUsdc;\n  if (cap !== undefined && cap < amountUsdc) {\n    return { allowed: false, reason: `Mandate cap ${cap} USDC < invoice ${amountUsdc} USDC` };\n  }\n  return { allowed: true };\n}\n---\n\nAFTER WRITING:\n1. Run: npx tsc --noEmit 2>&1 | grep -E 'pact-verify|error'\n   Expected: 0 new TypeScript errors\n2. Confirm file exists at backend/src/lib/pact-verify.ts with ~80 lines\n3. Do NOT modify any other file",
+      "deliverables": {
+        "code": [
+          "backend/src/lib/pact-verify.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "PACT-002",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["PACT-001"],
+      "description": "Wire PACT mandate check into PATCH /v1/invoices/:id/status — 3 surgical edits only",
+      "context": "BACKGROUND:\nPACT-001 created backend/src/lib/pact-verify.ts. Now wire it into the invoice status route.\n\n⚠️ CRITICAL WARNING: backend/src/routes/invoices.ts is 1077 lines long.\nDO NOT rewrite the file. DO NOT use write_file on this file.\nMAKE ONLY THE 3 SURGICAL FIND-REPLACE EDITS DESCRIBED BELOW.\nIf your tool would replace the entire file content, STOP and report failure instead.\nAfter each edit, verify the file still has 1077+ lines.\n\nEDIT 1 — Add import (after the existing imports, around line 4):\nFind this exact string (it is the last import line at the top of the file):\n\nimport { checkTrustGate } from '../middleware/trust-gate';\n\nReplace with:\n\nimport { checkTrustGate } from '../middleware/trust-gate';\nimport { verifyPactMandate } from '../lib/pact-verify';\n\n---\n\nEDIT 2 — Fetch amount alongside status (around line 828-831):\nFind this exact string inside the PATCH /v1/invoices/:id/status route handler:\n\n    const { data: existing, error: fetchErr } = await sb\n      .from('Invoice')\n      .select('id, status')\n      .eq('id', id)\n      .single();\n\nReplace with:\n\n    const { data: existing, error: fetchErr } = await sb\n      .from('Invoice')\n      .select('id, status, amount')\n      .eq('id', id)\n      .single();\n\n---\n\nEDIT 3 — Add PACT check after the 404 guard (around line 838, after the not-found early return):\nFind this exact string (it is the line immediately after the fetchErr/not-found guard, still inside PATCH /v1/invoices/:id/status):\n\n    if (!VALID_TRANSITIONS[existing.status]?.includes(status)) {\n\nReplace with:\n\n    if (status === 'SETTLED') {\n      const pactResult = verifyPactMandate(\n        req.headers['x-pact-mandate'] as string | undefined,\n        Number(existing.amount) || 0\n      );\n      if (!pactResult.allowed) {\n        res.status(403).json({\n          success: false,\n          error: { message: pactResult.reason || 'PACT mandate denied', code: 'PACT_DENIED' },\n        });\n        return;\n      }\n    }\n\n    if (!VALID_TRANSITIONS[existing.status]?.includes(status)) {\n\n---\n\nAFTER ALL 3 EDITS:\n1. Verify the file still has 1077+ lines: wc -l backend/src/routes/invoices.ts\n   If fewer than 1000 lines → ABORT, report truncation failure\n2. Run: npx tsc --noEmit 2>&1 | grep -E 'invoices|pact|error'\n   Expected: 0 new TypeScript errors\n3. Confirm the import, the .select change, and the PACT block are present in the file",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/invoices.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    }
+  ]
+}
