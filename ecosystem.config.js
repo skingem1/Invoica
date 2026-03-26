@@ -434,6 +434,35 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss Z"
     },
     {
+      // anthropic-proxy: OpenAI-format → Anthropic API translation layer
+      // Runs on port ANTHROPIC_PROXY_PORT (default 18790).
+      // Allows ClawRouter T3 APEX calls to reach Anthropic — port 18789 is the
+      // OpenClaw UI (returns 404 on /v1/chat/completions). This proxy bridges the gap
+      // without modifying clawrouter-v2.ts.
+      // DEPENDENCY: scripts/lib/anthropic-proxy-server.ts must exist (created by CLAWROUTER-002 sprint task)
+      // To start: pm2 start ecosystem.config.js --only anthropic-proxy
+      name: "anthropic-proxy",
+      script: "./scripts/lib/anthropic-proxy-server.ts",
+      interpreter: "node",
+      interpreter_args: "-r ts-node/register",
+      cwd: "/home/invoica/apps/Invoica",
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "128M",
+      max_restarts: 10,
+      min_uptime: "10s",
+      restart_delay: 3000,
+      kill_timeout: 5000,
+      env: {
+        TS_NODE_TRANSPILE_ONLY: "true",
+        TS_NODE_PROJECT: "/home/invoica/apps/Invoica/tsconfig.json",
+        ANTHROPIC_PROXY_PORT: "18790",
+      },
+      error_file: "/home/invoica/apps/Invoica/logs/anthropic-proxy-error.log",
+      out_file: "/home/invoica/apps/Invoica/logs/anthropic-proxy-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z"
+    },
+    {
       name: "pm2-process-watchdog",
       script: "./scripts/pm2-process-watchdog.ts",
       interpreter: "node",
