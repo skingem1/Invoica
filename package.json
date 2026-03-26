@@ -15,10 +15,13 @@
     "invoica-mcp": "./backend/src/mcp/invoica-mcp-server.ts"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@godman-protocols/pact": "file:../../kognai/workspace/godman-protocols/pact",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@noble/ed25519": "^3.0.0",
+    "@oobe-protocol-labs/synapse-sap-sdk": "^0.4.1",
     "@prisma/client": "^5.22.0",
+    "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.98.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
