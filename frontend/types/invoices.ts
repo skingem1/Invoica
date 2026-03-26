@@ -44,6 +44,8 @@ export interface Invoice {
   sellerVat?: string;
   /** Buyer VAT number */
   buyerVat?: string;
+  /** Payer agent ID (used for Helixa reputation score lookup) */
+  payerAgentId?: string;
 }
 
 /**

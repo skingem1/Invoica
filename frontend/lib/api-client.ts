@@ -153,6 +153,7 @@ export interface InvoiceListItem {
   total?: number;
   taxType?: string;
   taxCountry?: string;
+  payerAgentId?: string;
 }
 
 export interface InvoiceListResponse {
