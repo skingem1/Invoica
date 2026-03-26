@@ -30,4 +30,4 @@ Drop those into any LangChain agent and it can invoice, track settlement, and ma
 Worth a look?
 
 — The Invoica Team
-invoica.ai
+team@invoica.ai | invoica.ai

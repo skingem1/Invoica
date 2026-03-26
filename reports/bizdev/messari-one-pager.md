@@ -56,4 +56,4 @@ First cohort of enterprise pilots get the Founding Partner rate permanently.
 Live beta since February 27, 2026. Free for 60 days. Billing starts April 22, 2026.
 
 **Try it now:** invoica.ai — API key in 60 seconds, no account creation required.
-**Contact:** invoica.ai
+**Contact:** team@invoica.ai | invoica.ai
