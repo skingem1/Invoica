@@ -9,6 +9,11 @@
       "type": "feature",
       "priority": "high",
       "dependencies": [],
+      "status": "done",
+      "verdict": "APPROVED",
+      "approvedBy": "ceo",
+      "approvedAt": "2026-03-27",
+      "note": "pact-verify.ts committed dfebcbe (78 lines). tsc clean. Manual approval — CTO exit-code false positive on deprecation warning.",
       "description": "Create PACT mandate verification lib — inline HMAC-SHA256, no npm import",
       "context": "BACKGROUND:\n@godman-protocols/pact is NOT on npm — it is a local package that does not exist on the server. Do NOT import it. Instead, create a self-contained lib file that inlines the minimal PACT v0.2 HMAC-SHA256 verification logic.\n\nPACT is a trust protocol for AI agent-to-agent delegation. A 'mandate' is a signed JSON object one agent gives to another authorising it to take actions up to a spending cap. The Invoica integration: when a paying agent calls PATCH /v1/invoices/:id/status to settle an invoice, it may optionally include an X-Pact-Mandate header with a signed mandate JSON. The lib verifies the signature and checks the spending cap.\n\nTASK: Create the file backend/src/lib/pact-verify.ts with EXACTLY the content below. Do not add or change anything.\n\n---\nFILE: backend/src/lib/pact-verify.ts\n---\n/**\n * pact-verify.ts — Inline PACT v0.2 mandate verification\n * Does NOT import @godman-protocols/pact (not on npm — server cannot install it).\n * Inlines the minimal HMAC-SHA256 subset needed for invoice payment gating.\n *\n * Usage: verifyPactMandate(header, amountUsdc) → { allowed: boolean; reason?: string }\n * Env:   PACT_SIGNING_SECRET — shared secret between grantor agent and Invoica\n */\nimport * as crypto from 'crypto';\n\nconst PACT_SIGNING_SECRET = process.env.PACT_SIGNING_SECRET || '';\n\ninterface MandateScope {\n  actions?: string[];\n  resources?: string[];\n  maxPaymentUsdc?: number;\n  description?: string;\n}\n\ninterface PactMandate {\n  id: string;\n  grantor: string;\n  grantee: string;\n  scope: MandateScope;\n  expiresAt?: string;\n  issuedAt: string;\n  signature: string;\n}\n\nfunction hmacSha256(data: string, secret: string): string {\n  return crypto.createHmac('sha256', secret).update(data).digest('hex');\n}\n\nfunction mandateSignature(m: PactMandate): string {\n  const signable = JSON.stringify({\n    id: m.id,\n    grantor: m.grantor,\n    grantee: m.grantee,\n    scope: m.scope,\n    expiresAt: m.expiresAt,\n    issuedAt: m.issuedAt,\n  });\n  return hmacSha256(signable, PACT_SIGNING_SECRET);\n}\n\n/**\n * Verify a PACT mandate from an X-Pact-Mandate request header.\n * Returns { allowed: true } if no header (mandate is optional — backward compatible).\n * Returns { allowed: false, reason } if mandate is present but invalid.\n */\nexport function verifyPactMandate(\n  mandateHeader: string | undefined,\n  amountUsdc: number\n): { allowed: boolean; reason?: string } {\n  if (!mandateHeader) return { allowed: true };\n  if (!PACT_SIGNING_SECRET) {\n    console.warn('[pact-verify] PACT_SIGNING_SECRET not set — skipping check');\n    return { allowed: true };\n  }\n  let mandate: PactMandate;\n  try {\n    mandate = JSON.parse(mandateHeader) as PactMandate;\n  } catch {\n    return { allowed: false, reason: 'Invalid mandate JSON' };\n  }\n  if (mandate.expiresAt && new Date(mandate.expiresAt) < new Date()) {\n    return { allowed: false, reason: 'Mandate expired' };\n  }\n  const expected = mandateSignature(mandate);\n  if (expected !== mandate.signature) {\n    return { allowed: false, reason: 'Invalid mandate signature' };\n  }\n  const cap = mandate.scope?.maxPaymentUsdc;\n  if (cap !== undefined && cap < amountUsdc) {\n    return { allowed: false, reason: `Mandate cap ${cap} USDC < invoice ${amountUsdc} USDC` };\n  }\n  return { allowed: true };\n}\n---\n\nAFTER WRITING:\n1. Run: npx tsc --noEmit 2>&1 | grep -E 'pact-verify|error'\n   Expected: 0 new TypeScript errors\n2. Confirm file exists at backend/src/lib/pact-verify.ts with ~80 lines\n3. Do NOT modify any other file",
       "deliverables": {
@@ -17,8 +22,7 @@
         ],
         "tests": [],
         "docs": []
-      },
-      "status": "pending"
+      }
     },
     {
       "id": "SAP-MERCH-001",
@@ -36,7 +40,11 @@
         "tests": [],
         "docs": []
       },
-      "status": "pending"
+      "status": "done",
+      "verdict": "APPROVED",
+      "approvedBy": "ceo",
+      "approvedAt": "2026-03-27",
+      "note": "well-known.ts + app.ts committed 8772643. /.well-known/x402 live. Manual approval — CTO exit-code false positive on deprecation warning."
     },
     {
       "id": "SAP-MERCH-002",
