@@ -74,6 +74,40 @@
       "status": "pending"
     },
     {
+      "id": "HELIXA-005",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": [],
+      "description": "Extend helixa.ts — add fetchHelixaCred() and getHelixaTrustCeiling() for PACT Chamber 2 integration",
+      "context": "BACKGROUND:\nThe PACT × Helixa Integration Spec v0.1 defines Chamber 2 as: before settling a PACT-mandated invoice, check the paying agent's Helixa Cred Score via the new /cred endpoint and enforce a USDC trust ceiling.\n\nThe existing backend/src/lib/helixa.ts (35 lines) has fetchHelixaScore() using the old /reputation/8004/{wallet} endpoint. This task APPENDS new code without touching the existing function.\n\nTASK: Append the following code to backend/src/lib/helixa.ts (DO NOT modify existing lines — only append):\n\n---\nAPPEND TO END OF FILE: backend/src/lib/helixa.ts\n---\n\n/**\n * Helixa Cred profile — returned by the /cred endpoint (PACT Chamber 2 integration).\n */\nexport interface HelixaCred {\n  score: number;\n  tier: string;\n  breakdown: Record<string, unknown>;\n  verification_status: 'verified' | 'unverified';\n}\n\n/**\n * Fetch structured Cred profile for a PACT-integrated agent.\n * Endpoint: GET /api/v2/agent/{address}/cred\n * Returns null on API failure — callers must treat null as non-blocking.\n */\nexport async function fetchHelixaCred(walletAddress: string): Promise<HelixaCred | null> {\n  const controller = new AbortController();\n  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);\n  try {\n    const res = await fetch(\n      `${HELIXA_API_URL}/api/v2/agent/${walletAddress}/cred`,\n      { signal: controller.signal },\n    );\n    if (!res.ok) {\n      console.log(`[helixa] cred addr=${walletAddress} null (HTTP ${res.status})`);\n      return null;\n    }\n    const data = await res.json() as HelixaCred;\n    console.log(`[helixa] cred addr=${walletAddress} score=${data.score} tier=${data.tier}`);\n    return data;\n  } catch (err) {\n    console.log(`[helixa] cred addr=${walletAddress} null (${(err as Error).message})`);\n    return null;\n  } finally {\n    clearTimeout(timer);\n  }\n}\n\n/**\n * Map Helixa Cred Score → PACT trust ceiling + USDC spending cap.\n * Based on PACT × Helixa Integration Spec v0.1.\n */\nexport function getHelixaTrustCeiling(\n  score: number,\n  verificationStatus: string,\n): { ceiling: 'FULL' | 'STANDARD' | 'RESTRICTED' | 'MINIMAL' | 'REJECTED' | 'PROVISIONAL'; maxUsdc: number } {\n  if (verificationStatus !== 'verified') return { ceiling: 'PROVISIONAL', maxUsdc: 50 };\n  if (score >= 85) return { ceiling: 'FULL', maxUsdc: 1_000_000 };\n  if (score >= 70) return { ceiling: 'STANDARD', maxUsdc: 10_000 };\n  if (score >= 50) return { ceiling: 'RESTRICTED', maxUsdc: 1_000 };\n  if (score >= 30) return { ceiling: 'MINIMAL', maxUsdc: 100 };\n  return { ceiling: 'REJECTED', maxUsdc: 0 };\n}\n---\n\nAFTER APPENDING:\n1. Verify helixa.ts is now ~95 lines (35 original + ~60 appended)\n2. Run: npx tsc --noEmit 2>&1 | grep -E 'helixa|error'\n   Expected: 0 new TypeScript errors\n3. Confirm all three exports are present: HelixaCred, fetchHelixaCred, getHelixaTrustCeiling\n4. Do NOT modify any other file",
+      "deliverables": {
+        "code": [
+          "backend/src/lib/helixa.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
+      "id": "HELIXA-006",
+      "agent": "backend-core",
+      "type": "feature",
+      "priority": "high",
+      "dependencies": ["HELIXA-005", "PACT-002"],
+      "description": "Wire Helixa trust ceiling check into invoice settlement — 2 surgical edits to invoices.ts",
+      "context": "BACKGROUND:\nHELIXA-005 added fetchHelixaCred() and getHelixaTrustCeiling() to helixa.ts.\nPACT-002 added a PACT mandate check block inside the if (status === 'SETTLED') branch in invoices.ts.\nThis task adds a Helixa trust ceiling check immediately after the PACT block — if the paying agent's Helixa score is REJECTED or the invoice exceeds their ceiling, the settlement is denied.\n\nThe check is non-blocking: if Helixa API returns null (unavailable), we proceed as normal.\n\n⚠️ CRITICAL WARNING: backend/src/routes/invoices.ts is ~1091 lines after PACT-002 edits.\nDO NOT rewrite the file. DO NOT use write_file on this file.\nMAKE ONLY THE 2 SURGICAL FIND-REPLACE EDITS DESCRIBED BELOW.\nAfter each edit, verify the file still has 1000+ lines.\n\n---\n\nEDIT 1 — Update helixa import to include new exports:\n\nSearch the file for an import line containing '../lib/helixa'. It will look like one of:\n  import { fetchHelixaScore } from '../lib/helixa';\n  import { fetchHelixaScore, someOtherFn } from '../lib/helixa';\n\nWhatever the existing import contains, add `fetchHelixaCred, getHelixaTrustCeiling` to it.\nFor example, if you find:\n  import { fetchHelixaScore } from '../lib/helixa';\nReplace with:\n  import { fetchHelixaScore, fetchHelixaCred, getHelixaTrustCeiling } from '../lib/helixa';\n\nIf NO helixa import exists in the file, add this line immediately after the pact-verify import:\n  import { fetchHelixaCred, getHelixaTrustCeiling } from '../lib/helixa';\n\n---\n\nEDIT 2 — Add Helixa ceiling check after the PACT mandate block:\n\nFind this exact block (added by PACT-002):\n\n      if (!pactResult.allowed) {\n        res.status(403).json({\n          success: false,\n          error: { message: pactResult.reason || 'PACT mandate denied', code: 'PACT_DENIED' },\n        });\n        return;\n      }\n    }\n\n    if (!VALID_TRANSITIONS[existing.status]?.includes(status)) {\n\nReplace with:\n\n      if (!pactResult.allowed) {\n        res.status(403).json({\n          success: false,\n          error: { message: pactResult.reason || 'PACT mandate denied', code: 'PACT_DENIED' },\n        });\n        return;\n      }\n      // Helixa trust ceiling check (PACT Chamber 2 — non-blocking on API failure)\n      const mandateHeader = req.headers['x-pact-mandate'] as string | undefined;\n      if (mandateHeader) {\n        try {\n          const mandate = JSON.parse(mandateHeader) as { grantor?: string };\n          if (mandate.grantor) {\n            const cred = await fetchHelixaCred(mandate.grantor);\n            if (cred) {\n              const { ceiling, maxUsdc } = getHelixaTrustCeiling(cred.score, cred.verification_status);\n              const invoiceAmount = Number(existing.amount) || 0;\n              if (ceiling === 'REJECTED') {\n                res.status(403).json({ success: false, error: { message: 'Helixa trust score below minimum threshold', code: 'HELIXA_REJECTED' } });\n                return;\n              }\n              if (invoiceAmount > maxUsdc) {\n                res.status(403).json({ success: false, error: { message: `Helixa ceiling ${ceiling}: max ${maxUsdc} USDC`, code: 'HELIXA_CEILING_EXCEEDED' } });\n                return;\n              }\n            }\n          }\n        } catch { /* non-blocking — if Helixa unavailable, proceed */ }\n      }\n    }\n\n    if (!VALID_TRANSITIONS[existing.status]?.includes(status)) {\n\n---\n\nAFTER BOTH EDITS:\n1. Verify file still has 1000+ lines: wc -l backend/src/routes/invoices.ts\n   If fewer than 1000 → ABORT, report truncation failure\n2. Run: npx tsc --noEmit 2>&1 | grep -E 'invoices|helixa|error'\n   Expected: 0 new TypeScript errors\n3. Confirm fetchHelixaCred and getHelixaTrustCeiling are imported and used in the file",
+      "deliverables": {
+        "code": [
+          "backend/src/routes/invoices.ts"
+        ],
+        "tests": [],
+        "docs": []
+      },
+      "status": "pending"
+    },
+    {
       "id": "PACT-002",
       "agent": "backend-core",
       "type": "feature",
