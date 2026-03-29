@@ -45,6 +45,19 @@ export const createInvoiceSchema = z.object({
     email: z.string().email(),
     name: z.string().min(1),
   }).optional(),
+  /**
+   * Optional tax line for x402 AgentTax compliance.
+   * `amount`      — explicit tax amount (used when taxRate is absent)
+   * `taxRate`     — decimal rate applied to base amount (0–1); overrides `amount` when present
+   * `taxDescription` — human-readable label e.g. "US Sales Tax"
+   * `jurisdiction`   — ISO 3166-2 US state code e.g. "CA", "NY" (used by nexus monitor)
+   */
+  taxLine: z.object({
+    amount: z.number().positive(),
+    taxRate: z.number().min(0).max(1).optional(),
+    taxDescription: z.string().optional(),
+    jurisdiction: z.string().length(2).toUpperCase().optional(),
+  }).optional(),
 });
 
 type CreateInvoiceBody = z.infer<typeof createInvoiceSchema>;
@@ -81,7 +94,7 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { amount, currency, customerEmail, customerName, chain, paymentAddress, programId, tokenMint, merchant } = parseResult.data;
+  const { amount, currency, customerEmail, customerName, chain, paymentAddress, programId, tokenMint, merchant, taxLine } = parseResult.data;
 
   // Validate address format when provided (chain-aware)
   if (paymentAddress) {
@@ -150,15 +163,38 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const paymentDetails: Record<string, string> = { chain };
+    const paymentDetails: Record<string, unknown> = { chain };
     if (paymentAddress) paymentDetails.paymentAddress = paymentAddress;
     if (chain === 'solana') {
       paymentDetails.programId = programId || SOLANA_TOKEN_PROGRAM;
       paymentDetails.tokenMint = tokenMint || SOLANA_USDC_MINT;
     }
 
+    // Compute tax and adjust invoice total
+    let totalAmount = amount;
+    let taxAmount: number | undefined;
+    if (taxLine) {
+      // Use taxRate to derive amount when provided; fall back to explicit taxLine.amount
+      taxAmount = taxLine.taxRate != null
+        ? +( amount * taxLine.taxRate ).toFixed(4)
+        : taxLine.amount;
+      totalAmount = +( amount + taxAmount ).toFixed(4);
+
+      paymentDetails.taxLine = {
+        baseAmount: amount,
+        taxAmount,
+        taxRate: taxLine.taxRate ?? null,
+        taxDescription: taxLine.taxDescription ?? null,
+        jurisdiction: taxLine.jurisdiction ?? null,
+      };
+      // Surface jurisdiction at top level for efficient nexus-monitor JSON queries
+      if (taxLine.jurisdiction) {
+        paymentDetails.jurisdiction = taxLine.jurisdiction;
+      }
+    }
+
     const invoice = await createPendingInvoice({
-      amount,
+      amount: totalAmount,
       currency,
       customerEmail,
       customerName,
@@ -169,6 +205,8 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
       id: invoice.id,
       number: 'INV-' + invoice.invoiceNumber,
       amount: Number(invoice.amount),
+      baseAmount: amount,
+      ...(taxAmount != null && { taxAmount }),
       currency: invoice.currency,
       chain,
       status: invoice.status.toLowerCase(),
