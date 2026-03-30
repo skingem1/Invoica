@@ -19,7 +19,6 @@ import crypto from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
-// @solana/web3.js is installed inside x402-test (not hoisted to project root)
 import {
   Connection,
   Keypair,
@@ -27,7 +26,7 @@ import {
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
-} from '../x402-test/node_modules/@solana/web3.js';
+} from '@solana/web3.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
