@@ -43,7 +43,7 @@
       "verdict": "APPROVED",
       "approvedBy": "ceo",
       "approvedAt": "2026-03-30",
-      "note": "anthropic-proxy-server.ts delivered at commit 32ffffa (Mar 29). 61 lines, clean TS, OpenAI→Anthropic translation on :18790. Proxy pending pm2 start on server — Tarek action."
+      "note": "anthropic-proxy-server.ts delivered at commit 32ffffa (Mar 29). 61 lines, clean TS, OpenAI→Anthropic translation on :18790. PM2 process started on server 2026-03-31 — fully live. ClawRouter T3 APEX CEO/CTO constitutional review calls unblocked."
     }
   ]
 }

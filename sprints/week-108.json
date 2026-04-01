@@ -86,8 +86,8 @@
       "status": "done",
       "verdict": "APPROVED",
       "approvedBy": "ceo",
-      "approvedAt": "2026-03-28",
-      "note": "Manual CEO apply — sprint runner exhausted 30+ attempts (truncation + TS compile errors). Script uses @solana/web3.js via relative path from x402-test/node_modules, Anchor discriminator pattern (sha256 global:update_agent), Borsh-encoded x402Endpoint string. 131 lines, 0 TS errors. DO NOT auto-run — Tarek executes manually via SSH."
+      "approvedAt": "2026-03-30",
+      "note": "Executed on-chain 2026-03-30. Tx: 2rTKtLrr97xHhrwi5boBVbeN8DV52bkQa73zrucbUk8Z8pkoAR4jy3VQY7VCiWSxgLsKXcYZkQr9bkqhAB2AcSJ1. Script rewrote to use @oobe-protocol-labs/synapse-sap-sdk SapConnection.fromKeypair + client.agent.update({ x402Endpoint }) — correct authority keypair (/home/invoica/memory/sap-agent-keypair.json). x402Endpoint now live on-chain for agent PDA F7ZgQpK1yXahRrHav5DFfaibuMEcNHn8KVBHWWsKop7P."
     },
     {
       "id": "HELIXA-005",
@@ -167,8 +167,11 @@
         "tests": [],
         "docs": []
       },
-      "status": "suspended",
-      "note": "Suspended after 5 consecutive failures. MiniMax truncates invoices.ts (1077 lines) on every attempt — 'All existing route handlers and functionality beyond the first few imports have been lost'. Replaced by 3 atomic sub-tasks: PACT-002A, PACT-002B, PACT-002C."
+      "status": "done",
+      "verdict": "APPROVED",
+      "approvedBy": "ceo",
+      "approvedAt": "2026-03-28",
+      "note": "Original task suspended after MiniMax truncation failures. Completed via 3 atomic sub-tasks PACT-002A/B/C — all three approved 2026-03-28. Import added, .select('id, status, amount') + PACT check block all in invoices.ts."
     },
     {
       "id": "PACT-002A",
