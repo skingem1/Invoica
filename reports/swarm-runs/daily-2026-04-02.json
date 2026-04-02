@@ -1,0 +1,44 @@
+[
+  {
+    "run_id": "919bedf1-94ba-423a-925b-20a729442da9",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/week-111.json",
+    "started_at": "2026-04-02T10:30:04.044Z",
+    "finished_at": "2026-04-02T10:30:07.863Z",
+    "duration_seconds": 4,
+    "git_branch": "main",
+    "git_head_before": "2786ebc4",
+    "git_head_after": "2786ebc4",
+    "daily_plan_loaded": null,
+    "pending_cto_proposals": 0,
+    "wallet": "Wallet: $0.0000 / $50 budget (0.0%) | 42 cloud calls this month",
+    "summary": {
+      "total_tasks": 1,
+      "done": 0,
+      "rejected": 0,
+      "skipped": 0,
+      "human_pending": 0,
+      "approval_rate": 0,
+      "total_tokens": 0
+    },
+    "tasks": [
+      {
+        "task_id": "PACT-003",
+        "title": "PACT-003",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "suspended",
+        "attempts": 5,
+        "model_used": "",
+        "provider": "",
+        "routing_reason": "",
+        "tokens_used": 0,
+        "duration_seconds": 0,
+        "files_written": [],
+        "review": null,
+        "error": "INVALID_PATH: \"pact/package.json\" is not in a recognized project directory",
+        "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: INVALID_PATH: \"pact/package.json\" is not in a recognized project directory"
+      }
+    ]
+  }
+]
