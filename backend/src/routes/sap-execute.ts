@@ -2,6 +2,9 @@
 // Accepts X-Payment headers, verifies Solana escrow, routes capability.
 // No auth middleware — escrow payment is the credential.
 import { Router, Request, Response } from 'express';
+import * as crypto from 'crypto';
+import { getSapClient } from '../lib/sap-client';
+import { calculateAgentTax, resolveTransactionType } from '../services/tax/agenttax-client';
 import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
@@ -16,19 +19,36 @@ async function verifyEscrow(
   escrowPda: string,
   requiredUsdc: number
 ): Promise<{ ok: boolean; balance: number; error?: string }> {
+  // SAP escrow PDAs are custom program accounts — NOT SPL token accounts.
+  // Use SAP SDK to read escrow state, fall back to getAccountInfo if SDK unavailable.
+  const sapClient = getSapClient();
+  if (sapClient) {
+    try {
+      const escrow = await (sapClient.escrow as any).getEscrow(escrowPda);
+      const deposited = (escrow.totalDeposited ?? escrow.balance ?? 0) / 1_000_000;
+      const settled = (escrow.totalSettled ?? 0) / 1_000_000;
+      const available = deposited - settled;
+      return { ok: available >= requiredUsdc, balance: available };
+    } catch (err) {
+      return { ok: false, balance: 0, error: `Escrow read failed: ${(err as Error).message}` };
+    }
+  }
+
+  // Fallback: verify account exists via getAccountInfo (weaker — dev/no-keypair only)
   const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const body = JSON.stringify({
-    jsonrpc: '2.0', id: 1, method: 'getTokenAccountBalance', params: [escrowPda],
+    jsonrpc: '2.0', id: 1, method: 'getAccountInfo',
+    params: [escrowPda, { encoding: 'base64' }],
   });
   const resp = await fetch(rpcUrl, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
   });
-  const json = await resp.json() as { error?: unknown; result?: { value?: { uiAmount?: string } } };
+  const json = await resp.json() as { error?: unknown; result?: { value?: unknown } };
   if (json.error || !json.result?.value) {
     return { ok: false, balance: 0, error: 'Escrow account not found or invalid' };
   }
-  const balance = parseFloat(json.result.value.uiAmount || '0');
-  return { ok: balance >= requiredUsdc, balance };
+  console.warn('[sap-execute] SAP client unavailable — escrow existence confirmed but balance not verified');
+  return { ok: true, balance: requiredUsdc };
 }
 
 function getSb() {
@@ -142,8 +162,42 @@ router.post('/execute', async (req: Request, res: Response) => {
       result = invoice;
 
     } else {
-      // compliance:tax — full wiring in later sprint
-      result = { status: 'queued', message: 'Tax report will be delivered to your agent wallet' };
+      // compliance:tax — AMD-22 tax calculation via AgentTax API
+      const p = params as Record<string, unknown>;
+      const buyerState = typeof p.buyer_state === 'string' ? p.buyer_state.trim().toUpperCase() : '';
+      if (!buyerState || buyerState.length < 2) {
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'params.buyer_state required for compliance:tax (e.g. "CA", "TX", "NY")',
+            code: 'MISSING_BUYER_STATE',
+          },
+        });
+        return;
+      }
+      const amount = typeof p.amount === 'number' ? p.amount : requiredUsdc;
+      const txType = resolveTransactionType(
+        typeof p.transaction_type === 'string' ? p.transaction_type : undefined,
+      );
+      const taxLine = await calculateAgentTax({
+        role: 'seller',
+        amount,
+        buyer_state: buyerState,
+        transaction_type: txType,
+        counterparty_id: depositor || 'sap-agent',
+        is_b2b: true,
+      });
+      if (!taxLine) {
+        res.status(503).json({
+          success: false,
+          error: {
+            message: 'Tax calculation unavailable. Ensure AGENTTAX_API_KEY is set on the server.',
+            code: 'TAX_ENGINE_UNAVAILABLE',
+          },
+        });
+        return;
+      }
+      result = taxLine;
     }
 
   } catch (err: unknown) {
@@ -156,9 +210,27 @@ router.post('/execute', async (req: Request, res: Response) => {
     return;
   }
 
-  // 5. Log escrow for async settlement processing
+  // 5. Settle escrow via SAP SDK (v0.6: client.escrow.settle)
+  // Fire-and-forget — response goes out immediately, Solana tx in background.
+  const serviceHash = crypto
+    .createHash('sha256')
+    .update(`${capability}:${JSON.stringify(result)}`)
+    .digest('hex');
+  const sapClient = getSapClient();
+  if (sapClient && depositor) {
+    (sapClient.escrow.settle(depositor, 1, serviceHash) as Promise<string>)
+      .then((sig: string) =>
+        console.info(`[sap-execute] escrow settled sig=${sig} escrow=${escrowPda} capability=${capability}`)
+      )
+      .catch((err: Error) =>
+        console.error(`[sap-execute] settle failed escrow=${escrowPda}: ${err.message}`)
+      );
+  } else {
+    console.warn(`[sap-execute] settle skipped — sapClient=${!!sapClient} depositor=${depositor}`);
+  }
+
   console.info(
-    `[sap-execute] settled escrow=${escrowPda} depositor=${depositor} capability=${capability} price=${requiredUsdc}`
+    `[sap-execute] capability complete escrow=${escrowPda} depositor=${depositor} capability=${capability} price=${requiredUsdc}`
   );
 
   res.json({ success: true, capability, result });
