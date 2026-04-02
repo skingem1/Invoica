@@ -227,5 +227,74 @@
         "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: Critical destructive rewrite detected. File shrank from 168 lines to 11 lines (93% reduction), indicating complete loss of existing functionality. The agent failed to perform the targeted bugfix and instead destroyed the entire file."
       }
     ]
+  },
+  {
+    "run_id": "d3e0e250-da3e-4bd4-8737-1ddf299b136e",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/week-109.json",
+    "started_at": "2026-04-02T15:30:06.191Z",
+    "finished_at": "2026-04-02T15:40:55.161Z",
+    "duration_seconds": 649,
+    "git_branch": "main",
+    "git_head_before": "18e019cf",
+    "git_head_after": "3efa3b45",
+    "daily_plan_loaded": null,
+    "pending_cto_proposals": 0,
+    "wallet": "Wallet: $0.0000 / $50 budget (0.0%) | 57 cloud calls this month",
+    "summary": {
+      "total_tasks": 3,
+      "done": 1,
+      "rejected": 1,
+      "skipped": 1,
+      "human_pending": 0,
+      "approval_rate": 0.25,
+      "total_tokens": 259029
+    },
+    "tasks": [
+      {
+        "task_id": "HELIXA-007",
+        "title": "HELIXA-007",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "rejected",
+        "attempts": 3,
+        "model_used": "claude-sonnet-4-20250514",
+        "provider": "anthropic",
+        "routing_reason": "3 deliverables → complex",
+        "tokens_used": 53292,
+        "duration_seconds": 331,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Critical issue: pact-session.ts file is truncated mid-function, making it syntactically invalid. The cred-update route handler is incomplete."
+        },
+        "error": null,
+        "rejection_reason": "Critical issue: pact-session.ts file is truncated mid-function, making it syntactically invalid. The cred-update route handler is incomplete."
+      },
+      {
+        "task_id": "AGENTTAX-04",
+        "title": "AGENTTAX-04",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "done",
+        "attempts": 4,
+        "model_used": "claude-sonnet-4-20250514",
+        "provider": "anthropic",
+        "routing_reason": "3 deliverables → complex",
+        "tokens_used": 65387,
+        "duration_seconds": 314,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Critical file truncation detected. The invoice-renderer.ts file appears to be cut off mid-line, losing essential functionality. Additionally, missing test files and potential security concerns with unescaped HTML output."
+        },
+        "error": null,
+        "rejection_reason": "Critical file truncation detected. The invoice-renderer.ts file appears to be cut off mid-line, losing essential functionality. Additionally, missing test files and potential security concerns with unescaped HTML output."
+      }
+    ]
   }
 ]
