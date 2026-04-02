@@ -7,7 +7,7 @@
       "approved_date": "2026-02-15",
       "priority": "immediate",
       "implementation_status": "verified",
-      "verification_notes": "IMPLEMENTED 2026-03-13. Created scripts/run-execution-verifier.ts \u2014 reads latest sprint JSON, checks each done/approved task deliverable file exists on disk, calls Claude Sonnet for analysis of discrepancies, writes report to reports/cto/execution-verification/YYYY-MM-DD.md. Exit code 1 if discrepancies found."
+      "verification_notes": "IMPLEMENTED 2026-03-13. Created scripts/run-execution-verifier.ts — reads latest sprint JSON, checks each done/approved task deliverable file exists on disk, calls Claude Sonnet for analysis of discrepancies, writes report to reports/cto/execution-verification/YYYY-MM-DD.md. Exit code 1 if discrepancies found."
     },
     {
       "id": "CTO-20260215-002",
@@ -43,7 +43,7 @@
       "approved_date": "2026-02-15",
       "priority": "next_sprint",
       "implementation_status": "in_progress",
-      "verification_notes": "PARTIAL 2026-02-15. sidebar.tsx split: 114 lines \u2192 sidebar.tsx (53 lines) + sidebar-nav-items.ts (75 lines). api-keys/page.tsx split deferred \u2014 no active tasks targeting it.\n2026-03-16: Sprint task FRONTEND-001 queued in week-76.json \u2014 api-keys page split into KeyRevealModal + CreateKeyModal + trimmed page.tsx"
+      "verification_notes": "PARTIAL 2026-02-15. sidebar.tsx split: 114 lines → sidebar.tsx (53 lines) + sidebar-nav-items.ts (75 lines). api-keys/page.tsx split deferred — no active tasks targeting it.\n2026-03-16: Sprint task FRONTEND-001 queued in week-76.json — api-keys page split into KeyRevealModal + CreateKeyModal + trimmed page.tsx"
     },
     {
       "id": "CTO-20260216-001",
@@ -70,7 +70,7 @@
       "approved_date": "2026-02-15",
       "priority": "next_sprint",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-15. NO-GO. Assessment: (1) callAnthropicCached() already uses Anthropic server-side prompt caching (cache_control ephemeral on system prompts) \u2014 the expensive repeated content is already cached. (2) User prompts are 100% unique per task (contain task ID, file diffs, code content) \u2014 client-side cache would have near-zero hit rate. (3) V17 local routing already eliminated repetitive simple cloud calls. Redis caching complexity > theoretical savings."
+      "verification_notes": "CLOSED 2026-03-15. NO-GO. Assessment: (1) callAnthropicCached() already uses Anthropic server-side prompt caching (cache_control ephemeral on system prompts) — the expensive repeated content is already cached. (2) User prompts are 100% unique per task (contain task ID, file diffs, code content) — client-side cache would have near-zero hit rate. (3) V17 local routing already eliminated repetitive simple cloud calls. Redis caching complexity > theoretical savings."
     },
     {
       "id": "CTO-20260217-002",
@@ -88,7 +88,7 @@
       "approved_date": "2026-02-15",
       "priority": "immediate",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-14. No longer relevant. V17 sprint rewired model routing \u2014 backend-core now routes via ClawRouter/Ollama, not MiniMax. Blocker was MiniMax-specific and has been fully bypassed."
+      "verification_notes": "CLOSED 2026-03-14. No longer relevant. V17 sprint rewired model routing — backend-core now routes via ClawRouter/Ollama, not MiniMax. Blocker was MiniMax-specific and has been fully bypassed."
     },
     {
       "id": "CTO-20260215-003",
@@ -106,11 +106,11 @@
       "approved_date": "2026-02-18",
       "priority": "immediate",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-14. Stale investigation from Feb 18. Root cause (no minimum score gate) is addressed by CTO-20260219-002 (QG-001). SDK-200 is old code \u2014 not worth retroactive investigation."
+      "verification_notes": "CLOSED 2026-03-14. Stale investigation from Feb 18. Root cause (no minimum score gate) is addressed by CTO-20260219-002 (QG-001). SDK-200 is old code — not worth retroactive investigation."
     },
     {
       "id": "CTO-20260219-002",
-      "title": "Add minimum score gate (\u226580) before auto-approval",
+      "title": "Add minimum score gate (≥80) before auto-approval",
       "category": "process_change",
       "approved_date": "2026-02-18",
       "priority": "immediate",
@@ -124,7 +124,7 @@
       "approved_date": "2026-02-18",
       "priority": "next_sprint",
       "implementation_status": "in_progress",
-      "verification_notes": "Will be addressed as part of QG-001 implementation \u2014 add score < 50 alert to post-sprint analysis alongside the threshold gate.\n2026-03-16: Sprint task MONITOR-001 queued in week-76.json \u2014 assessment + implementation of low-score pattern script."
+      "verification_notes": "Will be addressed as part of QG-001 implementation — add score < 50 alert to post-sprint analysis alongside the threshold gate.\n2026-03-16: Sprint task MONITOR-001 queued in week-76.json — assessment + implementation of low-score pattern script."
     },
     {
       "id": "CTO-20260220-002",
@@ -137,12 +137,12 @@
     },
     {
       "id": "CTO-20260221-001",
-      "title": "Check OpenClaw version \u2014 upgrade if newer than current",
+      "title": "Check OpenClaw version — upgrade if newer than current",
       "category": "tooling",
       "approved_date": "2026-02-18",
       "priority": "next_sprint",
       "implementation_status": "verified",
-      "verification_notes": "UPGRADED 2026-03-14. 2026.2.26 \u2192 2026.3.13 via `npm install -g openclaw@latest` as root. openclaw-gateway restarted, online. Verified with `openclaw --version`."
+      "verification_notes": "UPGRADED 2026-03-14. 2026.2.26 → 2026.3.13 via `npm install -g openclaw@latest` as root. openclaw-gateway restarted, online. Verified with `openclaw --version`."
     },
     {
       "id": "CTO-20260222-002",
@@ -151,7 +151,7 @@
       "approved_date": "2026-02-18",
       "priority": "immediate",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-13. CMO confirmed as Manus-only (external, not x402). CMO wallet deactivated (is_active=false). CMO process not running in PM2 by design. No fix needed \u2014 architecture is intentional."
+      "verification_notes": "CLOSED 2026-03-13. CMO confirmed as Manus-only (external, not x402). CMO wallet deactivated (is_active=false). CMO process not running in PM2 by design. No fix needed — architecture is intentional."
     },
     {
       "id": "CTO-20260222-001",
@@ -169,7 +169,7 @@
       "approved_date": "2026-02-18",
       "priority": "immediate",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-14. Verification loop. CTO-20260220-001 was never implemented \u2014 it is now consolidated into SP-001 (stateful keyword detection sprint task, 2026-03-14)."
+      "verification_notes": "CLOSED 2026-03-14. Verification loop. CTO-20260220-001 was never implemented — it is now consolidated into SP-001 (stateful keyword detection sprint task, 2026-03-14)."
     },
     {
       "id": "CTO-20260225-003",
@@ -187,11 +187,11 @@
       "approved_date": "2026-02-18",
       "priority": "immediate",
       "implementation_status": "closed",
-      "verification_notes": "CLOSED 2026-03-14. Verification loop. Stateful pattern proposals were never implemented \u2014 consolidated into SP-001 + SP-002 (2026-03-14 sprint)."
+      "verification_notes": "CLOSED 2026-03-14. Verification loop. Stateful pattern proposals were never implemented — consolidated into SP-001 + SP-002 (2026-03-14 sprint)."
     },
     {
       "id": "CTO-STATEFUL-CLUSTER",
-      "title": "[CONSOLIDATED] Stateful Pattern Detection \u2014 8 proposals merged",
+      "title": "[CONSOLIDATED] Stateful Pattern Detection — 8 proposals merged",
       "category": "process_change",
       "approved_date": "2026-02-18",
       "priority": "immediate",
@@ -206,8 +206,8 @@
         "CTO-20260224-003",
         "CTO-20260225-002"
       ],
-      "verification_notes": "CONSOLIDATED 2026-03-14. All 8 proposals addressed the same root issue: MiniMax failing on stateful test patterns. Replaced by two sprint tasks: SP-001 (stateful keyword pre-screening + route to Claude) and SP-002 (max-retry auto-skip after 5 attempts \u2192 CEO queue). See sprints/stateful-pattern-2026-03-14.json."
+      "verification_notes": "CONSOLIDATED 2026-03-14. All 8 proposals addressed the same root issue: MiniMax failing on stateful test patterns. Replaced by two sprint tasks: SP-001 (stateful keyword pre-screening + route to Claude) and SP-002 (max-retry auto-skip after 5 attempts → CEO queue). See sprints/stateful-pattern-2026-03-14.json."
     }
   ],
-  "last_updated": "2026-03-15"
+  "last_updated": "2026-04-02"
 }

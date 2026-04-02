@@ -58,3 +58,20 @@ memory/daily-log-*.md
 logs/wallet/
 logs/orchestrator.lock
 frontend/tsconfig.tsbuildinfo
+
+# Runtime locks
+.backend.lock
+logs/sprint-runner.lock
+
+# Cron guard state files
+logs/cron-guard-*.json
+logs/watchdog-last-alert.json
+
+# Audit log
+audit.log
+
+# pnpm lock (we use npm)
+backend/pnpm-lock.yaml
+
+# Pre-flight validator (generated)
+agents/pre-flight-validator/
