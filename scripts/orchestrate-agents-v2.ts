@@ -1541,7 +1541,7 @@ class CodingAgent {
     const VALID_PATH_PREFIXES = [
       'backend/', 'frontend/', 'agents/', 'scripts/', 'shared/',
       'website/', 'docs-site/', 'apps/', 'sdk/', 'x402-base/', 'x402-evm/', 'x402-test/',
-      'supabase/', 'infrastructure/', 'reports/',
+      'supabase/', 'infrastructure/', 'reports/', 'pact/',
     ];
     // Invalid patterns: paths that look like monorepo sub-dirs that don't exist
     const INVALID_PATH_PATTERNS = [
