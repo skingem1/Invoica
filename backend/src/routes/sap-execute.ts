@@ -126,16 +126,20 @@ router.post('/execute', async (req: Request, res: Response) => {
   try {
     if (capability === 'payment:invoice') {
       const p = params as Record<string, unknown>;
+      const amount = typeof p.amount === 'number' ? p.amount : requiredUsdc;
       const { data: invoice, error } = await sb
         .from('Invoice')
         .insert({
-          issuer:      p.issuer      || depositor || 'sap-agent',
-          recipient:   p.recipient   || '',
-          amount:      p.amount      ?? requiredUsdc,
-          currency:    p.currency    || 'USDC',
-          network,
-          status:      'PENDING',
-          metadata:    { source: 'sap-execute', escrowPda, depositor, description: p.description || 'SAP-brokered invoice' },
+          sellerName:         (p.issuer as string)    || depositor || 'sap-agent',
+          customerName:       (p.recipient as string) || '',
+          customerEmail:      (p.email as string)     || null,
+          amount,
+          subtotal:           amount,
+          total:              amount,
+          currency:           (p.currency as string)  || 'USDC',
+          status:             'PENDING',
+          serviceDescription: (p.description as string) || 'SAP-brokered invoice',
+          paymentDetails:     { source: 'sap-execute', escrowPda, depositor, network },
         })
         .select()
         .single();
