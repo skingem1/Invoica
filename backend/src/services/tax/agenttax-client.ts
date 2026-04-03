@@ -133,7 +133,24 @@ export async function calculateAgentTax(
   request: AgentTaxRequest,
 ): Promise<AgentTaxLine | null> {
   const apiKey = process.env.AGENTTAX_API_KEY;
-  if (!apiKey) return null; // no key → fall back to local
+  if (!apiKey) {
+    // No API key — return local mock tax line so SAP capabilities work without external deps
+    console.info('[AgentTax] No AGENTTAX_API_KEY — returning local estimate');
+    const rate = 0.0725; // CA default rate as baseline
+    return {
+      source: 'local_fallback' as const,
+      total_tax: request.amount * rate,
+      rate,
+      jurisdiction: `US-${request.buyer_state || 'XX'}`,
+      statute: 'Local estimate — set AGENTTAX_API_KEY for production accuracy',
+      confidence_score: 50,
+      confidence_level: 'low',
+      requires_review: true,
+      classification_basis: request.transaction_type || 'api_access',
+      engine_version: 'local-fallback-1.0',
+      calculated_at: new Date().toISOString(),
+    };
+  }
 
   let raw: AgentTaxApiResult;
   try {
