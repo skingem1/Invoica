@@ -1,0 +1,47 @@
+{
+  "run_id": "6e0660a3-9e36-4bf7-b99a-c8b3f119f508",
+  "project": "invoica",
+  "sprint_file": "/home/invoica/apps/Invoica/sprints/week-112.json",
+  "started_at": "2026-04-03T13:00:07.750Z",
+  "finished_at": "2026-04-03T13:01:54.336Z",
+  "duration_seconds": 107,
+  "git_branch": "main",
+  "git_head_before": "bfdd97f9",
+  "git_head_after": "bfdd97f9",
+  "daily_plan_loaded": "plans/daily/2026-04-03.md",
+  "pending_cto_proposals": 0,
+  "wallet": "Wallet: $0.0000 / $50 budget (0.0%) | 70 cloud calls this month",
+  "summary": {
+    "total_tasks": 5,
+    "done": 3,
+    "rejected": 1,
+    "skipped": 1,
+    "human_pending": 0,
+    "approval_rate": 0,
+    "total_tokens": 20179
+  },
+  "tasks": [
+    {
+      "task_id": "HELIXA-007C",
+      "title": "HELIXA-007C",
+      "type": "feature",
+      "task_target": "cloud-code",
+      "status": "rejected",
+      "attempts": 3,
+      "model_used": "MiniMax-M2.5",
+      "provider": "minimax",
+      "routing_reason": "fallback-legacy",
+      "tokens_used": 12949,
+      "duration_seconds": 102,
+      "files_written": [],
+      "review": {
+        "reviewer": "dual-supervisor",
+        "verdict": "REJECTED",
+        "score": 15,
+        "summary": "File is truncated and incomplete - the GET route handler is cut off mid-line, making the code non-functional"
+      },
+      "error": null,
+      "rejection_reason": "No files produced by agent"
+    }
+  ]
+}
