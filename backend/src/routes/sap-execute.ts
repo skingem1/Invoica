@@ -134,7 +134,7 @@ router.post('/execute', async (req: Request, res: Response) => {
           invoiceNumber,
           sellerName:         (p.issuer as string)    || depositor || 'sap-agent',
           customerName:       (p.recipient as string) || '',
-          customerEmail:      (p.email as string)     || null,
+          customerEmail:      (p.email as string)     || `${depositor || 'sap-agent'}@x402.invoica.ai`,
           amount,
           subtotal:           amount,
           total:              amount,
