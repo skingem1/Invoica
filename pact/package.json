@@ -1,6 +1,6 @@
 {
   "name": "@invoica/pact",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PACT v0.2 — mandate issuance and verification for Invoica AI agent payments",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
