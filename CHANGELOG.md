@@ -2,59 +2,50 @@
 
 All notable changes to Invoica are documented here.
 
-## [1.10.0] — 2026-03-09
+## [1.9.0] — 2026-03-30
 
-- Completed @invoica/sdk TypeScript package with npm publish workflow and GitHub OIDC authentication
-- Fixed critical API issues: api-key routes, Supabase persistence, webhook delivery, and invoice SQL queries
-- Deployed CEOBot iteration cap optimization (25→8 iterations) with improved model routing and context management
-- Integrated X algorithm posting guidelines into CMO weekly plan generation for better engagement
-- Added FORCE_SLOT override and hardened CMO no-roadmap guardrails in x-admin agent
-- Published invoica-mcp Model Context Protocol server for Claude integration with invoice operations
+- Completed Synapse Agent Protocol (SAP) merchant side implementation with MERCH-001/002/003 tasks
+- Fixed SAP endpoint update script (sap-update-x402endpoint.ts) to use @solana/web3.js SDK correctly
+- Wired settlement-router with clawrouter-002 feature for invoice payout orchestration
+- Added per-agent x402 spend governance via sentinel-config.ts with spending ceilings
+- Implemented agenttax integration tasks AGENTTAX-02 and AGENTTAX-03 for tax calculation
+- Enhanced frontend content delivery with CONTENT-001 feature implementation
 
-## [1.9.0] — 2026-03-05
+## [1.8.0] — 2026-03-23
 
-- Introduced X DM outreach automation with personalization via Claude and state deduplication
-- Added TypeScript syntax validation gate with tsc checks before supervisor review and commit
-- Implemented landing page narrative overhaul with Public Beta badge and owner-direct governance
-- Deployed complexity-aware task routing with CEO cost reduction via MiniMax for simpler tasks
-- Added edge function health check with 15-second timeout for improved reliability
-- Established sustainable MiniMax pipeline with auto-skip cascades and transitive dependency resolution
+- Integrated Helixa trust-gated invoice acceptance with on-chain reputation verification
+- Implemented PACT (Protocol for Agent Compliance Tracking) mandate verification for invoice settlements
+- Added SAP (Synapse Agent Protocol) merchant integration with /api/sap/execute endpoint and .well-known/x402
+- Fixed x402 payment signing in ClawRouter with USDC settlement on Base network
+- Wired AgentTax integration into POST /v1/invoices for US tax compliance tracking
+- Updated Solana x402 mainnet configuration with verified on-chain endpoint deployment
 
-## [1.8.0] — 2026-03-02
+## [1.7.0] — 2026-03-16
 
-- Released Mission Control dashboard for real-time agent operations visibility and orchestration
-- Deployed live documentation auto-generation system with data-driven changelog and API reference
-- Implemented multi-chain x402 settlement infrastructure with batched USDC processing (50-call batches or 5-min flush)
-- Added complexity-aware LLM routing for cost optimization — new files to Claude Sonnet, edits to MiniMax
-- Integrated invoices router with corrected v1 API routes and proper route ordering
-- Established PM2 ecosystem with self-healing CEO bot, isolated from backend restarts
+- Added 75+ endpoint test suites with 471/471 passing - full API coverage for invoice, settlement, and metrics operations
+- Implemented comprehensive metrics dashboard: daily revenue, weekly trends, agent leaderboards, and settlement analytics
+- Added settlement detection for EVM chains with signature verification and gas fee tracking
+- Introduced autonomous CMO with weekly content planning, X/Twitter posting, and email outreach capabilities
+- Enhanced Telegram bot with /report, /pm2, /health, /sprint commands for operational visibility
+- Stabilized backend infrastructure with PM2 watchdog, graceful shutdown, and autodeploy self-healing
 
-## [1.7.0] — 2026-03-01
+## [1.6.0] — 2026-03-09
 
-- Activated x402 agent wallet spending — agents now spend USDC on LLM calls with MiniMax model optimization
-- Implemented autonomous post-sprint pipeline with test execution, CTO review, and Vercel auto-deployment
-- Added CMO Sunday weekly content plan generator with CEO approval workflow
-- Deployed git auto-deploy system with 5-minute GitHub polling for continuous deployment
-- Integrated Telegram bot with full team coordination tools (/report, /pm2, /health, /sprint commands)
-- Established memory-agent black box system for institutional knowledge persistence across agent runs
+- Released @invoica/sdk TypeScript package with full API type definitions and response unwrapping
+- Implemented MCP (Model Context Protocol) server for Claude integration with create_invoice and check_settlement tools
+- Added x402 pay-per-call LLM routing via ClawRouter with USDC spending limits per agent
+- Introduced multi-chain support: Base, Polygon, and Solana with unified settlement detection
+- Enhanced API key management with automatic rotation, revocation, and Supabase persistence
+- Fixed 14 critical API test findings including webhook dispatch, rate limiting, and invoice schema validation
 
-## [1.6.0] — 2026-02-28
+## [1.5.0] — 2026-03-02
 
-- Launched autonomous X (Twitter) posting agent with CEO and CTO review gates
-- Added email support monitoring via support@invoica.ai with IMAP/SMTP integration
-- Implemented PM2 process watchdog with Telegram alerting for service health
-- Added /pull and /sprint commands to CEO bot for sprint management
-- Deployed pre-deploy TypeScript validation gate before all production changes
-- Hardened security by removing hardcoded wallet addresses and loading from environment variables
-
-## [1.5.0] — 2026-02-27
-
-- Added Telegram bot integration with CEO assistant and customer support channels
-- Implemented real API keys management page with full CRUD operations
-- Added system status monitoring pages for dashboard and public website
-- Introduced self-service signup and onboarding flow with company profile verification
-- Integrated Stripe billing system with usage analytics tracking
-- Added support ticket system powered by Supabase backend
+- Added Solana x402 payment adapter for multi-chain invoice settlements
+- Implemented Reputation Scoring API with agent tier classification and leaderboard
+- Wired Tax Compliance Engine with US/EU jurisdiction detection and VAT validation
+- Added local model router with MiniMax fallback to reduce LLM inference costs
+- Introduced Mission Control dashboard for autonomous agent operations visibility
+- Fixed backend PM2 crash loop and improved graceful shutdown stability
 
 ## [1.4.0] — 2026-02-20
 

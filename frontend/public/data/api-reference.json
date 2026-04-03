@@ -10,6 +10,105 @@
   },
   {
     "method": "GET",
+    "path": "/v1/agents/top-earners",
+    "description": "GET /v1/agents/top-earners",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/activity/summary",
+    "description": "GET /v1/agents/activity/summary",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents",
+    "description": "GET /v1/agents",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/count",
+    "description": "GET /v1/agents/count",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/invoices/summary",
+    "description": "GET /v1/agents/:agentId/invoices/summary",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/invoices",
+    "description": "GET /v1/agents/:agentId/invoices",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/reputation",
+    "description": "GET /v1/agents/:agentId/reputation",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/activity",
+    "description": "GET /v1/agents/:agentId/activity",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/earnings",
+    "description": "GET /v1/agents/:agentId/earnings",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId/settlements/summary",
+    "description": "GET /v1/agents/:agentId/settlements/summary",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/agents/:agentId",
+    "description": "GET /v1/agents/:agentId",
+    "auth": "None",
+    "tags": [
+      "agents"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/v1/ai/inference",
     "description": "Get x402 payment requirements for AI inference",
     "auth": "None",
@@ -22,6 +121,15 @@
     "path": "/v1/ai/inference",
     "description": "Call AI model (MiniMax or Claude) via x402 USDC payment",
     "auth": "x402 Payment (X-Payment header, USDC on Base)",
+    "tags": [
+      "ai inference"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/ai/inference/costs",
+    "description": "GET /v1/ai/inference/costs",
+    "auth": "None",
     "tags": [
       "ai inference"
     ]
@@ -91,6 +199,69 @@
   },
   {
     "method": "GET",
+    "path": "/v1/health/services",
+    "description": "GET /v1/health/services",
+    "auth": "None",
+    "tags": [
+      "health"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/health/detailed",
+    "description": "GET /v1/health/detailed",
+    "auth": "None",
+    "tags": [
+      "health"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/health/metrics",
+    "description": "GET /v1/health/metrics",
+    "auth": "None",
+    "tags": [
+      "health"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats",
+    "description": "GET /v1/invoices/stats",
+    "auth": "None",
+    "tags": [
+      "invoice stats"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/export",
+    "description": "GET /v1/invoices/export",
+    "auth": "None",
+    "tags": [
+      "invoices export"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/search/advanced",
+    "description": "GET /v1/invoices/search/advanced",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/search",
+    "description": "GET /v1/invoices/search",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/v1/invoices/number/:number",
     "description": "Get invoice by invoice number",
     "auth": "None",
@@ -100,8 +271,107 @@
   },
   {
     "method": "GET",
+    "path": "/v1/invoices/count",
+    "description": "GET /v1/invoices/count",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/status",
+    "description": "GET /v1/invoices/stats/status",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/currency",
+    "description": "GET /v1/invoices/stats/currency",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/customers",
+    "description": "GET /v1/invoices/stats/customers",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/void",
+    "description": "GET /v1/invoices/stats/void",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/payment-lag",
+    "description": "GET /v1/invoices/stats/payment-lag",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/by-company",
+    "description": "GET /v1/invoices/stats/by-company",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/stats/aging",
+    "description": "GET /v1/invoices/stats/aging",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/overdue",
+    "description": "GET /v1/invoices/overdue",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/export.csv",
+    "description": "GET /v1/invoices/export.csv",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/v1/invoices/:id",
     "description": "Get invoice by UUID",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/invoices/:id/timeline",
+    "description": "GET /v1/invoices/:id/timeline",
     "auth": "None",
     "tags": [
       "invoices"
@@ -126,9 +396,72 @@
     ]
   },
   {
+    "method": "POST",
+    "path": "/v1/invoices/bulk/status",
+    "description": "POST /v1/invoices/bulk/status",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/invoices/bulk/cancel",
+    "description": "POST /v1/invoices/bulk/cancel",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
     "method": "PATCH",
     "path": "/v1/invoices/:id/status",
     "description": "PATCH /v1/invoices/:id/status",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/invoices/:id/metadata",
+    "description": "PATCH /v1/invoices/:id/metadata",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/invoices/:id/duplicate",
+    "description": "POST /v1/invoices/:id/duplicate",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/invoices/:id/remind",
+    "description": "POST /v1/invoices/:id/remind",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/invoices/:id/cancel",
+    "description": "POST /v1/invoices/:id/cancel",
+    "auth": "None",
+    "tags": [
+      "invoices"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/invoices/:id/void",
+    "description": "POST /v1/invoices/:id/void",
     "auth": "None",
     "tags": [
       "invoices"
@@ -181,6 +514,384 @@
   },
   {
     "method": "GET",
+    "path": "/v1/ledger/summary/:agentId",
+    "description": "GET /v1/ledger/summary/:agentId",
+    "auth": "None",
+    "tags": [
+      "ledger"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/ledger/recent",
+    "description": "GET /v1/ledger/recent",
+    "auth": "None",
+    "tags": [
+      "ledger"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/ledger/:agentId/balance",
+    "description": "GET /v1/ledger/:agentId/balance",
+    "auth": "None",
+    "tags": [
+      "ledger"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics",
+    "description": "GET /v1/metrics",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/agent/:agentId",
+    "description": "GET /v1/metrics/agent/:agentId",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/daily",
+    "description": "GET /v1/metrics/daily",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/leaderboard",
+    "description": "GET /v1/metrics/leaderboard",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/summary",
+    "description": "GET /v1/metrics/summary",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/compare",
+    "description": "GET /v1/metrics/compare",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/chains",
+    "description": "GET /v1/metrics/chains",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/chains/breakdown",
+    "description": "GET /v1/metrics/chains/breakdown",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/top-currencies",
+    "description": "GET /v1/metrics/top-currencies",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/revenue",
+    "description": "GET /v1/metrics/revenue",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/agents/top",
+    "description": "GET /v1/metrics/agents/top",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/hourly",
+    "description": "GET /v1/metrics/hourly",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/weekly",
+    "description": "GET /v1/metrics/weekly",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/peak-hours",
+    "description": "GET /v1/metrics/peak-hours",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/conversion",
+    "description": "GET /v1/metrics/conversion",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/metrics/growth",
+    "description": "GET /v1/metrics/growth",
+    "auth": "None",
+    "tags": [
+      "metrics"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reputation/:agentId/history",
+    "description": "GET /v1/reputation/:agentId/history",
+    "auth": "None",
+    "tags": [
+      "reputation history"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reputation/leaderboard",
+    "description": "GET /v1/reputation/leaderboard",
+    "auth": "None",
+    "tags": [
+      "reputation leaderboard"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/x402/oracle/score/:agentId",
+    "description": "GET /x402/oracle/score/:agentId",
+    "auth": "None",
+    "tags": [
+      "reputation"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/x402/oracle/scores",
+    "description": "GET /x402/oracle/scores",
+    "auth": "None",
+    "tags": [
+      "reputation"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/reputation/batch",
+    "description": "POST /v1/reputation/batch",
+    "auth": "None",
+    "tags": [
+      "reputation"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reputation/distribution",
+    "description": "GET /v1/reputation/distribution",
+    "auth": "None",
+    "tags": [
+      "reputation"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/reputation/:agentId/stats",
+    "description": "GET /v1/reputation/:agentId/stats",
+    "auth": "None",
+    "tags": [
+      "reputation"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/execute",
+    "description": "POST /execute",
+    "auth": "None",
+    "tags": [
+      "sap execute"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/network",
+    "description": "GET /network",
+    "auth": "None",
+    "tags": [
+      "sap"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/agents",
+    "description": "GET /agents",
+    "auth": "None",
+    "tags": [
+      "sap"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/agents/me",
+    "description": "GET /agents/me",
+    "auth": "None",
+    "tags": [
+      "sap"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/summary",
+    "description": "GET /v1/settlements/summary",
+    "auth": "None",
+    "tags": [
+      "settlement summary"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/stats",
+    "description": "GET /v1/settlements/stats",
+    "auth": "None",
+    "tags": [
+      "settlement summary"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/timeline",
+    "description": "GET /v1/settlements/timeline",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/stats",
+    "description": "GET /v1/settlements/stats",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/pending",
+    "description": "GET /v1/settlements/pending",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/volume",
+    "description": "GET /v1/settlements/volume",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/agent/:agentId",
+    "description": "GET /v1/settlements/agent/:agentId",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/export.csv",
+    "description": "GET /v1/settlements/export.csv",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/recent",
+    "description": "GET /v1/settlements/recent",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/by-currency",
+    "description": "GET /v1/settlements/by-currency",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/by-agent",
+    "description": "GET /v1/settlements/by-agent",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/settlements/analytics",
+    "description": "GET /v1/settlements/analytics",
+    "auth": "None",
+    "tags": [
+      "settlements"
+    ]
+  },
+  {
+    "method": "GET",
     "path": "/v1/settlements/:id",
     "description": "Get settlement details by ID",
     "auth": "None",
@@ -195,6 +906,24 @@
     "auth": "None",
     "tags": [
       "settlements"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/tax/calculate",
+    "description": "POST /v1/tax/calculate",
+    "auth": "None",
+    "tags": [
+      "tax"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/tax/jurisdictions",
+    "description": "GET /v1/tax/jurisdictions",
+    "auth": "None",
+    "tags": [
+      "tax"
     ]
   },
   {
@@ -216,12 +945,84 @@
     ]
   },
   {
+    "method": "GET",
+    "path": "/v1/webhooks/by-event/:eventType",
+    "description": "GET /v1/webhooks/by-event/:eventType",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/webhooks/stats",
+    "description": "GET /v1/webhooks/stats",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/webhooks/events",
+    "description": "GET /v1/webhooks/events",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/v1/webhooks/:id",
+    "description": "GET /v1/webhooks/:id",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "PUT",
+    "path": "/v1/webhooks/:id",
+    "description": "PUT /v1/webhooks/:id",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/webhooks/bulk",
+    "description": "DELETE /v1/webhooks/bulk",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
     "method": "DELETE",
     "path": "/v1/webhooks/:id",
     "description": "Delete a webhook",
     "auth": "None",
     "tags": [
       "webhooks"
+    ]
+  },
+  {
+    "method": "POST",
+    "path": "/v1/webhooks/:id/test",
+    "description": "POST /v1/webhooks/:id/test",
+    "auth": "None",
+    "tags": [
+      "webhooks"
+    ]
+  },
+  {
+    "method": "GET",
+    "path": "/x402",
+    "description": "GET /x402",
+    "auth": "None",
+    "tags": [
+      "well known"
     ]
   }
 ]
