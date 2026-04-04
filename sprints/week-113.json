@@ -1,7 +1,4 @@
 {
-  "week": 113,
-  "created": "2026-04-04",
-  "notes": "Revenue execution sprint. Landing page update with x402 Foundation trust signal. No code features — marketing focus per CEO directive.",
   "tasks": [
     {
       "id": "LANDING-001",
@@ -9,13 +6,55 @@
       "type": "feature",
       "priority": "high",
       "dependencies": [],
-      "status": "pending",
+      "status": "rejected",
       "description": "Add x402 Foundation trust badge and PACT section to landing page (login/page.tsx)",
-      "context": "FILE: frontend/app/login/page.tsx (130 lines — safe for swarm)\n\nREAD THE FILE FIRST.\n\nThe x402 Foundation launched April 2, 2026 under the Linux Foundation with Stripe, Coinbase, and AWS as founding members. This is a massive trust signal for Invoica.\n\nSURGICAL EDIT 1 — Add trust badge section AFTER the existing tagline.\n\nFind the tagline text about 'the open protocol for agent payments' and ADD AFTER the element containing it:\n\n<div className=\"flex items-center justify-center gap-3 mt-4 text-sm text-gray-500\">\n  <span className=\"px-3 py-1 bg-[#635BFF]/10 text-[#635BFF] rounded-full text-xs font-medium\">x402 Foundation</span>\n  <span>Linux Foundation \u00b7 Stripe \u00b7 Coinbase \u00b7 AWS</span>\n</div>\n\nSURGICAL EDIT 2 — Add PACT feature card to the features grid.\n\nFind the features grid (look for 'Settlement Detection' or 'Business Verification' cards) and ADD a new card:\n\n<div className=\"p-6 rounded-xl bg-white/5 border border-white/10\">\n  <h3 className=\"font-semibold mb-2\">Trust-Gated Sessions</h3>\n  <p className=\"text-sm text-gray-400\">PACT protocol — agents get spending ceilings based on Helixa reputation scores. Higher trust = higher limits.</p>\n</div>\n\nIMPORTANT:\n- Adapt class names to match the existing design system in the file\n- Do NOT rewrite the file — surgical edits only\n- Keep the file under 160 lines\n\nAFTER:\n1. wc -l frontend/app/login/page.tsx — must be under 160 lines\n2. grep 'x402 Foundation' frontend/app/login/page.tsx — must match\n3. grep 'PACT\\|Trust-Gated' frontend/app/login/page.tsx — must match\n4. Do NOT touch any other file",
+      "context": "FILE: frontend/app/login/page.tsx (130 lines — safe for swarm)\n\nREAD THE FILE FIRST.\n\nThe x402 Foundation launched April 2, 2026 under the Linux Foundation with Stripe, Coinbase, and AWS as founding members. This is a massive trust signal for Invoica.\n\nSURGICAL EDIT 1 — Add trust badge section AFTER the existing tagline.\n\nFind the tagline text about 'the open protocol for agent payments' and ADD AFTER the element containing it:\n\n<div className=\"flex items-center justify-center gap-3 mt-4 text-sm text-gray-500\">\n  <span className=\"px-3 py-1 bg-[#635BFF]/10 text-[#635BFF] rounded-full text-xs font-medium\">x402 Foundation</span>\n  <span>Linux Foundation · Stripe · Coinbase · AWS</span>\n</div>\n\nSURGICAL EDIT 2 — Add PACT feature card to the features grid.\n\nFind the features grid (look for 'Settlement Detection' or 'Business Verification' cards) and ADD a new card:\n\n<div className=\"p-6 rounded-xl bg-white/5 border border-white/10\">\n  <h3 className=\"font-semibold mb-2\">Trust-Gated Sessions</h3>\n  <p className=\"text-sm text-gray-400\">PACT protocol — agents get spending ceilings based on Helixa reputation scores. Higher trust = higher limits.</p>\n</div>\n\nIMPORTANT:\n- Adapt class names to match the existing design system in the file\n- Do NOT rewrite the file — surgical edits only\n- Keep the file under 160 lines\n\nAFTER:\n1. wc -l frontend/app/login/page.tsx — must be under 160 lines\n2. grep 'x402 Foundation' frontend/app/login/page.tsx — must match\n3. grep 'PACT\\|Trust-Gated' frontend/app/login/page.tsx — must match\n4. Do NOT touch any other file",
       "deliverables": {
-        "code": ["frontend/app/login/page.tsx"],
+        "code": [
+          "frontend/app/login/page.tsx"
+        ],
         "tests": [],
         "docs": []
+      },
+      "_integrityFailed": true,
+      "_integrityDetails": "File frontend/app/login/page.tsx shrank from 131 to 6 lines (5%). Possible destructive rewrite.",
+      "output": {
+        "files": [
+          "frontend/app/login/page.tsx"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 15,
+          "summary": "Critical file corruption detected - original 131-line file reduced to 6 lines with markdown code fences",
+          "issues": [
+            {
+              "severity": "critical",
+              "file": "frontend/app/login/page.tsx",
+              "description": "File starts with markdown code fence (```typescript) which is invalid TypeScript syntax"
+            },
+            {
+              "severity": "critical",
+              "file": "frontend/app/login/page.tsx",
+              "description": "Destructive rewrite detected - file shrank from 131 lines to 6 lines (95% reduction), losing all existing functionality"
+            },
+            {
+              "severity": "critical",
+              "file": "frontend/app/login/page.tsx",
+              "description": "Task specified surgical edits only, but agent performed complete file rewrite"
+            },
+            {
+              "severity": "high",
+              "file": "frontend/app/login/page.tsx",
+              "description": "File contains meta-commentary and error messages instead of actual TypeScript code"
+            }
+          ],
+          "strengths": [
+            "Agent recognized the file was incomplete and attempted to flag the issue",
+            "Showed awareness of the surgical edit requirements"
+          ]
+        }
       }
     }
   ]

@@ -1,0 +1,47 @@
+{
+  "run_id": "0ebfe2f0-9a9c-4f0e-85ef-0fdfd8cbba67",
+  "project": "invoica",
+  "sprint_file": "/home/invoica/apps/Invoica/sprints/week-113.json",
+  "started_at": "2026-04-04T16:00:06.745Z",
+  "finished_at": "2026-04-04T16:01:19.258Z",
+  "duration_seconds": 73,
+  "git_branch": "main",
+  "git_head_before": "47e7224f",
+  "git_head_after": "a556d466",
+  "daily_plan_loaded": null,
+  "pending_cto_proposals": 0,
+  "wallet": "Wallet: $0.0000 / $50 budget (0.0%) | 71 cloud calls this month",
+  "summary": {
+    "total_tasks": 1,
+    "done": 0,
+    "rejected": 1,
+    "skipped": 0,
+    "human_pending": 0,
+    "approval_rate": 0,
+    "total_tokens": 8411
+  },
+  "tasks": [
+    {
+      "task_id": "LANDING-001",
+      "title": "LANDING-001",
+      "type": "feature",
+      "task_target": "cloud-code",
+      "status": "rejected",
+      "attempts": 2,
+      "model_used": "MiniMax-M2.5",
+      "provider": "minimax",
+      "routing_reason": "fallback-legacy",
+      "tokens_used": 5852,
+      "duration_seconds": 69,
+      "files_written": [],
+      "review": {
+        "reviewer": "dual-supervisor",
+        "verdict": "REJECTED",
+        "score": 15,
+        "summary": "Critical file corruption detected - original 131-line file reduced to 6 lines with markdown code fences"
+      },
+      "error": null,
+      "rejection_reason": "No files produced by agent"
+    }
+  ]
+}
