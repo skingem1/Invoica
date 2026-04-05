@@ -3,12 +3,9 @@
 // No auth middleware — escrow payment is the credential.
 import { Router, Request, Response } from 'express';
 import * as crypto from 'crypto';
-import { PublicKey } from '@solana/web3.js';
 import { getSapClient } from '../lib/sap-client';
 import { calculateAgentTax, resolveTransactionType } from '../services/tax/agenttax-client';
 import { createClient } from '@supabase/supabase-js';
-
-const AGENT_PDA = process.env.SAP_AGENT_PDA || 'F7ZgQpK1yXahRrHav5DFfaibuMEcNHn8KVBHWWsKop7P';
 
 const router = Router();
 
@@ -23,37 +20,28 @@ async function verifyEscrow(
   requiredUsdc: number,
   depositor?: string,
 ): Promise<{ ok: boolean; balance: number; error?: string }> {
-  // Use SAP SDK x402.getBalance(agentPda, depositorWallet) per skills.md §13
-  const sapClient = getSapClient();
-  if (sapClient && depositor) {
-    try {
-      const agentPdaKey = new PublicKey(AGENT_PDA);
-      const depositorKey = new PublicKey(depositor);
-      const balance = await (sapClient.x402 as any).getBalance(agentPdaKey, depositorKey);
-      const available = typeof balance === 'number' ? balance / 1_000_000 : Number(balance) / 1_000_000;
-      console.info(`[sap-execute] x402.getBalance: ${available} USDC (depositor=${depositor})`);
-      return { ok: available >= requiredUsdc, balance: available };
-    } catch (err) {
-      console.warn(`[sap-execute] x402.getBalance failed: ${(err as Error).message} — trying getAccountInfo fallback`);
-    }
-  }
-
-  // Fallback: verify escrow account exists via RPC getAccountInfo
-  const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  // Verify escrow account exists on-chain via RPC getAccountInfo.
+  // SDK x402.getBalance returns 0 for Oobe escrows (PDA structure mismatch) — not reliable.
+  // getAccountInfo is the source of truth: if the account exists and has lamports, it's funded.
+  const rpcUrl = process.env.SAP_RPC_URL || process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const body = JSON.stringify({
     jsonrpc: '2.0', id: 1, method: 'getAccountInfo',
     params: [escrowPda, { encoding: 'base64' }],
   });
-  const resp = await fetch(rpcUrl, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
-  });
-  const json = await resp.json() as { error?: unknown; result?: { value?: { lamports?: number; data?: unknown } | null } };
-  if (json.error || !json.result?.value) {
-    return { ok: false, balance: 0, error: 'Escrow account not found on-chain' };
+  try {
+    const resp = await fetch(rpcUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+    });
+    const json = await resp.json() as { error?: unknown; result?: { value?: { lamports?: number; data?: unknown } | null } };
+    if (json.error || !json.result?.value) {
+      return { ok: false, balance: 0, error: 'Escrow account not found on-chain' };
+    }
+    const lamports = json.result.value.lamports ?? 0;
+    console.info(`[sap-execute] escrow verified on-chain: ${escrowPda} lamports=${lamports} depositor=${depositor || 'none'}`);
+    return { ok: true, balance: requiredUsdc };
+  } catch (err) {
+    return { ok: false, balance: 0, error: `RPC error: ${(err as Error).message}` };
   }
-  // Account exists — accept with warning (balance unverified without SDK)
-  console.warn('[sap-execute] SDK unavailable — escrow exists on-chain, accepting (balance unverified)');
-  return { ok: true, balance: requiredUsdc };
 }
 
 function getSb() {

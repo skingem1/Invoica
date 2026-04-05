@@ -52,11 +52,19 @@ router.post('/session/start', async (req: Request, res: Response) => {
   fetchHelixaCred(grantor).then((cred) => {
     const s = sessions.get(sessionId);
     if (!s || s.status === 'complete') return;
-    const { ceiling, maxUsdc } = resolveCeiling(cred?.score ?? null, cred?.verification_status === 'verified');
-    s.ceiling = ceiling; s.maxUsdc = maxUsdc; s.score = cred?.score ?? null;
+    // Guardrail: if score unavailable/null/timeout, keep PROVISIONAL — never fail open
+    if (!cred || cred.score === null || cred.score === undefined) {
+      console.info(`[pact-session] ${sessionId} helixa returned no score — keeping PROVISIONAL (fail-safe)`);
+      return;
+    }
+    const { ceiling, maxUsdc } = resolveCeiling(cred.score, cred.verification_status === 'verified');
+    s.ceiling = ceiling; s.maxUsdc = maxUsdc; s.score = cred.score;
     s.status = 'resolved'; s.updatedAt = new Date().toISOString();
     console.info(`[pact-session] ${sessionId} ceiling resolved: ${ceiling} (score=${s.score})`);
-  }).catch((err) => console.error('[pact-session] helixa async error:', (err as Error).message));
+  }).catch((err) => {
+    // Guardrail: timeout/error → stay PROVISIONAL, never fail open
+    console.warn(`[pact-session] ${sessionId} helixa error — keeping PROVISIONAL: ${(err as Error).message}`);
+  });
   console.info(`[pact-session] ${sessionId} started grantor=${grantor} ceiling=PROVISIONAL`);
   res.json({ success: true, sessionId, ceiling: 'PROVISIONAL', maxUsdc: 50, jwt });
 });
