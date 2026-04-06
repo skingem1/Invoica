@@ -34,7 +34,7 @@ async function main() {
 
   const manifest = await get('/.well-known/x402');
   assert(manifest.status === 200 && ((manifest.data as any).capabilities?.length === 3));
-  pass++; 
+  pass++;
 
   const startA = await post('/v1/pact/session/start', { grantor: 'e2e-agent-buyer-0xAAAA' });
   assert(startA.data.success === true && (startA.data as any).ceiling === 'PROVISIONAL');
@@ -71,4 +71,5 @@ async function main() {
 
   console.log(`\n=== RESULTS: ${pass} passed, ${fail} failed ===\n`);
 }
+
 main().catch((err) => { console.error('Fatal:', err); process.exit(1); });
