@@ -1,7 +1,4 @@
 {
-  "week": 114,
-  "created": "2026-04-06",
-  "notes": "PACT Week 1 demo prep (Apr 14 deadline). E2e test script + demo script. Marketing-focused sprint — revenue execution over code.",
   "tasks": [
     {
       "id": "PACT-DEMO-001",
@@ -9,13 +6,60 @@
       "type": "feature",
       "priority": "critical",
       "dependencies": [],
-      "status": "pending",
+      "status": "suspended",
       "description": "Create PACT e2e demo test script — tests full session lifecycle against live API",
       "context": "Create ONE new file: scripts/pact-e2e-test.ts (under 120 lines).\n\nThis script tests the FULL PACT + SAP flow against the live API (https://api.invoica.ai).\nIt must be runnable with: npx ts-node scripts/pact-e2e-test.ts\n\n---\nFILE: scripts/pact-e2e-test.ts\n---\n/**\n * pact-e2e-test.ts — End-to-end PACT demo test\n * Tests the full session lifecycle against the live Invoica API.\n * Run: npx ts-node scripts/pact-e2e-test.ts\n */\n\nconst API = process.env.INVOICA_API_URL || 'https://api.invoica.ai';\nconst ESCROW_PDA = 'GrY3CHeAptBBvoB2XWCVe8uxUdkCJHTkDjhB2mP9MunC';\n\nasync function post(path: string, body: object, headers?: Record<string, string>) {\n  const res = await fetch(`${API}${path}`, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', ...headers },\n    body: JSON.stringify(body),\n  });\n  return { status: res.status, data: await res.json() as Record<string, unknown> };\n}\n\nasync function get(path: string) {\n  const res = await fetch(`${API}${path}`);\n  return { status: res.status, data: await res.json() as Record<string, unknown> };\n}\n\nfunction assert(name: string, ok: boolean, detail?: string) {\n  console.log(ok ? `  ✅ ${name}` : `  ❌ ${name}${detail ? ' — ' + detail : ''}`);\n  if (!ok) process.exitCode = 1;\n}\n\nasync function main() {\n  console.log('\\n=== INVOICA PACT E2E TEST ===\\n');\n  console.log(`API: ${API}\\n`);\n  let passed = 0;\n  let failed = 0;\n\n  // 1. Health check\n  console.log('1. Health check');\n  const health = await get('/v1/health');\n  assert('API is up', health.status === 200);\n  passed += health.status === 200 ? 1 : 0;\n  failed += health.status !== 200 ? 1 : 0;\n\n  // 2. x402 manifest\n  console.log('2. x402 manifest');\n  const manifest = await get('/.well-known/x402');\n  assert('Manifest returns 200', manifest.status === 200);\n  const caps = (manifest.data as any).capabilities || [];\n  assert('Has 3 capabilities', caps.length === 3);\n  passed += 2; // simplified\n\n  // 3. Agent A starts PACT session\n  console.log('3. Agent A starts PACT session');\n  const startA = await post('/v1/pact/session/start', { grantor: 'e2e-agent-buyer-0xAAAA' });\n  assert('Session created', startA.data.success === true);\n  assert('Ceiling is PROVISIONAL', (startA.data as any).ceiling === 'PROVISIONAL');\n  const sidA = startA.data.sessionId as string;\n  const jwtA = startA.data.jwt as string;\n  passed += 2;\n\n  // 4. Agent B starts PACT session\n  console.log('4. Agent B starts PACT session');\n  const startB = await post('/v1/pact/session/start', { grantor: 'e2e-agent-seller-0xBBBB' });\n  assert('Session created', startB.data.success === true);\n  const sidB = startB.data.sessionId as string;\n  const jwtB = startB.data.jwt as string;\n  passed += 1;\n\n  // 5. Agent A pays via SAP (compliance:tax)\n  console.log('5. Agent A calls compliance:tax');\n  const tax = await post('/api/sap/execute', {\n    capability: 'compliance:tax',\n    params: { buyer_state: 'CA', amount: 100 },\n  }, {\n    'X-Payment-Protocol': 'SAP-x402',\n    'X-Payment-Escrow-PDA': ESCROW_PDA,\n  });\n  assert('Tax calculation succeeded', tax.data.success === true);\n  assert('Has jurisdiction', !!(tax.data as any).result?.jurisdiction);\n  passed += 2;\n\n  // 6. Agent A pays via SAP (payment:invoice)\n  console.log('6. Agent A creates invoice');\n  const inv = await post('/api/sap/execute', {\n    capability: 'payment:invoice',\n    params: { issuer: 'e2e-buyer', recipient: 'e2e-seller', amount: 0.01, description: 'E2E test invoice' },\n  }, {\n    'X-Payment-Protocol': 'SAP-x402',\n    'X-Payment-Escrow-PDA': ESCROW_PDA,\n  });\n  assert('Invoice created', inv.data.success === true);\n  assert('Has invoiceNumber', !!(inv.data as any).result?.invoiceNumber);\n  passed += 2;\n\n  // 7. Agent A completes session (success)\n  console.log('7. Agent A completes session');\n  const completeA = await post(`/v1/pact/session/${sidA}/complete`, { outcome: 'success', jwt: jwtA });\n  assert('Complete succeeded', completeA.data.success === true);\n  assert('Trust delta +2', (completeA.data as any).trustDelta === 2);\n  passed += 2;\n\n  // 8. Agent B completes session (partial)\n  console.log('8. Agent B completes session');\n  const completeB = await post(`/v1/pact/session/${sidB}/complete`, { outcome: 'partial', jwt: jwtB });\n  assert('Complete succeeded', completeB.data.success === true);\n  assert('Trust delta 0', (completeB.data as any).trustDelta === 0);\n  passed += 2;\n\n  // 9. Read final states\n  console.log('9. Final session states');\n  const stateA = await get(`/v1/pact/session/${sidA}`);\n  const stateB = await get(`/v1/pact/session/${sidB}`);\n  assert('Agent A status=complete', (stateA.data as any).session?.status === 'complete');\n  assert('Agent B status=complete', (stateB.data as any).session?.status === 'complete');\n  passed += 2;\n\n  console.log(`\\n=== RESULTS: ${passed} passed, ${failed} failed ===\\n`);\n}\n\nmain().catch((err) => { console.error('Fatal:', err); process.exit(1); });\n---\n\nAFTER:\n1. wc -l scripts/pact-e2e-test.ts — must be under 120 lines\n2. Do NOT touch any other file\n3. Do NOT run the test — that is a separate step",
       "deliverables": {
-        "code": ["scripts/pact-e2e-test.ts"],
+        "code": [
+          "scripts/pact-e2e-test.ts"
+        ],
         "tests": [],
         "docs": []
+      },
+      "output": {
+        "files": [
+          "scripts/pact-e2e-test.ts"
+        ],
+        "commit": "",
+        "model": "MiniMax-M2.5",
+        "review": {
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Code is severely compressed and unreadable. Lost essential functionality including proper test naming, detailed assertions, and clear output formatting. Violates maintainability standards.",
+          "issues": [
+            {
+              "severity": "high",
+              "file": "scripts/pact-e2e-test.ts",
+              "description": "Code is overly compressed into unreadable single lines, making debugging and maintenance impossible"
+            },
+            {
+              "severity": "high",
+              "file": "scripts/pact-e2e-test.ts",
+              "description": "Lost the descriptive test names and step-by-step console output that made the original readable"
+            },
+            {
+              "severity": "medium",
+              "file": "scripts/pact-e2e-test.ts",
+              "description": "Assert function signature changed from assert(name, ok, detail) to assert(ok, detail), losing test identification"
+            },
+            {
+              "severity": "medium",
+              "file": "scripts/pact-e2e-test.ts",
+              "description": "Error handling is now cryptic - when tests fail, there's no indication of which specific test failed"
+            },
+            {
+              "severity": "low",
+              "file": "scripts/pact-e2e-test.ts",
+              "description": "Line count optimization came at the expense of code quality and readability"
+            }
+          ],
+          "strengths": [
+            "Meets the 120-line requirement (appears to be around 60 lines)",
+            "Maintains core functionality of testing PACT + SAP flow",
+            "Preserves all essential API calls and assertions",
+            "Still runnable with npx ts-node"
+          ]
+        }
       }
     }
   ]

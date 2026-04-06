@@ -1,0 +1,49 @@
+[
+  {
+    "run_id": "72d9cda5-44d4-41f8-bffd-376d5cb2abbf",
+    "project": "invoica",
+    "sprint_file": "/home/invoica/apps/Invoica/sprints/week-114.json",
+    "started_at": "2026-04-06T23:00:07.355Z",
+    "finished_at": "2026-04-06T23:03:27.534Z",
+    "duration_seconds": 200,
+    "git_branch": "main",
+    "git_head_before": "5434fa10",
+    "git_head_after": "5434fa10",
+    "daily_plan_loaded": null,
+    "pending_cto_proposals": 0,
+    "wallet": "Wallet: $0.0000 / $50 budget (0.0%) | 84 cloud calls this month",
+    "summary": {
+      "total_tasks": 1,
+      "done": 0,
+      "rejected": 0,
+      "skipped": 0,
+      "human_pending": 0,
+      "approval_rate": 0,
+      "total_tokens": 46903
+    },
+    "tasks": [
+      {
+        "task_id": "PACT-DEMO-001",
+        "title": "PACT-DEMO-001",
+        "type": "feature",
+        "task_target": "cloud-code",
+        "status": "suspended",
+        "attempts": 5,
+        "model_used": "MiniMax-M2.5",
+        "provider": "minimax",
+        "routing_reason": "fallback-legacy",
+        "tokens_used": 27851,
+        "duration_seconds": 197,
+        "files_written": [],
+        "review": {
+          "reviewer": "dual-supervisor",
+          "verdict": "REJECTED",
+          "score": 25,
+          "summary": "Code is severely compressed and unreadable. Lost essential functionality including proper test naming, detailed assertions, and clear output formatting. Violates maintainability standards."
+        },
+        "error": null,
+        "rejection_reason": "Auto-suspended: 5 consecutive failures. Last rejection: Code is severely compressed and unreadable. Lost essential functionality including proper test naming, detailed assertions, and clear output formatting. Violates maintainability standards."
+      }
+    ]
+  }
+]
