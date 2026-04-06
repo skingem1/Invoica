@@ -2,6 +2,7 @@
  * pact-e2e-test.ts — End-to-end PACT demo test
  * Run: npx ts-node scripts/pact-e2e-test.ts
  */
+
 const API = process.env.INVOICA_API_URL || 'https://api.invoica.ai';
 const ESCROW_PDA = 'GrY3CHeAptBBvoB2XWCVe8uxUdkCJHTkDjhB2mP9MunC';
 
@@ -66,8 +67,9 @@ async function main() {
 
   const stateA = await get(`/v1/pact/session/${sidA}`);
   const stateB = await get(`/v1/pact/session/${sidB}`);
-  assert((stateA.data as any).session?.status === 'complete' && (stateB.data as any).session?.status === 'complete');
-  pass++;
+  assert((stateA.data as any).session?.status === 'complete');
+  assert((stateB.data as any).session?.status === 'complete');
+  pass += 2;
 
   console.log(`\n=== RESULTS: ${pass} passed, ${fail} failed ===\n`);
 }
